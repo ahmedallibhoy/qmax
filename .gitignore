@@ -1,0 +1,11 @@
+**/.ipynb_checkpoints/**
+**/.vscode/**
+**/__pycache__/**
+**/*.old/**
+**/__pycache__/**
+
+**/*.pyc
+**/*.backup
+**/*.png
+**/*.hdf5
+bib

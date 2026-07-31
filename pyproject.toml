@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eigax"
+requires-python = ">=3.11"
+version = "0.01"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+# qmax is used in-place (notebooks do sys.path.append("../")); this makes the
+# repo root importable for tests without requiring an editable install.
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: tests that take more than a second or two (deselect with '-m \"not slow\"')",
+]
