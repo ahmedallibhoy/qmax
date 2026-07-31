@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
+N_MAX = 100
+
+
 def _polynomial_recurrence(op, y, init, coeffs, r_params):
     """
     Given p_0(A) @ y and p_1(A) @ y, computes sum_{k} c_k * p_k(A) @ y

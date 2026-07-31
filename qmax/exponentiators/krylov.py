@@ -8,10 +8,13 @@ from jaxtyping import ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
-from .base import N_MAX, AbstractExponentiator, Order
+from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import Operator
+
+
+N_MAX = 100
 
 
 class KrylovExponentiator(AbstractExponentiator):

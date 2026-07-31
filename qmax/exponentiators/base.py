@@ -16,11 +16,6 @@ if TYPE_CHECKING:
 type Order = Union[int, Literal[jnp.inf]]
 
 
-# Maximum degree in the sweeps performed by the adapt methods of
-# KrylovExponentiator and ChebyshevExponentiator.
-N_MAX = 100
-
-
 class AbstractExponentiator(eqx.Module):
 
     def adapt(
