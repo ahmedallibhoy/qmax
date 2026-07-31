@@ -189,11 +189,11 @@ class ScaleSquareExponentiator(AbstractExponentiator):
         y_{k + 1} = T_m(A / s) @ y_{k}, y_0 = y
 
     The iteration is performed on a preconditioned matrix B = A - mu * I, where mu is chosen to
-    minmimize the 1-norm of B. The parameters s and m are chosen so that, given m, the backward
-    error of the resulting approximation less than the maximum tolerance.
-
-    The adapt method chooses m to minimize the computational effort as measured by s * m. This
-    method does not support reverse-mode automatic differentiation.
+    minmimize the 1-norm of B. The parameters s is chosen so that, given m, the backward error 
+    of the resulting approximation less than the maximum tolerance. Optionally, one can also use 
+    adapt to choose m to minimize the computational effort as measured by s * m. 
+    
+    This method does not support reverse-mode automatic differentiation.
 
     References:
 
