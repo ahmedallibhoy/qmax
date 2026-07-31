@@ -8,7 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import ArrayLike, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from .base import N_MAX, AbstractExponentiator, Order
+from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import Operator
