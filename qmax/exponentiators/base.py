@@ -26,11 +26,11 @@ class AbstractExponentiator(eqx.Module):
 
         return self
 
-    def __call__(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.exp(op, dt, y)
+    def __call__(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return self.exp(op, h, y)
 
     @abstractmethod
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         pass
 
     @property
@@ -41,9 +41,9 @@ class AbstractExponentiator(eqx.Module):
 
 class ExactExponentiator(AbstractExponentiator):
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         # TODO: better exception handling if op does not implement exp_action
-        return op.exp_action(dt, y)
+        return op.exp_action(h, y)
 
     @property
     def order(self) -> Order:

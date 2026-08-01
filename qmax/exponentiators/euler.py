@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 class ForwardEuler(AbstractExponentiator):
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return y + dt * op.action(y)
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return y + h * op.action(y)
 
     @property
     def order(self) -> Order:
@@ -23,8 +23,8 @@ class ForwardEuler(AbstractExponentiator):
 
 class ImplicitEuler(AbstractExponentiator):
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return op.solve(y, scale=-dt, shift=1.0)
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return op.solve(y, scale=-h, shift=1.0)
 
     @property
     def order(self) -> Order:
@@ -33,8 +33,8 @@ class ImplicitEuler(AbstractExponentiator):
 
 class CrankNicolson(AbstractExponentiator):
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return op.solve(y + dt / 2 * op.action(y), scale=-dt / 2, shift=1.0)
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return op.solve(y + h / 2 * op.action(y), scale=-h / 2, shift=1.0)
 
     @property
     def order(self) -> Order:

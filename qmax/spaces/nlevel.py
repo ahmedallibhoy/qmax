@@ -37,8 +37,8 @@ class PauliOperator(Operator):
     def action(self, y: TwoLevelState) -> TwoLevelState:
         return TwoLevelState(self.to_matrix(y.hilbert_space) @ y.coeffs, y.hilbert_space)
 
-    def exp_action(self, dt: ScalarLike, y: TwoLevelState) -> TwoLevelState:
-        return jnp.cosh(dt) * y + jnp.sinh(dt) * self.action(y)
+    def exp_action(self, h: ScalarLike, y: TwoLevelState) -> TwoLevelState:
+        return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 
     def spectral_bounds(self, hilbert_space: TwoLevel) -> Array:
         return jnp.array([-1, 1])

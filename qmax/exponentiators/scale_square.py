@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 # Backward-error parameters for the scaling-and-squaring Taylor scheme of Al-Mohy &
-# Higham (2011), Table 3.1. THETA_TABLES[tol][m - 1] is the largest ||dt (A - mu I)||
+# Higham (2011), Table 3.1. THETA_TABLES[tol][m - 1] is the largest ||h (A - mu I)||
 # for which the degree-m truncated Taylor polynomial has backward error <= tol.
 #
 # A ladder of tolerances rather than just the two unit roundoffs: theta_m grows as
@@ -135,13 +135,6 @@ THETA_TABLES = {
 
 
 def _theta_table(max_tol: Optional[float]) -> Array:
-    """The loosest tabulated backward-error target that still meets max_tol.
-
-    A looser target permits a larger ||dt (A - mu I)|| per Taylor term, so it
-    needs a smaller m and a smaller s. Picking the largest tabulated tolerance
-    that is still <= max_tol is therefore the cheapest table honouring the
-    request. None means the unit roundoff of the active float dtype.
-    """
     if max_tol is None:
         max_tol = 2.0**-53 if jax.config.x64_enabled else 2.0**-24
 
@@ -158,13 +151,13 @@ def _theta_table(max_tol: Optional[float]) -> Array:
 
 def _taylor_expm(
     op: Operator,
-    dt: ScalarLike,
+    h: ScalarLike,
     y: AbstractState,
     num_iterations: int) -> AbstractState:
 
     def taylor(carry, idx):
         exp_y, yk = carry
-        yk_next = dt * op.action(yk) / (idx + 1)
+        yk_next = h * op.action(yk) / (idx + 1)
         exp_y_next = exp_y + yk_next
         return (exp_y_next, yk_next), None
 
@@ -178,22 +171,33 @@ def _taylor_expm(
 
 class ScaleSquareExponentiator(AbstractExponentiator):
     """
-    Approximates exp(dt * A) @ y using a matrix-free adaption of the scaling and squaring method.
-    For an integer s,
+    Approximates exp(hA) @ y using a matrix-free adaption of the scaling and squaring 
+    method. For any μ and integer s,
 
-        exp(A) @ y = exp(A / s)^s @ y
+        exp(hA) @ y = e^(hμ / s) * exp(h(A - μ * I) / s)^s @ y
 
-    Let T_m be the truncated Taylor approximation of exp(A). Then the approximation
-    can be constructed using the iteration
+    Let T_m be the truncated Taylor approximation of exp(X). Then the approximation is 
+    computed by performing s steps of the iteration
 
-        y_{k + 1} = T_m(A / s) @ y_{k}, y_0 = y
+        y_{k + 1} = e^(hμ / s) * T_m(h(A - μ * I) / s) @ y_{k}, y_0 = y
 
-    The iteration is performed on a preconditioned matrix B = A - mu * I, where mu is chosen to
-    minmimize the 1-norm of B. The parameters s is chosen so that, given m, the backward error 
-    of the resulting approximation less than the maximum tolerance. Optionally, one can also use 
-    adapt to choose m to minimize the computational effort as measured by s * m. 
+    Since the Taylor expansion has m terms, and is computed s times, the total number of 
+    iterations this method requires is s * m. 
+
+    Error Analysis: T_m(X) = exp(X + ΔX) where |ΔX| < ε|X| whenever |X| < θ_{m - 1}, 
+    where θ_{m - 1} is a precomputed constant. Letting X = h(A - mu * I) / s, we have 
     
-    This method does not support reverse-mode automatic differentiation.
+        T_m(X)^s = exp(h(A - μ * I) + sΔX),    s|ΔX| < εh|A - mu * I|
+
+    whenever h|A - μ * I| < sθ_{m - 1}. Given a fixed m, the parameters μ and s must be 
+    chosen to satisfy this bound in order for the backward error estimate to hold. This is 
+    accomplished by letting μ = 0.5 * (λ_max + λ_min), which minimizes |A - μ * I|, then 
+    choosing s = ceil(h|A - μ * I| / θ_{m - 1}). 
+    
+    The optional adapt method identifies the value m that minimizes s * m where s chosen 
+    according to the previous procedure. 
+    
+    This exponentiator does not support reverse-mode automatic differentiation.
 
     References:
 
@@ -230,18 +234,18 @@ class ScaleSquareExponentiator(AbstractExponentiator):
 
         return ScaleSquareExponentiator(m, self.max_tol)
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         theta_list = _theta_table(self.max_tol)
 
         lmin, lmax = op.spectral_bounds(y.hilbert_space)
         mu = 0.5 * (lmax + lmin)
-        theta = 0.5 * jnp.abs(dt) * (lmax - lmin)
+        theta = 0.5 * jnp.abs(h) * (lmax - lmin)
 
         s = jnp.maximum(1, jnp.ceil(theta / theta_list[self.m - 1])).astype(int)
         op_shift = (op - mu) / s
 
         def loop(_, exp_y):
-            step = jnp.exp(dt * mu / s) * _taylor_expm(op_shift, dt, exp_y, self.m)
+            step = jnp.exp(h * mu / s) * _taylor_expm(op_shift, h, exp_y, self.m)
             return step
 
         exp_y = jax.lax.fori_loop(0, s, loop, init_val=y)

@@ -67,20 +67,20 @@ def _modified_bessel(order: ArrayLike, z: ScalarLike, extend: int=25) -> ArrayLi
 
 class ChebyshevExponentiator(AbstractExponentiator):
     r"""
-    Chebyshev polynomial method to approximate exp(dt * A) @ y. Let
+    Chebyshev polynomial method to approximate exp(h * A) @ y. Let
 
-        e^{s dt} = \sum_{k}\mu_k(dt) T_k(s)
+        e^{s h} = \sum_{k}\mu_k(h) T_k(s)
 
     be an expansion of the scalar exponential in the basis of Chebyshev functions. Then
     the matrix exponential may be approximated by
 
-        exp(dt * A) = \sum_{k}\mu_k(dt) * T_k(A)
+        exp(h * A) = \sum_{k}\mu_k(h) * T_k(A)
 
     where T_k(A) satisfies the 3-term recurrence for Chebyshev polynomials
 
         T_{k + 1}(A) = 2A @ T_k(A) - T_{k - 1}(A).
 
-    The series coefficients are \mu_k = 2I_k(dt) and \mu_0 = I_0(dt) where I_k is the
+    The series coefficients are \mu_k = 2I_k(h) and \mu_0 = I_0(h) where I_k is the
     kth modified Bessel function of the first kind. The latter are evaluated using
     the Miller recurrence algorithm.
 
@@ -120,15 +120,15 @@ class ChebyshevExponentiator(AbstractExponentiator):
 
         return ChebyshevExponentiator(n)
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         hilbert_space = y.hilbert_space
         lambda_min, lambda_max = op.spectral_bounds(hilbert_space)
 
         a, b = 0.5 * (lambda_max - lambda_min), 0.5 * (lambda_max + lambda_min)
-        c = jnp.exp(b * dt)
+        c = jnp.exp(b * h)
         op_scaled = (op - b) / a
 
-        Is = _modified_bessel(self.num_iterations, dt * a)
+        Is = _modified_bessel(self.num_iterations, h * a)
         coeffs = (2 - (jnp.arange(self.num_iterations) == 0)) * Is[:self.num_iterations]
 
         def r_params(idx):
@@ -147,7 +147,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
 
 class LaguerreExponentiator(AbstractExponentiator):
     """
-    Laguerre polynomial method to approximate exp(dt * A) @ y. Not recommended
+    Laguerre polynomial method to approximate exp(h * A) @ y. Not recommended
     due to numerical overflow issues.
 
     1. Sheehan, Bernard N., Yousef Saad, and Roger B. Sidje. "Computing exp (-τA) b with Laguerre polynomials."
@@ -155,21 +155,21 @@ class LaguerreExponentiator(AbstractExponentiator):
     """
     num_iterations: int
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         from ..operator import Identity   # avoid circular import
         hilbert_space = y.hilbert_space
         _, lambda_max = op.spectral_bounds(hilbert_space)
 
         op_scaled = lambda_max * Identity() - op
         idx_list = jnp.arange(self.num_iterations)
-        coeffs = (dt ** idx_list) / (1 + dt) ** (idx_list + 1)
+        coeffs = (h ** idx_list) / (1 + h) ** (idx_list + 1)
 
         def r_params(idx):
             return (2 * idx - 1, -idx, -(idx - 1))
 
         v0, v1 = y, y - op_scaled.action(y)
         p_y = _polynomial_recurrence(op_scaled, y, (v0, v1), coeffs, r_params)
-        exp_y = jnp.exp(dt * lambda_max) * p_y
+        exp_y = jnp.exp(h * lambda_max) * p_y
 
         return exp_y
 

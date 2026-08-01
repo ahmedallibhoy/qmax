@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "eigax"
+name = "qmax"
 requires-python = ">=3.11"
 version = "0.01"
 

@@ -24,12 +24,6 @@ class FiniteDifferenceState(SpatiallyDiscretizedState):
 class FiniteDifference(SpatialDiscretization):
     state_type: ClassVar = FiniteDifferenceState
 
-    # Half-open grid, so dx_range = (xf - x0) / mesh_size is the actual spacing
-    # between grid points. With endpoint=True the grid spans [x0, xf] inclusive
-    # and the spacing is (xf - x0) / (mesh_size - 1), which does not match
-    # dx_range and makes the Laplacian first-order accurate instead of second.
-    endpoint: ClassVar[bool] = False
-
     @property
     def dim(self) -> Array:
         return reduce(lambda a, b: a * b, self.mesh_size)

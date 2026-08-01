@@ -6,4 +6,6 @@ from . import timestepper
 from . import eig
 from . import exponentiators
 
+from . import tensor
+
 from .system import *

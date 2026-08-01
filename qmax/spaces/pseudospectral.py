@@ -24,7 +24,6 @@ class PseudoSpectralState(SpatiallyDiscretizedState):
 
 class PseudoSpectral(SpatialDiscretization):
     state_type: ClassVar = PseudoSpectralState
-    endpoint: ClassVar[bool] = False
     num_modes: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
 
     @property
@@ -99,8 +98,8 @@ class PseudoSpectralLaplacian(Operator):
 
 class PseudoSpectralExponentiator(AbstractExponentiator):
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        exp_vals = jnp.exp(dt * op.values(y.hilbert_space)) * y.values
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        exp_vals = jnp.exp(h * op.values(y.hilbert_space)) * y.values
         return y.hilbert_space.from_values(exp_vals)
 
     @property

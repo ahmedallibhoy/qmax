@@ -16,6 +16,10 @@ class AbstractHilbertSpace(eqx.Module):
     state_type: eqx.AbstractClassVar[type[AbstractState]]
 
     @property
+    def structure(self) -> type[AbstractHilbertSpace]:
+        return type(self)
+
+    @property
     @abstractmethod
     def dim(self) -> int:
         pass

@@ -29,7 +29,6 @@ class SpatiallyDiscretizedState(AbstractState):
 
 class SpatialDiscretization(AbstractHilbertSpace):
     state_type: eqx.AbstractClassVar[type[SpatiallyDiscretizedState]]
-    endpoint: ClassVar[bool] = True
 
     # To avoid array valued fields which trigger a warning on static hilbert_spaces
     x0: tuple[float, ...] = eqx.field(converter=_to_tuple)
@@ -73,14 +72,14 @@ class SpatialDiscretization(AbstractHilbertSpace):
     @property
     def x_ranges(self) -> Array:
         return [
-            jnp.linspace(self.x0[i], self.xf[i], self.mesh_size[i], endpoint=self.endpoint) 
+            jnp.linspace(self.x0[i], self.xf[i], self.mesh_size[i], endpoint=False) 
             for i in range(self.spatial_dim)
         ]
 
     @property
     def x_range(self) -> Array:
         if self.spatial_dim == 1:
-            return jnp.linspace(self.x0[0], self.xf[0], self.mesh_size[0], endpoint=self.endpoint) 
+            return jnp.linspace(self.x0[0], self.xf[0], self.mesh_size[0], endpoint=False) 
         raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.dim}, did you mean x_ranges?")
 
     @property

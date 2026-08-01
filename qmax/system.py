@@ -19,6 +19,7 @@ from .spaces.spatial_discretization import SpatialDiscretization
 from .spaces.finite_difference import FiniteDifference, FiniteDifferenceLaplacian, FiniteDifferencePotentialEnergy
 from .spaces.pseudospectral import PseudoSpectral, PseudoSpectralLaplacian, PseudoSpectralPotentialEnergy
 
+from .tensor import TensorProduct, AbstractTensorOperator
 
 def _adapt_dict(
     op_dict: dict, 
@@ -27,16 +28,27 @@ def _adapt_dict(
 
     root = op_dict["obj"]
 
-    for key in ("op", "op1", "op2"):
-        if key in op_dict and op_dict[key] is not None:
-            op_dict[key] = _adapt_dict(op_dict[key], hilbert_space, dt_max)
-            root = eqx.tree_at(lambda o, k=key: getattr(o, k), root, op_dict[key]["obj"])
+    if isinstance(root, AbstractTensorOperator):
+        if "ops" in op_dict and op_dict["ops"] is not None:
+            # KroneckerSum
+            op_dict["ops"] = [_adapt_dict(op, space, dt_max) for (op, space) in zip(op_dict["ops"], hilbert_space.spaces)]
+            root = eqx.tree_at(lambda o: o.ops, root, [d["obj"] for d in op_dict["ops"]])
+
+        if "op" in op_dict and op_dict["op"] is not None:
+            # Lift
+            op_dict["op"] = _adapt_dict(op_dict["op"], hilbert_space.spaces[root.idx], dt_max)
+            root = eqx.tree_at(lambda o: o.op, root, op_dict["op"]["obj"])
+    else:
+        for key in ("op", "op1", "op2"):
+            if key in op_dict and op_dict[key] is not None:
+                op_dict[key] = _adapt_dict(op_dict[key], hilbert_space, dt_max)
+                root = eqx.tree_at(lambda o, k=key: getattr(o, k), root, op_dict[key]["obj"])
 
     op_dict["obj"] = root
     if op_dict["exp_delegated"]:
         return op_dict
 
-    new_exp = root.exponentiator.adapt(root, hilbert_space, dt_max * op_dict["dt_scale"])
+    new_exp = root.exponentiator.adapt(root, hilbert_space, dt_max * op_dict["h_scale"])
     op_dict["obj"] = root.with_exponentiator(new_exp)
     return op_dict
 

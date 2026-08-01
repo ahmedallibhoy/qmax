@@ -588,7 +588,7 @@ class _RequiresAddOperator(AbstractSplitMethod):
         return 2
         
     @property
-    def dt_scales(self):
+    def h_scales(self):
         return 0.5, 1.0
 
 

@@ -19,10 +19,10 @@ N_MAX = 100
 
 class KrylovExponentiator(AbstractExponentiator):
     """
-    Computes Krylov subspace approximation of exp(dt * A) @ y, where A is an
+    Computes Krylov subspace approximation of exp(h * A) @ y, where A is an
     operator. Let
 
-        AQ_m = Q_mT + beta_m * q_{m + 1} * e_m.T
+        A @ Q_m = Q_m @ T + β_m * q_{m + 1} @ e_m.T
 
     be the approximation computed after m iterations of the Lanczos algorithm,
     where Q_m is a basis for the Krylov subspace,
@@ -31,7 +31,7 @@ class KrylovExponentiator(AbstractExponentiator):
 
     It follows that
 
-        exp(dt * A) @ y ~= beta_1 * Q @ exp(dt * T) @ e_1
+        exp(h * A) @ y ~= β_1 * Q @ exp(h * T) @ e_1
 
     References:
         1. Saad, Yousef. "Analysis of some Krylov subspace approximations to the
@@ -67,7 +67,7 @@ class KrylovExponentiator(AbstractExponentiator):
 
         return KrylovExponentiator(n, self.orthogonalize)
 
-    def exp(self, op: Operator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         hilbert_space = y.hilbert_space
 
         def matvec(coeffs):
@@ -84,7 +84,7 @@ class KrylovExponentiator(AbstractExponentiator):
             orthogonalize=self.orthogonalize, return_ritz=True, return_residual=True, init=init)
 
         eigvals, eigvecs = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
-        expm = eigvecs @ (jnp.exp(dt * eigvals) * eigvecs[0, :])
+        expm = eigvecs @ (jnp.exp(h * eigvals) * eigvecs[0, :])
         exp_y = hilbert_space.from_coeffs(beta0 * Q[:, 1:] @ expm)
 
         return exp_y

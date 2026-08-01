@@ -23,21 +23,21 @@ class AbstractSplitMethod(AbstractExponentiator):
 
     @property
     @abstractmethod
-    def dt_scales(self):
+    def h_scales(self):
         pass
 
 
 class Strang(AbstractSplitMethod):
 
-    def exp(self, add_op: AddOperator, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return add_op.op1.exp(dt / 2, add_op.op2.exp(dt, add_op.op1.exp(dt / 2, y)))
+    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return add_op.op1.exp(h / 2, add_op.op2.exp(h, add_op.op1.exp(h / 2, y)))
 
     @property
     def order(self) -> Order:
         return 2
 
     @property
-    def dt_scales(self):
+    def h_scales(self):
         return 0.5, 1.0
 
 
@@ -49,13 +49,12 @@ class Yoshida(AbstractSplitMethod):
            Physics letters A 150.5-7 (1990): 262-268.
 
         2. Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations
-           Hairer, Ernst and Lubich, Christian and Wanner, Gerhard
-           Springer-Verlag, 2006
+           Hairer, Ernst and Lubich, Christian and Wanner, Gerhard. Springer-Verlag, 2006
     """
 
     level: int = eqx.field(static=True)
 
-    def exp(self, add_op: AddOperator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
 
         def iterate(k, h, y):
             if k == 0:
@@ -65,14 +64,14 @@ class Yoshida(AbstractSplitMethod):
             w2 = 1 - 2 * w1
             return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, y)))
 
-        return iterate(self.level, dt, y)
+        return iterate(self.level, h, y)
 
     @property
     def order(self) -> Order:
         return 2 * (self.level + 1)
 
     @property
-    def dt_scales(self):
+    def h_scales(self):
         m = 1.0
         for k in range(1, self.level + 1):
             w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
@@ -98,20 +97,20 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
         b_half = jnp.concatenate([self.b, jnp.array([0.5 - self.b.sum()])])
         return a, jnp.concatenate([b_half, b_half[::-1]])
 
-    def exp(self, add_op: AddOperator, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
         a, b = self._coeffs
 
         def do_step(y, coeffs):
             ai, bi = coeffs
-            y_next = add_op.op1.exp(ai * dt, add_op.op2.exp(bi * dt, y))
+            y_next = add_op.op1.exp(ai * h, add_op.op2.exp(bi * h, y))
             return y_next, None
 
-        y_init = add_op.op1.exp(a[0] * dt, y)
+        y_init = add_op.op1.exp(a[0] * h, y)
         y_exp, _ = jax.lax.scan(do_step, y_init, (a[1:], b))
         return y_exp
 
     @property
-    def dt_scales(self):
+    def h_scales(self):
         a, b = self._coeffs
         return float(jnp.abs(a).max()), float(jnp.abs(b).max())
 

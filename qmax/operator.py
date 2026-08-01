@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Callable, TypeVar, ClassVar, Union
+from typing import Callable, TypeVar, ClassVar, Union, Any, Optional
 
 import equinox as eqx 
 import jax 
@@ -11,6 +11,38 @@ from jaxtyping import ScalarLike, Array, ArrayLike
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import AbstractExponentiator, ForwardEuler, ExactExponentiator
 from .split import AbstractSplitMethod, Strang
+
+
+class IncompatibleDomainError(TypeError):
+    pass
+
+
+def _reconcile_domains(A, B):                   
+    if A is AbstractHilbertSpace: 
+        return B             
+    if B is AbstractHilbertSpace: 
+        return A
+
+    if isinstance(A, tuple) and isinstance(B, tuple):
+        if len(A) != len(B): 
+            raise IncompatibleDomainError
+        return tuple(_reconcile_domains(x, y) for x, y in zip(A, B))
+
+    if isinstance(A, tuple) or isinstance(B, tuple):
+        raise IncompatibleDomainError
+
+    if issubclass(A, B): 
+        return A       
+    if issubclass(B, A): 
+        return B
+
+    raise IncompatibleDomainError
+
+
+def _get_name(struct: Union[tuple, type[Any]]) -> str:
+    if isinstance(struct, tuple):
+        return "(" + ", ".join(_get_name(s) for s in struct) + ")"
+    return struct.__name__
 
 
 def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
@@ -31,10 +63,12 @@ class Operator(eqx.Module):
     exponentiator: eqx.AbstractVar[AbstractExponentiator]
 
     def _check_domain(self, y: AbstractState):
-        if not isinstance(y.hilbert_space, self.domain):
-            raise TypeError(
-                f"{type(self).__name__} acts on {self.domain.__name__}, "
-                f"but received a state on {type(y.hilbert_space).__name__}"
+        try:
+            _reconcile_domains(self.domain, y.hilbert_space.structure)
+        except IncompatibleDomainError as e:
+            raise IncompatibleDomainError(
+                f"{type(self).__name__} acts on {_get_name(self.domain)}, "
+                f"but received a state on {_get_name(y.hilbert_space.structure)}"
             )
 
     def with_exponentiator(self, exponentiator: AbstractExponentiator):
@@ -45,16 +79,16 @@ class Operator(eqx.Module):
         self._check_domain(y)
         return self.action(y)
 
-    def exp(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         self._check_domain(y)
-        return self.exponentiator.exp(self, dt, y)
+        return self.exponentiator.exp(self, h, y)
 
     # Interfaces
     @abstractmethod
     def action(self, y: AbstractState) -> AbstractState:
         pass
 
-    def exp_action(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         raise NotImplementedError
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
@@ -149,11 +183,11 @@ class Operator(eqx.Module):
     def __neg__(self) -> ScalarMulOperator:
         return ScalarMulOperator(self, -1.0)
 
-    def to_dict(self, dt_scale=1.0) -> dict:
+    def to_dict(self, h_scale=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
-            "dt_scale": dt_scale,
+            "h_scale": h_scale,
             "exp_delegated": False
         }
 
@@ -190,16 +224,16 @@ class ShiftOperator(Operator):
     def action(self, y):
         return self.op.action(y) + self.c * y
 
-    def exp(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         # The shift factors out exactly, so delegate to the base operator's own
         # exponentiator rather than inheriting Operator.exp, which would hand
         # *this* operator to it. A split method would then look for op1/op2 here
         # and not find them.
         self._check_domain(y)
-        return jnp.exp(dt * self.c) * self.op.exp(dt, y)
+        return jnp.exp(h * self.c) * self.op.exp(h, y)
 
-    def exp_action(self, dt, y):
-        return jnp.exp(dt * self.c) * self.op.exp_action(dt, y)
+    def exp_action(self, h, y):
+        return jnp.exp(h * self.c) * self.op.exp_action(h, y)
 
     def solve(self, b, scale=-1.0, shift=0.0):
         return self.op.solve(b, scale, shift + scale * self.c)
@@ -216,13 +250,13 @@ class ShiftOperator(Operator):
     def to_matrix(self, hilbert_space):
         return self.op.to_matrix(hilbert_space) + self.c * jnp.eye(hilbert_space.dim)
 
-    def to_dict(self, dt_scale=1.0) -> dict:
+    def to_dict(self, h_scale=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
-            "dt_scale": dt_scale,
+            "h_scale": h_scale,
             "exp_delegated": True, 
-            "op": self.op.to_dict(dt_scale)
+            "op": self.op.to_dict(h_scale)
         }
 
 
@@ -232,22 +266,17 @@ class AddOperator(Operator):
     exponentiator: AbstractExponentiator = eqx.field(default=Strang(), kw_only=True)
 
     def __check_init__(self):
-        d1 = self.op1.domain
-        d2 = self.op2.domain
-        compatible = (issubclass(d1, d2) or issubclass(d2, d1))
-
-        if not compatible:
-            raise TypeError(
-                f"cannot compose operators on incompatible domains: "
-                f"{self.op1.domain.__name__} and {self.op2.domain.__name__}"
+        try:
+            _reconcile_domains(self.op1.domain, self.op2.domain)
+        except IncompatibleDomainError as e:
+            raise IncompatibleDomainError(
+                f"Incompatible domains: {type(self.op1).__name__} acts on {_get_name(self.op1.domain)}, "
+                f"but {type(self.op2).__name__} acts on {_get_name(self.op2.domain)},"
             )
 
     @property
     def domain(self):
-        d1 = self.op1.domain
-        d2 = self.op2.domain
-        domain = d1 if issubclass(d1, d2) else d2        
-        return domain
+        return _reconcile_domains(self.op1.domain, self.op2.domain)
 
     @property
     def exp_order(self):
@@ -262,12 +291,11 @@ class AddOperator(Operator):
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.op1.to_matrix(hilbert_space) + self.op2.to_matrix(hilbert_space)
 
-    def to_dict(self, dt_scale=1.0) -> dict:
+    def to_dict(self, h_scale=1.0) -> dict:
         if isinstance(self.exponentiator, AbstractSplitMethod):
-            h1, h2 = self.exponentiator.dt_scales
-            dt1, dt2 = h1 * dt_scale, h2 * dt_scale
-            op1_val = self.op1.to_dict(dt1)
-            op2_val = self.op2.to_dict(dt2)
+            h1, h2 = self.exponentiator.h_scales
+            op1_val = self.op1.to_dict(h1 * h_scale)
+            op2_val = self.op2.to_dict(h2 * h_scale)
         else:
             op1_val = None
             op2_val = None
@@ -275,7 +303,7 @@ class AddOperator(Operator):
         return {
             "class": type(self).__name__,
             "obj": self,
-            "dt_scale": dt_scale,
+            "h_scale": h_scale,
             "exp_delegated": False,
             "op1": op1_val,
             "op2": op2_val
@@ -307,11 +335,11 @@ class ScalarMulOperator(Operator):
     def action(self, y: AbstractState) -> AbstractState:
         return self.c * self.op.action(y)
 
-    def exp(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp(self.c * dt, y)
+    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return self.op.exp(self.c * h, y)
 
-    def exp_action(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp_action(self.c * dt, y)
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return self.op.exp_action(self.c * h, y)
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         return self.op.solve(b, self.c * scale, shift)
@@ -328,13 +356,13 @@ class ScalarMulOperator(Operator):
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.c * self.op.to_matrix(hilbert_space)
 
-    def to_dict(self, dt_scale=1.0) -> dict:
+    def to_dict(self, h_scale=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
-            "dt_scale": dt_scale,
+            "h_scale": h_scale,
             "exp_delegated": True,
-            "op": self.op.to_dict(dt_scale=jnp.abs(self.c) * dt_scale),
+            "op": self.op.to_dict(h_scale=jnp.abs(self.c) * h_scale),
         }
 
 
@@ -344,8 +372,8 @@ class Identity(Operator):
     def action(self, y: AbstractState) -> AbstractState:
         return y
 
-    def exp_action(self, dt: ScalarLike, y: AbstractState) -> AbstractState:
-        return jnp.exp(dt) * y
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return jnp.exp(h) * y
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         return b / (shift + scale)
