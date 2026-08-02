@@ -831,21 +831,21 @@ class TestIncompatibleOperators:
         "a,b", INCOMPATIBLE_PAIRS.values(), ids=list(INCOMPATIBLE_PAIRS)
     )
     def test_addition_rejected_at_construction(self, a, b):
-        with pytest.raises(TypeError, match="incompatible domains"):
+        with pytest.raises(TypeError, match="Incompatible domains"):
             a + b
 
     @pytest.mark.parametrize(
         "a,b", INCOMPATIBLE_PAIRS.values(), ids=list(INCOMPATIBLE_PAIRS)
     )
     def test_addition_rejected_either_way_round(self, a, b):
-        with pytest.raises(TypeError, match="incompatible domains"):
+        with pytest.raises(TypeError, match="Incompatible domains"):
             b + a
 
     @pytest.mark.parametrize(
         "a,b", INCOMPATIBLE_PAIRS.values(), ids=list(INCOMPATIBLE_PAIRS)
     )
     def test_subtraction_also_rejected(self, a, b):
-        with pytest.raises(TypeError, match="incompatible domains"):
+        with pytest.raises(TypeError, match="Incompatible domains"):
             a - b
 
     @pytest.mark.parametrize("pair", PAIRS.values(), ids=list(PAIRS))

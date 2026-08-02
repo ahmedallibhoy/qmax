@@ -39,10 +39,6 @@ class AbstractState(eqx.Module):
         self.coeffs = jnp.asarray(coeffs, dtype=complex)
         self.hilbert_space = hilbert_space
 
-    @property
-    def num_modes(self) -> int:
-        return self.coeffs.shape[-1]
-
     def binary_op(self, other: AbstractState, op: Callable) -> AbstractState:
         if self.hilbert_space != other.hilbert_space:
             raise ValueError("Cannot compose vectors from different spaces")
