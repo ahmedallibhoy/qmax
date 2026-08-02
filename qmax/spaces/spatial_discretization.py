@@ -29,6 +29,7 @@ class SpatiallyDiscretizedState(AbstractState):
 
 class SpatialDiscretization(AbstractHilbertSpace):
     state_type: eqx.AbstractClassVar[type[SpatiallyDiscretizedState]]
+    endpoint: eqx.AbstractClassVar[bool]
 
     # To avoid array valued fields which trigger a warning on static hilbert_spaces
     x0: tuple[float, ...] = eqx.field(converter=_to_tuple)
@@ -98,6 +99,11 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
     @property
     def dx_range(self) -> Array:
-        return (jnp.array(self.xf) - jnp.array(self.x0)) / jnp.array(self.mesh_size)
+        if self.endpoint:
+            sizes = jnp.array(self.mesh_size) - 1
+        else:
+            sizes = jnp.array(self.mesh_size)
+
+        return (jnp.array(self.xf) - jnp.array(self.x0)) / sizes
 
 

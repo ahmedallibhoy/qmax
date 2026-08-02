@@ -181,8 +181,8 @@ class ScaleSquareExponentiator(AbstractExponentiator):
 
         y_{k + 1} = e^(hμ / s) * T_m(h(A - μ * I) / s) @ y_{k}, y_0 = y
 
-    Since the Taylor expansion has m terms, and is computed s times, the total number of 
-    iterations this method requires is s * m. 
+    Since the Taylor expansion has m terms, and is computed s times, the total amount 
+    of computational effort required by this method can be approximated by s * m. 
 
     Error Analysis: T_m(X) = exp(X + ΔX) where |ΔX| < ε|X| whenever |X| < θ_{m - 1}, 
     where θ_{m - 1} is a precomputed constant. Letting X = h(A - mu * I) / s, we have 
@@ -194,7 +194,7 @@ class ScaleSquareExponentiator(AbstractExponentiator):
     accomplished by letting μ = 0.5 * (λ_max + λ_min), which minimizes |A - μ * I|, then 
     choosing s = ceil(h|A - μ * I| / θ_{m - 1}). 
     
-    The optional adapt method identifies the value m that minimizes s * m where s chosen 
+    The optional adapt method identifies the value m that minimizes s * m where s is set 
     according to the previous procedure. 
     
     This exponentiator does not support reverse-mode automatic differentiation.

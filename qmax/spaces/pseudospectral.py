@@ -24,6 +24,7 @@ class PseudoSpectralState(SpatiallyDiscretizedState):
 
 class PseudoSpectral(SpatialDiscretization):
     state_type: ClassVar = PseudoSpectralState
+    endpoint: ClassVar[bool] = False
     num_modes: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
 
     @property

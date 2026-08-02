@@ -9,7 +9,7 @@ import lineax as lx
 from jaxtyping import ScalarLike, Array, ArrayLike
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .exponentiators import AbstractExponentiator, ForwardEuler, ExactExponentiator
+from .exponentiators import AbstractExponentiator, ExactExponentiator
 from .split import AbstractSplitMethod, Strang
 
 

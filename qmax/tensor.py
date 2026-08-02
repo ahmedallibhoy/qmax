@@ -16,8 +16,6 @@ from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator
 from .exponentiators import Order, AbstractExponentiator, ExactExponentiator, KrylovExponentiator
 
-from .spaces.spatial import SpatialHilbertSpace, SpatialDiscretization1D
-
 
 class TensorProductState(AbstractState):
     hilbert_space: TensorProduct = eqx.field(static=True)
@@ -81,7 +79,8 @@ def apply_along_state_axis(
 
 
 class AbstractTensorOperator(Operator):
-    pass
+    """
+    """
 
 
 class LiftExp(AbstractExponentiator):
@@ -245,90 +244,6 @@ class KroneckerProduct(AbstractTensorOperator):
         }
 
 
-class SpatialTensorProductState(TensorProductState):
-    hilbert_space: SpatialTensorProduct = eqx.field(static=True)
-
-    @property
-    def values(self):
-        tensor = self.coeff_tensor
-        for i, space in enumerate(self.hilbert_space.spaces):
-            tensor = apply_along_tensor_axis(
-                lambda col, space=space: space.from_coeffs(col).values, tensor, i)   # coeffs -> values
-        return tensor
-
-
-class SpatialTensorProduct(SpatialHilbertSpace, TensorProduct):
-    state_type: ClassVar = SpatialTensorProductState
-    spaces: tuple[SpatialHilbertSpace]
-
-    def from_values(self, value_grid):
-        tensor = value_grid
-        for i, space in enumerate(self.spaces):
-            tensor = apply_along_tensor_axis(
-                lambda col, space=space: space.from_values(col).coeffs, tensor, i)    # values -> coeffs
-        return self.from_tensor(tensor)
-
-    @property
-    def spatial_dim(self) -> int:
-        return sum(s.spatial_dim for s in self.spaces)
-
-    @property
-    def mesh_size(self) -> tuple[int]:
-        return tuple(m for s in self.spaces for m in s.mesh_size)
-
-    def flatten(self, arr_grid):
-        return arr_grid.reshape(*arr_grid.shape[:-self.spatial_dim], -1)
-
-    def to_grid(self, arr, sizes=None):
-        if sizes is None:
-            sizes = self.mesh_size
-        return arr.reshape(*arr.shape[:-1], *sizes)
-
-    @property
-    def x_ranges(self) -> Array:
-        return [space.x_range for space in self.spaces]
-
-
-type SpatialDomain = Union[SpatialDiscretization1D, SpatialTensorProduct]
-type SpatialState = Union[SpatiallyDiscretizedState1D, SpatialTensorProductState]
-
-class FiniteDifferenceTensorPotentialEnergy(Operator):
-    potential: Callable[[ArrayLike], ScalarLike]
-    _domain: SpatialDomain = eqx.field(static=True)
-    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
-
-    @property
-    def domain(self):
-        return self._domain.structure
-
-    def values(self, hilbert_space: SpatialDomain) -> Array:
-        return hilbert_space.eval(self.potential)
-
-    def action(self, y: SpatialState) -> SpatialState:
-        return y.hilbert_space.from_values(self.values(y.hilbert_space) * y.values)
-
-    def exp_action(self, h: ScalarLike, y: SpatialState) -> SpatialState:
-        return y.hilbert_space.from_values(jnp.exp(h * self.values(y.hilbert_space)) * y.values)
-
-    def solve(
-        self, 
-        b: SpatialState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> SpatialState:
-
-        hilbert_space = b.hilbert_space
-        values = self.values(hilbert_space)
-        return hilbert_space.from_coeffs(b.coeffs / (scale * hilbert_space.flatten(values) + shift))
-
-    def spectral_bounds(self, hilbert_space: SpatialDomain) -> Array:
-        values = self.values(hilbert_space)
-        return jnp.array([jnp.min(values), jnp.max(values)])
-
-    def to_matrix(self, hilbert_space: SpatialDomain) -> Array:
-        return jnp.diag(hilbert_space.flatten(self.values(hilbert_space)))
-
-
-
 class TensorPower(TensorProduct):
     state_type: ClassVar = TensorProductState
     subspace: AbstractHilbertSpace
@@ -341,6 +256,4 @@ class TensorPower(TensorProduct):
     @property
     def dim_list(self) -> list[int]:
         return [self.subspace.dim for h in range(self.power)]
-
-
 

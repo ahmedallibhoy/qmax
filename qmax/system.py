@@ -31,7 +31,10 @@ def _adapt_dict(
     if isinstance(root, AbstractTensorOperator):
         if "ops" in op_dict and op_dict["ops"] is not None:
             # KroneckerSum
-            op_dict["ops"] = [_adapt_dict(op, space, dt_max) for (op, space) in zip(op_dict["ops"], hilbert_space.spaces)]
+            op_dict["ops"] = [
+                _adapt_dict(op, space, dt_max) 
+                for (op, space) in zip(op_dict["ops"], hilbert_space.spaces)
+            ]
             root = eqx.tree_at(lambda o: o.ops, root, [d["obj"] for d in op_dict["ops"]])
 
         if "op" in op_dict and op_dict["op"] is not None:
@@ -237,7 +240,7 @@ class TimeVaryingSystem(AbstractSystem):
 
 
 def _stage_coeffs(c, c_int, weights, quad_rule, t, dt):
-    t_quad, _ = quad_rule
+    t_quad, w_quad = quad_rule
     cs = jax.vmap(c)(t + dt * t_quad)
     coeffs = weights @ cs
     if c_int is None:
@@ -318,7 +321,8 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
                 f"Orders do not match: op1.exp_order={self.op1.exp_order}, op2.exp_order={self.op2.exp_order}, "
                 f"split_method.order={self.split_method.order}, and time_stepper.order={time_stepper.order}, "
                 f"so order is limited to "
-                f"min({self.op1.exp_order}, {self.op2.exp_order}, {self.split_method.order}, {time_stepper.order}) = {effective_order}.",
+                f"min({self.op1.exp_order}, {self.op2.exp_order}, {self.split_method.order}, {time_stepper.order}) "
+                f"= {effective_order}.",
                 stacklevel=3,
             )
 
@@ -365,10 +369,8 @@ class QuantumHamiltonianDescent(ScalarSplitTimeVaryingSystem):
         split_method=Strang()):
 
         if type(hilbert_space) == FiniteDifference:
-            op1 = -0.5 * FiniteDifferenceLaplacian()
+            op1 = -0.5 * FiniteDifferenceLaplacian(hilbert_space.spatial_dim)
             op2 = FiniteDifferencePotentialEnergy(objective)
-            if hilbert_space.spatial_dim == 2:
-                op1 = op1.with_exponentiator(ScaleSquareExponentiator())
         elif type(hilbert_space) == PseudoSpectral:
             op1 = -0.5 * PseudoSpectralLaplacian()
             op2 = PseudoSpectralPotentialEnergy(objective)
