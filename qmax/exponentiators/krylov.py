@@ -8,6 +8,7 @@ from jaxtyping import ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
+from ..utils import over_batch
 from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
@@ -75,19 +76,23 @@ class KrylovExponentiator(AbstractExponentiator):
             Ay = op.action(y)
             return Ay.coeffs
 
-        beta0 = jnp.linalg.norm(y.coeffs)
-        w0 = y.coeffs
-        init = (0, beta0, jnp.zeros((hilbert_space.dim, self.num_iterations + 1), dtype=complex), w0)
+        # The Krylov basis is built per vector -- beta0 is a per-state norm and Q
+        # is sized for a single vector -- so batch axes have to be mapped over
+        # rather than broadcast through.
+        def fn(y_i):
+            beta0 = jnp.linalg.norm(y_i.coeffs)
+            w0 = y_i.coeffs
+            init = (0, beta0, jnp.zeros((hilbert_space.dim, self.num_iterations + 1), dtype=complex), w0)
 
-        alpha, beta, Q, _ = lanczos(
-            matvec, hilbert_space.dim, self.num_iterations,
-            orthogonalize=self.orthogonalize, return_ritz=True, return_residual=True, init=init)
+            alpha, beta, Q, _ = lanczos(
+                matvec, hilbert_space.dim, self.num_iterations,
+                orthogonalize=self.orthogonalize, return_ritz=True, return_residual=True, init=init)
 
-        eigvals, eigvecs = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
-        expm = eigvecs @ (jnp.exp(h * eigvals) * eigvecs[0, :])
-        exp_y = hilbert_space.from_coeffs(beta0 * Q[:, 1:] @ expm)
+            eigvals, eigvecs = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
+            expm = eigvecs @ (jnp.exp(h * eigvals) * eigvecs[0, :])
+            return hilbert_space.from_coeffs(beta0 * Q[:, 1:] @ expm)
 
-        return exp_y
+        return over_batch(fn, y)
 
     @property
     def order(self) -> Order:

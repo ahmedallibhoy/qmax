@@ -21,6 +21,16 @@ from .spaces.pseudospectral import PseudoSpectral, PseudoSpectralLaplacian, Pseu
 
 from .tensor import TensorProduct, AbstractTensorOperator
 
+
+__all__ = [
+    "adapt_operator",
+    "TimeInvariantSystem", 
+    "TimeVaryingSystem", 
+    "ScalarSplitTimeVaryingSystem", 
+    "QuantumHamiltonianDescent"
+]
+
+
 def _adapt_dict(
     op_dict: dict, 
     hilbert_space: AbstractHilbertSpace, 

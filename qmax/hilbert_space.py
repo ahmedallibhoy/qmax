@@ -70,4 +70,7 @@ class AbstractState(eqx.Module):
         return self.hilbert_space.from_coeffs(-self.coeffs)
 
     def __getitem__(self, idx) -> AbstractState:
-        return self.hilbert_space.from_coeffs(self.coeffs[idx, :])
+        if not isinstance(idx, tuple):
+            idx = (idx,)
+        return self.hilbert_space.from_coeffs(self.coeffs[idx + (slice(None),)])
+

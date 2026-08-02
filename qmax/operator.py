@@ -13,6 +13,7 @@ from jaxtyping import ScalarLike, Array, ArrayLike
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import AbstractExponentiator, ExactExponentiator
 from .split import AbstractSplitMethod, Strang
+from .utils import over_batch
 
 
 class IncompatibleDomainError(TypeError):
@@ -104,25 +105,27 @@ class Operator(eqx.Module):
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         """
-        Solves (shift * I + scale * A)y = b
-        """
+        Solves (shift * I + scale * A)y = b. 
 
+        Warning: This is unreliable and slow. Operators using implicit exponentiators should 
+        override this method when a more efficient implementation exists. 
+        """
         func = lambda y: shift * y + scale * self(y)
-        shape = jax.eval_shape(lambda: b)
-        lx_op = lx.FunctionLinearOperator(func, input_structure=shape)
-        lx_op = lx.TaggedLinearOperator(lx_op, self.lx_tags)
-        sol = lx.linear_solve(lx_op, b, solver=lx.GMRES(rtol=1e-9, atol=1e-9))
-        return sol.value
+
+        def fn(b_i):
+            shape = jax.eval_shape(lambda: b_i)
+            lx_op = lx.FunctionLinearOperator(func, input_structure=shape)
+            lx_op = lx.TaggedLinearOperator(lx_op, self.lx_tags)
+            sol = lx.linear_solve(lx_op, b_i, solver=lx.GMRES(rtol=1e-9, atol=1e-9))
+            return sol.value
+
+        return over_batch(fn, b)
 
     def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
         """
         Returns interval (lambda_min, lambda_max) containing all eigenvalues of operator
         """
-
-        # TODO: perhaps raise a warning here
-        eigvals, _, _ = op_eigh_lanczos(self, hilbert_space, 25, 25)
-        lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)        
-        raise jnp.array([lmin, lmax])
+        raise NotImplementedError
 
     @property
     def exp_order(self):

@@ -12,6 +12,7 @@ from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
 from ..tensor import TensorProduct, TensorProductState, KroneckerSum
+from ..utils import over_batch
 from .spatial_discretization import SpatialDiscretization, SpatiallyDiscretizedState, _to_tuple
 
 
@@ -48,8 +49,10 @@ class FiniteDifference1DLaplacian(Operator):
     exponentiator: AbstractExponentiator = eqx.field(default=CrankNicolson(), kw_only=True)
 
     def action(self, y: FiniteDifference1DState) -> FiniteDifference1DState:
-        values_next = jnp.concatenate([y.values[1:], jnp.zeros(1)])   
-        values_prev = jnp.concatenate([jnp.zeros(1), y.values[:-1]])  
+        values_next = jnp.concatenate(
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+        values_prev = jnp.concatenate(
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
         lapl_values = (values_next - 2 * y.values + values_prev) / (y.hilbert_space.dx ** 2)
         return y.hilbert_space.from_values(lapl_values)
 
@@ -68,10 +71,14 @@ class FiniteDifference1DLaplacian(Operator):
         upper_diag = scale * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
 
         lx_op = lx.TridiagonalLinearOperator(diag, lower_diag, upper_diag)
-        lx_op = lx.TaggedLinearOperator(lx_op, lx.symmetric_tag)
-        sol = lx.linear_solve(lx_op, b.values)
 
-        return hilbert_space.from_values(sol.value)
+        # lineax operators carry a fixed input/output structure, so a batched
+        # vector has to be mapped over rather than passed through.
+        def fn(b_i):
+            sol = lx.linear_solve(lx_op, b_i.values)
+            return hilbert_space.from_values(sol.value)
+
+        return over_batch(fn, b)
 
     def spectral_bounds(self, hilbert_space: FiniteDifference1D) -> Array:
         return jnp.array([-4 / hilbert_space.dx ** 2, 0.0])
