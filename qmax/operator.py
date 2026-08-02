@@ -1,7 +1,9 @@
 from abc import abstractmethod
 from typing import Callable, TypeVar, ClassVar, Union, Any, Optional
 
-import equinox as eqx 
+import dataclasses
+
+import equinox as eqx
 import jax 
 import jax.numpy as jnp
 import lineax as lx
@@ -72,7 +74,16 @@ class Operator(eqx.Module):
             )
 
     def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        return eqx.tree_at(lambda op: op.exponentiator, self, exponentiator)
+        # Rebuild field-wise rather than via eqx.tree_at: exponentiators are
+        # leaf-less modules, so tree_at can't locate them by leaf identity and
+        # falls through to a branch that calls len() on the module. Bypassing
+        # __init__ is safe -- only the exponentiator changes, and nothing that
+        # __check_init__ validates (e.g. domain compatibility) is affected.
+        obj = object.__new__(type(self))
+        for field in dataclasses.fields(self):
+            value = exponentiator if field.name == "exponentiator" else getattr(self, field.name)
+            object.__setattr__(obj, field.name, value)
+        return obj
 
     # Public, domain-checked entry points
     def __call__(self, y: AbstractState) -> AbstractState:
@@ -218,8 +229,13 @@ class ShiftOperator(Operator):
         return self.op.exponentiator
 
     @property
-    def exp_order(self): 
+    def exp_order(self):
         return self.op.exp_order
+
+    def with_exponentiator(self, exponentiator: AbstractExponentiator):
+        # exponentiator is a property delegating to self.op, so push the swap
+        # into the wrapped operator and re-wrap with the shift.
+        return ShiftOperator(self.op.with_exponentiator(exponentiator), self.c)
 
     def action(self, y):
         return self.op.action(y) + self.c * y

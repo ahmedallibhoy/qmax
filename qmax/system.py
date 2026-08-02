@@ -31,10 +31,10 @@ def _adapt_dict(
     if isinstance(root, AbstractTensorOperator):
         if "ops" in op_dict and op_dict["ops"] is not None:
             # KroneckerSum
-            op_dict["ops"] = [
+            op_dict["ops"] = tuple(
                 _adapt_dict(op, space, dt_max) 
                 for (op, space) in zip(op_dict["ops"], hilbert_space.spaces)
-            ]
+            )
             root = eqx.tree_at(lambda o: o.ops, root, [d["obj"] for d in op_dict["ops"]])
 
         if "op" in op_dict and op_dict["op"] is not None:
