@@ -39,7 +39,7 @@ def _adapt_dict(
 
         if "op" in op_dict and op_dict["op"] is not None:
             # Lift
-            op_dict["op"] = _adapt_dict(op_dict["op"], hilbert_space.spaces[root.idx], dt_max)
+            op_dict["op"] = _adapt_dict(op_dict["op"], hilbert_space.spaces[root.factor_idx], dt_max)
             root = eqx.tree_at(lambda o: o.op, root, op_dict["op"]["obj"])
     else:
         for key in ("op", "op1", "op2"):
