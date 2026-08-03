@@ -46,7 +46,7 @@ from qmax.spaces.finite_difference import (
     FiniteDifferenceLaplacian,
     FiniteDifferencePotentialEnergy,
 )
-from qmax.spaces.nlevel import PauliOperator
+from qmax.spaces.qubits import PauliOperator
 from qmax.spaces.pseudospectral import (
     PseudoSpectralLaplacian,
     PseudoSpectralPotentialEnergy,

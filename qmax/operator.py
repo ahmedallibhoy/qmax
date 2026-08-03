@@ -130,6 +130,9 @@ class Operator(eqx.Module):
         """
         raise NotImplementedError
 
+    def expected_value(self, y: AbstractState) -> ScalarLike:
+        return y.expected_value(self)
+
     @property
     def exp_order(self):
         return self.exponentiator.order

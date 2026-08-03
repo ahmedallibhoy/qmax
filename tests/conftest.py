@@ -31,7 +31,7 @@ import numpy as np
 import numpy.testing as npt
 import pytest
 
-from qmax.spaces.nlevel import TwoLevel
+from qmax.spaces.qubits import TwoLevel
 from qmax.spaces.pseudospectral import PseudoSpectral
 
 TWO_PI = 2 * float(jnp.pi)

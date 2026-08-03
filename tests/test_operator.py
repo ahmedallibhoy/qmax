@@ -46,7 +46,7 @@ from conftest import (
 )
 from qmax.hilbert_space import AbstractHilbertSpace
 from qmax.operator import AddOperator, Identity, Operator, ShiftOperator
-from qmax.spaces.nlevel import PauliOperator
+from qmax.spaces.qubits import PauliOperator
 from qmax.spaces.pseudospectral import (
     PseudoSpectralLaplacian,
     PseudoSpectralPotentialEnergy,

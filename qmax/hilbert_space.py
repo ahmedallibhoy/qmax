@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, TYPE_CHECKING
 from abc import abstractmethod
 
 import numpy as np
@@ -10,6 +10,9 @@ import jax
 import jax.numpy as jnp
 
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+
+if TYPE_CHECKING:
+    from .operator import Operator
 
 
 class AbstractHilbertSpace(eqx.Module):
@@ -23,6 +26,15 @@ class AbstractHilbertSpace(eqx.Module):
     @abstractmethod
     def dim(self) -> int:
         pass
+
+    def innerp(self, y1: AbstractState, y2: AbstractState) -> ScalarLike:
+        return self.from_coeffs(jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1))
+
+    def norm(self, y: AbstractState) -> ScalarLike:
+        return jnp.linalg.norm(y.coeffs, axis=-1)
+
+    def expected_value(self, op: Operator, y: AbstractState) -> Array:
+        return self.innerp(y, op(y))
 
     def from_coeffs(self, coeffs) -> AbstractState:
         return self.state_type(coeffs, self)
@@ -44,6 +56,16 @@ class AbstractState(eqx.Module):
             raise ValueError("Cannot compose vectors from different spaces")
 
         return self.hilbert_space.from_coeffs(op(self.coeffs, other.coeffs))
+
+    def innerp(self, y: AbstractState) -> ScalarLike:
+        return self.hilbert_space.innerp(self, y)
+
+    @property
+    def norm(self) -> Array:
+        return self.hilbert_space.norm(self)
+
+    def expected_value(self, op: Operator) -> Array:
+        return self.hilbert_space.expected_value(op, self)
 
     def __add__(self, other: AbstractState) -> AbstractState:
         return self.binary_op(other, lambda a, b: a + b)

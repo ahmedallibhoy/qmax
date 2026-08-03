@@ -14,7 +14,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, ScalarLike
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Operator
+from .operator import Operator, Identity
 from .exponentiators import Order, min_order, AbstractExponentiator, ExactExponentiator, KrylovExponentiator
 
 
@@ -301,17 +301,19 @@ class KroneckerProduct(AbstractTensorOperator):
 
     def action(self, y: TensorState) -> TensorState:
         for factor_idx, op in enumerate(self.ops):
+            if isinstance(op, Identity):
+                continue
             y = apply_along_state(lambda s, op=op: op(s), y, factor_idx)
 
         return y
 
     def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
         lo, hi = 1.0, 1.0
-        for op in self.ops:
-            a, b = op.spectral_bounds(hilbert_space.factorspace)
-            c = jnp.array([lo*a, lo*b, hi*a, hi*b])
-            lo, hi = jnp.min(c), jnp.max(c)
-        return jnp.array([jnp.min(prods), jnp.max(prods)])
+        for idx, op in enumerate(self.ops):
+            a, b = op.spectral_bounds(hilbert_space[idx])
+            corners = jnp.array([lo * a, lo * b, hi * a, hi * b])
+            lo, hi = jnp.min(corners), jnp.max(corners)
+        return jnp.array([lo, hi])
 
     def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
         mat_list = [
@@ -347,18 +349,16 @@ def rotate_factors(t: ArrayLike, num_factors: int) -> Array:
     bringing the next factor to axis `-num_factors`."""
     return jnp.moveaxis(t, -num_factors, -1)
 
-#def apply_and_rotate(
-#    fn: Callable[[ArrayLike], ArrayLike], 
-#    t: ArrayLike, 
-#    num_factors: int) -> Array:
-#
-#    return rotate_factors(apply_along_tensor(fn, t, -num_factors), num_factors)
 
-def apply_and_rotate(fn, t, n):
+def apply_and_rotate(
+    fn: Callable[[ArrayLike], ArrayLike], 
+    t: ArrayLike, 
+    num_factors: int) -> Array:
+
     s = jnp.moveaxis(t, -n, 0)
     rest = s.shape[1:]
     out = jax.vmap(fn, in_axes=1, out_axes=1)(s.reshape(s.shape[0], -1))
-    return jnp.moveaxis(out.reshape((out.shape[0],) + rest), 0, -1)   # move-back ∘ rotate
+    return jnp.moveaxis(out.reshape((out.shape[0],) + rest), 0, -1) 
 
 
 class BatchKroneckerSumExp(AbstractExponentiator):
@@ -406,8 +406,6 @@ class BatchKroneckerSum(AbstractTensorOperator):
             T, S = carry
             op = eqx.combine(static, x)
             fn = lambda col: op.action(factorspace.from_coeffs(col)).coeffs
-            # rotate is linear, so rotate(S + contrib) == rotate(S) + rotate(contrib),
-            # and apply_and_rotate already folds the rotation into the move-back.
             T_next = rotate_factors(T, num_factors)
             S_next = rotate_factors(S, num_factors) + apply_and_rotate(fn, T, num_factors)
             return (T_next, S_next), None
@@ -476,11 +474,11 @@ class BatchKroneckerProduct(AbstractTensorOperator):
 
     def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
         lo, hi = 1.0, 1.0
-        for op in self.ops:
-            a, b = op.spectral_bounds(hilbert_space.factorspace)
-            c = jnp.array([lo*a, lo*b, hi*a, hi*b])
-            lo, hi = jnp.min(c), jnp.max(c)
-        return jnp.array([jnp.min(prods), jnp.max(prods)])
+        for idx, op in enumerate(self.ops):
+            a, b = op.spectral_bounds(hilbert_space[idx])
+            corners = jnp.array([lo * a, lo * b, hi * a, hi * b])
+            lo, hi = jnp.min(corners), jnp.max(corners)
+        return jnp.array([lo, hi])
 
     def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
         mat_list = [
