@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
@@ -6,9 +6,10 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray, Array
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Operator
 from .lanczos import eigh_lanczos_matvec, restart_lanczos
 
+if TYPE_CHECKING:
+    from .operator import Operator
 
 def op_eigh(
     operator: Operator,

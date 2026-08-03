@@ -11,7 +11,7 @@ import lineax as lx
 from jaxtyping import ScalarLike, Array, ArrayLike
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .exponentiators import AbstractExponentiator, ExactExponentiator
+from .exponentiators import AbstractExponentiator, ExactExponentiator, ScaleSquareExponentiator
 from .split import AbstractSplitMethod, Strang
 from .utils import over_batch
 
@@ -62,7 +62,7 @@ def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
 
 class Operator(eqx.Module):
     domain: ClassVar = AbstractHilbertSpace
-    lx_tags: ClassVar = [lx.symmetric_tag]
+    lx_tags: ClassVar = []
     exponentiator: eqx.AbstractVar[AbstractExponentiator]
 
     def _check_domain(self, y: AbstractState):
@@ -115,7 +115,10 @@ class Operator(eqx.Module):
         def fn(b_i):
             shape = jax.eval_shape(lambda: b_i)
             lx_op = lx.FunctionLinearOperator(func, input_structure=shape)
-            lx_op = lx.TaggedLinearOperator(lx_op, self.lx_tags)
+            
+            if len(self.lx_tags) > 0:
+                lx_op = lx.TaggedLinearOperator(lx_op, self.lx_tags)
+
             sol = lx.linear_solve(lx_op, b_i, solver=lx.GMRES(rtol=1e-9, atol=1e-9))
             return sol.value
 
@@ -181,17 +184,20 @@ class Operator(eqx.Module):
 
     def __mul__(self, other: ScalarLike) -> ScalarMulOperator:
         if not jnp.isscalar(other):
-            return NotImplemented   
+            return NotImplemented
+
         return ScalarMulOperator(self, other)
 
     def __rmul__(self, other: ScalarLike) -> ScalarMulOperator:
         if not jnp.isscalar(other):
-            return NotImplemented   
+            return NotImplemented
+
         return ScalarMulOperator(self, other) 
 
     def __truediv__(self, other: ScalarLike) -> ScalarMulOperator:
         if not jnp.isscalar(other):
-            return NotImplemented   
+            return NotImplemented
+
         return ScalarMulOperator(self, 1.0 / other) 
 
     def __neg__(self) -> ScalarMulOperator:
@@ -333,6 +339,14 @@ class ScalarMulOperator(Operator):
     op: Operator
     c: ScalarLike
 
+    def __init__(self, op: Operator, c: ScalarLike):
+        if isinstance(op, ScalarMulOperator):
+            self.op = op.op
+            self.c = c * op.c 
+        else:
+            self.op = op 
+            self.c = c
+
     @property
     def domain(self):
         return self.op.domain
@@ -347,9 +361,6 @@ class ScalarMulOperator(Operator):
 
     def with_exponentiator(self, exponentiator: AbstractExponentiator):
         return self.c * self.op.with_exponentiator(exponentiator)
-
-    def fn(self, a):
-        return self.c * a
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.c * self.op.action(y)

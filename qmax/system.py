@@ -42,14 +42,14 @@ def _adapt_dict(
         if "ops" in op_dict and op_dict["ops"] is not None:
             # KroneckerSum
             op_dict["ops"] = tuple(
-                _adapt_dict(op, space, dt_max) 
-                for (op, space) in zip(op_dict["ops"], hilbert_space.spaces)
+                _adapt_dict(op, hilbert_space[idx], dt_max) 
+                for idx, op in enumerate(op_dict["ops"])
             )
             root = eqx.tree_at(lambda o: o.ops, root, [d["obj"] for d in op_dict["ops"]])
 
         if "op" in op_dict and op_dict["op"] is not None:
             # Lift
-            op_dict["op"] = _adapt_dict(op_dict["op"], hilbert_space.spaces[root.factor_idx], dt_max)
+            op_dict["op"] = _adapt_dict(op_dict["op"], hilbert_space[root.factor_idx], dt_max)
             root = eqx.tree_at(lambda o: o.op, root, op_dict["op"]["obj"])
     else:
         for key in ("op", "op1", "op2"):
@@ -203,7 +203,6 @@ class TimeInvariantSystem(AbstractSystem):
 
         y_next = y
 
-        # TODO: replace with lax.scan?
         for i in range(weights.shape[0]):
             w = jnp.sum(weights[i, :])
             y_next = self.op.exp((-1j / self.hbar) * w * dt, y_next)
@@ -240,7 +239,6 @@ class TimeVaryingSystem(AbstractSystem):
         y_next = y
         t_quad, _ = quad_rule
 
-        # TODO: replace with lax.scan?
         for i in range(weights.shape[0]):
             op_list = [w * self.t_op(t + h * dt) for w, h in zip(weights[i, :], t_quad)]
             op = reduce(lambda a, b: (a + b).with_exponentiator(self.split_method), op_list)
@@ -348,7 +346,6 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
         coeffs1 = _stage_coeffs(self.c1, self.c1_int, weights, quad_rule, t, dt)
         coeffs2 = _stage_coeffs(self.c2, self.c2_int, weights, quad_rule, t, dt)
 
-        # TODO: replace with lax.scan?
         for i in range(weights.shape[0]):
             y_next = self.split_method.exp(
                 coeffs1[i] * self.op1 + coeffs2[i] * self.op2, (-1j / self.hbar) * dt, y_next)

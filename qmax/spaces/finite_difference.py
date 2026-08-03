@@ -11,7 +11,7 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
-from ..tensor import TensorProduct, TensorProductState, KroneckerSum
+from ..tensor import TensorProduct, TensorState, KroneckerSum
 from ..utils import over_batch
 from .spatial_discretization import SpatialDiscretization, SpatiallyDiscretizedState, _to_tuple
 
@@ -90,7 +90,7 @@ class FiniteDifference1DLaplacian(Operator):
         return L
 
 
-class FiniteDifferenceState(SpatiallyDiscretizedState, TensorProductState):
+class FiniteDifferenceState(SpatiallyDiscretizedState, TensorState):
 
     @property
     def values(self) -> Array:

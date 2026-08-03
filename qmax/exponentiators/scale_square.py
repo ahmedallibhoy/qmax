@@ -9,6 +9,7 @@ from jaxtyping import Array, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
+from ..eig import op_eigh_lanczos
 
 if TYPE_CHECKING:
     from ..operator import Operator
@@ -211,6 +212,8 @@ class ScaleSquareExponentiator(AbstractExponentiator):
     # lever on cost: the tolerance only has to beat whatever the time stepper
     # contributes, and anything tighter is work thrown away.
     max_tol: Optional[float] = eqx.field(static=True, default=None)
+    lmin: Optional[float] = None
+    lmax: Optional[float] = None
 
     def __check_init__(self):
         if self.m < 2 or self.m > M_MAX:
@@ -224,7 +227,12 @@ class ScaleSquareExponentiator(AbstractExponentiator):
 
         theta_list = _theta_table(self.max_tol)
 
-        lmin, lmax = op.spectral_bounds(hilbert_space)
+        try:
+            lmin, lmax = op.spectral_bounds(hilbert_space)
+        except NotImplementedError:
+            eigvals, _, _ = op_eigh_lanczos(op, hilbert_space, 25, 25)
+            lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)    
+
         theta = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
         m_list = jnp.arange(1, M_MAX + 1)
@@ -232,12 +240,20 @@ class ScaleSquareExponentiator(AbstractExponentiator):
         idx = jnp.argmin(m_list * s_list)
         m = int(idx) + 1
 
-        return ScaleSquareExponentiator(m, self.max_tol)
+        return ScaleSquareExponentiator(m, self.max_tol, lmin, lmax)
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         theta_list = _theta_table(self.max_tol)
 
-        lmin, lmax = op.spectral_bounds(y.hilbert_space)
+        if self.lmin is None or self.lmax is None:
+            try:
+                lmin, lmax = op.spectral_bounds(y.hilbert_space)
+            except NotImplementedError:
+                eigvals, _, _ = op_eigh_lanczos(op, y.hilbert_space, 25, 25)
+                lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)   
+        else:
+            lmin, lmax = self.lmin, self.lmax
+
         mu = 0.5 * (lmax + lmin)
         theta = 0.5 * jnp.abs(h) * (lmax - lmin)
 

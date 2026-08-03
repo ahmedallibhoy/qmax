@@ -10,6 +10,7 @@ from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
 from ..utils import over_batch
 from .base import AbstractExponentiator, Order
+from ..eig import op_eigh_lanczos
 
 if TYPE_CHECKING:
     from ..operator import Operator
@@ -53,7 +54,12 @@ class KrylovExponentiator(AbstractExponentiator):
         hilbert_space: AbstractHilbertSpace,
         dt_max: ScalarLike) -> AbstractExponentiator:
 
-        lmin, lmax = op.spectral_bounds(hilbert_space)
+        try:
+            lmin, lmax = op.spectral_bounds(hilbert_space)
+        except NotImplementedError:
+            eigvals, _, _ = op_eigh_lanczos(op, hilbert_space, 25, 25)
+            lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)    
+
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
         if jax.config.x64_enabled:
