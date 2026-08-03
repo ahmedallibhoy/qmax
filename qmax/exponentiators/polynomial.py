@@ -148,7 +148,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None
 
 
 class LaguerreExponentiator(AbstractExponentiator):
@@ -181,4 +181,4 @@ class LaguerreExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None

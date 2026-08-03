@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike, Array
 
 from .hilbert_space import AbstractState
-from .exponentiators import Order, AbstractExponentiator
+from .exponentiators import Order, min_order, AbstractExponentiator
 
 if TYPE_CHECKING:
     from .operator import AddOperator
@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 class AbstractSplitMethod(AbstractExponentiator):
     
     def effective_order(self, add_op: AddOperator) -> Order:
-        return min(self.order, add_op.op1.exponentiator.order, add_op.op2.exponentiator.order)
+        return min_order(
+            self.order, add_op.op1.exponentiator.order, add_op.op2.exponentiator.order)
 
     @property
     @abstractmethod

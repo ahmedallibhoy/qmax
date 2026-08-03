@@ -12,8 +12,10 @@ Everything here is layer-agnostic: the Hilbert spaces to test against, and the
 handful of helpers for building states and comparing arrays. Anything specific
 to one layer belongs in that layer's test module.
 
-Currently excluded, by request: FiniteDifference and ScaleSquareExponentiator
-(being refactored) and qmax.tensor_prod (under construction).
+The spaces defined here are the ones every layer is swept against. Layers with
+their own spaces define them locally -- test_batching.py adds the finite
+difference and tensor spaces, which are not in this table because the other
+sweeps do not cover them yet.
 """
 
 import os

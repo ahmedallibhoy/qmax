@@ -102,4 +102,4 @@ class KrylovExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None

@@ -12,7 +12,7 @@ from jaxtyping import ScalarLike, Array, ArrayLike
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator
-from .exponentiators import ScaleSquareExponentiator
+from .exponentiators import ScaleSquareExponentiator, min_order
 from .split import AbstractSplitMethod, Strang
 from .timestepper import AbstractTimeStepper
 from .spaces.spatial_discretization import SpatialDiscretization
@@ -184,8 +184,8 @@ class TimeInvariantSystem(AbstractSystem):
         return eqx.tree_at(lambda sys: sys.op, self, op)
 
     def check_consistency(self, time_stepper: AbstractTimeStepper):
-        if not jnp.isinf(self.op.exp_order) and self.op.exp_order != time_stepper.order:
-            effective_order = min(self.op.exp_order, time_stepper.order)
+        if self.op.exp_order is not None and self.op.exp_order != time_stepper.order:
+            effective_order = min_order(self.op.exp_order, time_stepper.order)
             warnings.warn(
                 f"Orders do not match: time_stepper.order={time_stepper.order} and "
                 f"op.exp_order={self.op.exp_order}, so effective order of solution is "
@@ -312,19 +312,16 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
         return eqx.tree_at(lambda sys: (sys.op1, sys.op2), self, (op1, op2))
 
     def check_consistency(self, time_stepper: AbstractTimeStepper):
-        if jnp.isinf(self.op1.exp_order) and jnp.isinf(self.op2.exp_order):
-            orders = [self.split_method.order, time_stepper.order]
-        elif jnp.isinf(self.op1.exp_order):
-            orders = [self.op2.exp_order, self.split_method.order, time_stepper.order]
-        elif jnp.isinf(self.op2.exp_order):
-            orders = [self.op1.exp_order, self.split_method.order, time_stepper.order]
-        else:
-            orders = [
-                self.op1.exp_order, self.op2.exp_order, self.split_method.order, time_stepper.order
-            ]
+        # Exact exponentiators report order None and place no limit on the
+        # solution, so they drop out rather than participating in the minimum.
+        orders = [
+            order for order in
+            (self.op1.exp_order, self.op2.exp_order, self.split_method.order, time_stepper.order)
+            if order is not None
+        ]
 
         if len(set(orders)) > 1:
-            effective_order = min(orders)
+            effective_order = min_order(*orders)
             warnings.warn(
                 f"Orders do not match: op1.exp_order={self.op1.exp_order}, op2.exp_order={self.op2.exp_order}, "
                 f"split_method.order={self.split_method.order}, and time_stepper.order={time_stepper.order}, "

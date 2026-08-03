@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, Literal, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 from abc import abstractmethod
 
 import jax.numpy as jnp
@@ -13,7 +13,20 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
-type Order = Union[int, Literal[jnp.inf]]
+# The order of accuracy of an exponentiator, or None when it is exact and so
+# places no order limit on the solution.
+type Order = Optional[int]
+
+
+def min_order(*orders: Order) -> Order:
+    """The smallest finite order, or None if every argument is exact.
+
+    `min` would raise on a mix of int and None, and treating None as infinity
+    would be wrong the other way -- an exact exponentiator should drop out of the
+    minimum rather than dominate it."""
+
+    finite = [order for order in orders if order is not None]
+    return min(finite) if finite else None
 
 
 class AbstractExponentiator(eqx.Module):
@@ -47,4 +60,4 @@ class ExactExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None

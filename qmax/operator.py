@@ -203,7 +203,7 @@ class Operator(eqx.Module):
     def __neg__(self) -> ScalarMulOperator:
         return ScalarMulOperator(self, -1.0)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -275,7 +275,7 @@ class ShiftOperator(Operator):
     def to_matrix(self, hilbert_space):
         return self.op.to_matrix(hilbert_space) + self.c * jnp.eye(hilbert_space.dim)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -316,7 +316,7 @@ class AddOperator(Operator):
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.op1.to_matrix(hilbert_space) + self.op2.to_matrix(hilbert_space)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         if isinstance(self.exponentiator, AbstractSplitMethod):
             h1, h2 = self.exponentiator.h_scales
             op1_val = self.op1.to_dict(h1 * h_scale)
@@ -386,7 +386,7 @@ class ScalarMulOperator(Operator):
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.c * self.op.to_matrix(hilbert_space)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,

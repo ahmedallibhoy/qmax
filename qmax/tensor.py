@@ -15,7 +15,7 @@ from jaxtyping import Array, ArrayLike, ScalarLike
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator
-from .exponentiators import Order, AbstractExponentiator, ExactExponentiator, KrylovExponentiator
+from .exponentiators import Order, min_order, AbstractExponentiator, ExactExponentiator, KrylovExponentiator
 
 
 def apply_along_tensor(
@@ -179,7 +179,7 @@ class LiftExp(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None
 
     def effective_order(self, lift_op: LiftOperator) -> Order:
         return lift_op.op.exponentiator.order
@@ -214,7 +214,7 @@ class LiftOperator(AbstractTensorOperator):
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -239,10 +239,10 @@ class KroneckerSumExp(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None
 
     def effective_order(self, kron_op: KroneckerSum) -> Order:
-        return min([op.exponentiator.order for op in kron_op.ops])
+        return min_order(*[op.exponentiator.order for op in kron_op.ops])
 
 
 class KroneckerSum(AbstractTensorOperator):
@@ -281,7 +281,7 @@ class KroneckerSum(AbstractTensorOperator):
             mat += reduce(lambda a, b: jnp.kron(a, b), mat_list)
         return mat
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -306,10 +306,11 @@ class KroneckerProduct(AbstractTensorOperator):
         return y
 
     def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
-        prods = jnp.array([1.0])
-        for idx, op in enumerate(self.ops):
-            lo, hi = op.spectral_bounds(hilbert_space[idx])
-            prods = jnp.concatenate([prods * lo, prods * hi])   
+        lo, hi = 1.0, 1.0
+        for op in self.ops:
+            a, b = op.spectral_bounds(hilbert_space.factorspace)
+            c = jnp.array([lo*a, lo*b, hi*a, hi*b])
+            lo, hi = jnp.min(c), jnp.max(c)
         return jnp.array([jnp.min(prods), jnp.max(prods)])
 
     def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
@@ -318,7 +319,7 @@ class KroneckerProduct(AbstractTensorOperator):
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -346,12 +347,18 @@ def rotate_factors(t: ArrayLike, num_factors: int) -> Array:
     bringing the next factor to axis `-num_factors`."""
     return jnp.moveaxis(t, -num_factors, -1)
 
-def apply_and_rotate(
-    fn: Callable[[ArrayLike], ArrayLike], 
-    t: ArrayLike, 
-    num_factors: int) -> Array:
+#def apply_and_rotate(
+#    fn: Callable[[ArrayLike], ArrayLike], 
+#    t: ArrayLike, 
+#    num_factors: int) -> Array:
+#
+#    return rotate_factors(apply_along_tensor(fn, t, -num_factors), num_factors)
 
-    return rotate_factors(apply_along_tensor(fn, t, -num_factors), num_factors)
+def apply_and_rotate(fn, t, n):
+    s = jnp.moveaxis(t, -n, 0)
+    rest = s.shape[1:]
+    out = jax.vmap(fn, in_axes=1, out_axes=1)(s.reshape(s.shape[0], -1))
+    return jnp.moveaxis(out.reshape((out.shape[0],) + rest), 0, -1)   # move-back ∘ rotate
 
 
 class BatchKroneckerSumExp(AbstractExponentiator):
@@ -376,10 +383,10 @@ class BatchKroneckerSumExp(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return jnp.inf
+        return None
 
     def effective_order(self, kron_op: KroneckerSum) -> Order:
-        return min([op.exponentiator.order for op in kron_op.ops])
+        return min_order(*[op.exponentiator.order for op in kron_op.ops])
 
 
 class BatchKroneckerSum(AbstractTensorOperator):
@@ -399,8 +406,10 @@ class BatchKroneckerSum(AbstractTensorOperator):
             T, S = carry
             op = eqx.combine(static, x)
             fn = lambda col: op.action(factorspace.from_coeffs(col)).coeffs
+            # rotate is linear, so rotate(S + contrib) == rotate(S) + rotate(contrib),
+            # and apply_and_rotate already folds the rotation into the move-back.
             T_next = rotate_factors(T, num_factors)
-            S_next = rotate_factors(S + apply_along_tensor(fn, T, -num_factors), num_factors)
+            S_next = rotate_factors(S, num_factors) + apply_and_rotate(fn, T, num_factors)
             return (T_next, S_next), None
 
         T0 = y.coeff_tensor
@@ -434,7 +443,7 @@ class BatchKroneckerSum(AbstractTensorOperator):
             mat += reduce(lambda a, b: jnp.kron(a, b), mat_list)
         return mat
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
@@ -479,7 +488,7 @@ class BatchKroneckerProduct(AbstractTensorOperator):
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
-    def to_dict(self, h_scale=1.0) -> dict:
+    def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,

@@ -8,6 +8,7 @@ from jaxtyping import Array, ScalarLike
 from ..hilbert_space import AbstractState, AbstractHilbertSpace
 from ..operator import Operator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
+from ..tensor import TensorPower
 
 
 class TwoLevelState(AbstractState):
@@ -62,3 +63,10 @@ class PauliOperator(Operator):
 
     def to_matrix(self, hilbert_space: TwoLevel) -> Array:
         return self.matrix
+
+
+class NLevel(TensorPower):
+
+    def __init__(self, num_levels: int):
+        self.factorspace = TwoLevel()
+        self.power = num_levels
