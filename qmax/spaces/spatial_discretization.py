@@ -1,4 +1,4 @@
-from typing import ClassVar, Callable
+from typing import ClassVar, Callable, Optional
 from abc import abstractmethod
 from functools import partial
 
@@ -45,6 +45,13 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def from_values(self, values: ArrayLike) -> SpatiallyDiscretizedState:
         pass
 
+    def innerp(self, 
+        y1: SpatiallyDiscretizedState, 
+        y2: SpatiallyDiscretizedState) -> ScalarLike:
+
+        return jnp.prod(self.dx_range) * jnp.sum(
+            jnp.conj(y1.values) * y2.values, axis=self.spatial_axes)
+
     @property
     def spatial_dim(self) -> int:
         return len(self.mesh_size)
@@ -53,10 +60,10 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def spatial_axes(self) -> tuple[int, ...]:
         return tuple(range(-self.spatial_dim, 0))
 
-    def flatten(self, arr_grid):
+    def flatten(self, arr_grid: ArrayLike):
         return arr_grid.reshape(*arr_grid.shape[:-self.spatial_dim], -1)
 
-    def to_grid(self, arr, sizes=None):
+    def to_grid(self, arr: ArrayLike, sizes: Optional[tuple[int, ...]]=None):
         if sizes is None:
             sizes = self.mesh_size
         return arr.reshape(*arr.shape[:-1], *sizes)

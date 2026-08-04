@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, ClassVar, Union
 from abc import abstractmethod
 
 import numpy as np
@@ -31,10 +31,10 @@ class AbstractHilbertSpace(eqx.Module):
         return self.from_coeffs(jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1))
 
     def norm(self, y: AbstractState) -> ScalarLike:
-        return jnp.linalg.norm(y.coeffs, axis=-1)
+        return jnp.sqrt(jnp.real(self.innerp(y, y)))
 
     def expected_value(self, op: Operator, y: AbstractState) -> Array:
-        return self.innerp(y, op(y))
+        return jnp.real(self.innerp(y, op(y)))
 
     def from_coeffs(self, coeffs) -> AbstractState:
         return self.state_type(coeffs, self)
@@ -51,16 +51,26 @@ class AbstractState(eqx.Module):
         self.coeffs = jnp.asarray(coeffs, dtype=complex)
         self.hilbert_space = hilbert_space
 
-    def binary_op(self, other: AbstractState, op: Callable) -> AbstractState:
+    def binary_op(
+        self, 
+        other: AbstractState, 
+        fn: Callable, 
+        on_coeffs: bool=True) -> Union[AbstractState, ScalarLike]:
+
         if self.hilbert_space != other.hilbert_space:
             raise ValueError("Cannot compose vectors from different spaces")
 
-        return self.hilbert_space.from_coeffs(op(self.coeffs, other.coeffs))
+        if not isinstance(other, AbstractState):
+            return NotImplemented
+
+        if on_coeffs:
+            return self.hilbert_space.from_coeffs(fn(self.coeffs, other.coeffs))
+        else:
+            return fn(self, other)
 
     def innerp(self, y: AbstractState) -> ScalarLike:
         return self.hilbert_space.innerp(self, y)
 
-    @property
     def norm(self) -> Array:
         return self.hilbert_space.norm(self)
 
@@ -79,17 +89,38 @@ class AbstractState(eqx.Module):
     def __rsub__(self, other: AbstractState) -> AbstractState:
         return self.binary_op(other, lambda a, b: b - a)
 
+    def __matmul__(self, other: AbstractState) -> ScalarLike:
+        return self.binary_op(
+            other, lambda a, b, hs=self.hilbert_space: hs.innerp(a, b), on_coeffs=False)
+
+    def __rmatmul__(self, other: AbstractState) -> ScalarLike:
+        return self.binary_op(
+            other, lambda a, b, hs=self.hilbert_space: hs.innerp(b, a), on_coeffs=False)
+
     def __mul__(self, other: ScalarLike) -> AbstractState:
+        if not jnp.isscalar(other):
+            return NotImplemented
+
         return self.hilbert_space.from_coeffs(other * self.coeffs)
 
     def __rmul__(self, other: ScalarLike) -> AbstractState:
+        if not jnp.isscalar(other):
+            return NotImplemented
+
         return self.hilbert_space.from_coeffs(other * self.coeffs)
 
     def __truediv__(self, other: ScalarLike) -> AbstractState:
+        if not jnp.isscalar(other):
+            return NotImplemented
+
         return self.hilbert_space.from_coeffs(self.coeffs / other)
 
     def __neg__(self) -> AbstractState:
         return self.hilbert_space.from_coeffs(-self.coeffs)
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self.coeffs.shape[:-1]
 
     def __getitem__(self, idx) -> AbstractState:
         if not isinstance(idx, tuple):

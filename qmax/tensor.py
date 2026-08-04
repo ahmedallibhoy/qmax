@@ -102,7 +102,7 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         batch_shape = coeff_tensor.shape[:coeff_tensor.ndim - self.num_factors]
         return self.from_coeffs(coeff_tensor.reshape(*batch_shape, self.dim))
 
-    def product_state(self, y_list: tuple[AbstractState]) -> TensorState:
+    def product_state(self, y_list: tuple[AbstractState, ...]) -> TensorState:
         """Form the product state y_0 (x) ... (x) y_{n-1}. Leading batch axes are
         broadcast across factors, so batched factors give a batch of product
         states, and a mix of batched and unbatched factors also works."""
@@ -119,7 +119,7 @@ class AbstractTensorSpace(AbstractHilbertSpace):
 
 
 class TensorProduct(AbstractTensorSpace):
-    spaces: tuple[AbstractHilbertSpace]
+    spaces: tuple[AbstractHilbertSpace, ...]
 
     @property
     def structure(self):
