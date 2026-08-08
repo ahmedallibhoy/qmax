@@ -19,12 +19,6 @@ type Order = Optional[int]
 
 
 def min_order(*orders: Order) -> Order:
-    """The smallest finite order, or None if every argument is exact.
-
-    `min` would raise on a mix of int and None, and treating None as infinity
-    would be wrong the other way -- an exact exponentiator should drop out of the
-    minimum rather than dominate it."""
-
     finite = [order for order in orders if order is not None]
     return min(finite) if finite else None
 
@@ -55,7 +49,6 @@ class AbstractExponentiator(eqx.Module):
 class ExactExponentiator(AbstractExponentiator):
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        # TODO: better exception handling if op does not implement exp_action
         return op.exp_action(h, y)
 
     @property

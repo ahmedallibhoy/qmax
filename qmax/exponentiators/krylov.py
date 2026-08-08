@@ -7,10 +7,10 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..lanczos import lanczos
+from ..lanczos import op_lanczos
 from ..utils import over_batch
 from .base import AbstractExponentiator, Order
-from ..eig import op_eigh_lanczos
+from ..eig import op_spectral_bounds_lanczos
 
 if TYPE_CHECKING:
     from ..operator import Operator
@@ -57,8 +57,7 @@ class KrylovExponentiator(AbstractExponentiator):
         try:
             lmin, lmax = op.spectral_bounds(hilbert_space)
         except NotImplementedError:
-            eigvals, _, _ = op_eigh_lanczos(op, hilbert_space, 25, 25)
-            lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)    
+            lmin, lmax = op_spectral_bounds_lanczos(op, hilbert_space)
 
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
@@ -77,26 +76,15 @@ class KrylovExponentiator(AbstractExponentiator):
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         hilbert_space = y.hilbert_space
 
-        def matvec(coeffs):
-            y = hilbert_space.from_coeffs(coeffs)
-            Ay = op.action(y)
-            return Ay.coeffs
-
-        # The Krylov basis is built per vector -- beta0 is a per-state norm and Q
-        # is sized for a single vector -- so batch axes have to be mapped over
-        # rather than broadcast through.
         def fn(y_i):
-            beta0 = jnp.linalg.norm(y_i.coeffs)
-            w0 = y_i.coeffs
-            init = (0, beta0, jnp.zeros((hilbert_space.dim, self.num_iterations + 1), dtype=complex), w0)
+            alpha, beta, Q = op_lanczos(
+                op, hilbert_space, self.num_iterations,
+                orthogonalize=self.orthogonalize, w0=y_i)
 
-            alpha, beta, Q, _ = lanczos(
-                matvec, hilbert_space.dim, self.num_iterations,
-                orthogonalize=self.orthogonalize, return_ritz=True, return_residual=True, init=init)
-
+            beta0 = y_i.norm()
             eigvals, eigvecs = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
             expm = eigvecs @ (jnp.exp(h * eigvals) * eigvecs[0, :])
-            return hilbert_space.from_coeffs(beta0 * Q[:, 1:] @ expm)
+            return beta0 * Q.contract(expm)
 
         return over_batch(fn, y)
 

@@ -122,13 +122,15 @@ class AbstractSystem(eqx.Module):
         
         return self
 
+
+
     def propagate(
         self, 
         t0: ScalarLike, 
         t1: ScalarLike, 
         dt: ScalarLike, 
         y0: AbstractState, 
-        time_stepper) -> AbstractState:
+        time_stepper) -> tuple[AbstractState, Array]:
 
         t_left = jnp.arange(t0, t1, dt)
         t_range = jnp.concatenate([t_left, t_left[-1:] + dt])
@@ -139,7 +141,7 @@ class AbstractSystem(eqx.Module):
         t0: ScalarLike, 
         dt_range: ArrayLike, 
         y0: AbstractState, 
-        time_stepper) -> AbstractState:
+        time_stepper) -> tuple[AbstractState, Array]:
 
         t_range = jnp.concatenate([jnp.asarray(t0)[None], t0 + jnp.cumsum(dt_range)])
         return self.propagate_t_range(t_range, y0, time_stepper)
@@ -162,6 +164,34 @@ class AbstractSystem(eqx.Module):
         ys = jax.tree.map(lambda a, b: jnp.concatenate([a[None, :], b]), y0, ys)  
 
         return ys, t_range
+
+    """
+    def propagate(
+        self, 
+        t0: ScalarLike, 
+        t1: ScalarLike, 
+        dt: ScalarLike, 
+        y0: AbstractState, 
+        time_stepper: AbstractTimeStepper,
+        saveat: Optional[ArrayLike]=None) -> tuple[AbstractState, Array]:
+
+        self.check_consistency(time_stepper)
+        
+        if saveat is None:
+            saveat = t1
+
+        def inner_step(y, args):
+            t, dt = args
+            y_next = self.propagate_stage(t, dt, y, time_stepper.weights, time_stepper.quad_rule)
+            return y_next, _ 
+
+        def outer_step(y, args):
+            y, _ = jax.lax.scan(inner_step, y, )
+
+
+        def step(y, args):
+    """
+
 
 
 class TimeInvariantSystem(AbstractSystem):

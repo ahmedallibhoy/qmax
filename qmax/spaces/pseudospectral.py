@@ -56,6 +56,12 @@ class PseudoSpectral(SpatialDiscretization):
             out = jnp.concatenate([lo, hi], axis=ax)
         return out
 
+    def innerp(self, 
+        y1: PseudoSpectralState, 
+        y2: PseudoSpectralState) -> ScalarLike:
+
+        return jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1)
+
     def from_values(self, values: ArrayLike) -> PseudoSpectralState:
         full = jnp.fft.fftn(values, self.mesh_size, axes=self.spatial_axes, norm="forward")
         return PseudoSpectralState(self.flatten(self.truncate(full)), self)

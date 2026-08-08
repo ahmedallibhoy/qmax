@@ -72,8 +72,6 @@ class FiniteDifference1DLaplacian(Operator):
 
         lx_op = lx.TridiagonalLinearOperator(diag, lower_diag, upper_diag)
 
-        # lineax operators carry a fixed input/output structure, so a batched
-        # vector has to be mapped over rather than passed through.
         def fn(b_i):
             sol = lx.linear_solve(lx_op, b_i.values)
             return hilbert_space.from_values(sol.value)

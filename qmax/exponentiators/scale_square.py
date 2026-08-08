@@ -9,7 +9,7 @@ from jaxtyping import Array, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
-from ..eig import op_eigh_lanczos
+from ..eig import op_spectral_bounds_lanczos
 
 if TYPE_CHECKING:
     from ..operator import Operator
@@ -230,8 +230,7 @@ class ScaleSquareExponentiator(AbstractExponentiator):
         try:
             lmin, lmax = op.spectral_bounds(hilbert_space)
         except NotImplementedError:
-            eigvals, _, _ = op_eigh_lanczos(op, hilbert_space, 25, 25)
-            lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)    
+            lmin, lmax = op_spectral_bounds_lanczos(op, hilbert_space)
 
         theta = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
@@ -249,8 +248,7 @@ class ScaleSquareExponentiator(AbstractExponentiator):
             try:
                 lmin, lmax = op.spectral_bounds(y.hilbert_space)
             except NotImplementedError:
-                eigvals, _, _ = op_eigh_lanczos(op, y.hilbert_space, 25, 25)
-                lmin, lmax = jnp.min(eigvals), jnp.max(eigvals)   
+                lmin, lmax = op_spectral_bounds_lanczos(op, y.hilbert_space)
         else:
             lmin, lmax = self.lmin, self.lmax
 

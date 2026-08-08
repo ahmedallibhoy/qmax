@@ -1,15 +1,17 @@
-from typing import Optional, TYPE_CHECKING
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
 
-from jaxtyping import PRNGKeyArray, Array
+from jaxtyping import PRNGKeyArray, Array, Scalar
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .lanczos import eigh_lanczos_matvec, restart_lanczos
+from .lanczos import op_lanczos
 
 if TYPE_CHECKING:
     from .operator import Operator
+
 
 def op_eigh(
     operator: Operator,
@@ -23,52 +25,29 @@ def op_eigh(
 
 
 def op_eigh_lanczos(
-    operator: Operator,
+    op: Operator,
     hilbert_space: AbstractHilbertSpace,
-    num_eig: int,
-    num_iterations: int=200,
+    num_iterations: int,
     *,
-    select: str="smallest",
     orthogonalize: bool=True,
-    grad_safe: bool=False,
-    tol: Optional[float]=None,
-    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractHilbertSpace, Array]:
+    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractState, Array]:
 
-    def matvec(q):
-        y = hilbert_space.from_coeffs(q)
-        result = operator(y)
-        return result.coeffs
+    alpha, beta, Q = op_lanczos(op, hilbert_space, num_iterations, orthogonalize, key)
+    eigvals, Y = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
+    eigvecs = Q.contract(Y)
+    residuals = jnp.abs(beta[-1] * Y[-1, :])
 
-    eigvals, eigvecs, residuals = eigh_lanczos_matvec(
-        matvec, hilbert_space.dim, num_eig, num_iterations,
-        eigvals_only=False, return_residuals=True, grad_safe=grad_safe,
-        select=select, orthogonalize=orthogonalize, tol=tol,
-        is_complex=True, key=key)
-
-    Ys = hilbert_space.from_coeffs(eigvecs.T)
-    return eigvals, Ys, residuals
+    return eigvals, eigvecs, residuals
 
 
-def op_eigh_restart(
-    operator: Operator,
-    hilbert_space: AbstractHilbertSpace,
-    num_eig: int,
-    num_iterations: int=200,
-    *,
-    buffer: int=25,
-    num_restarts: int=4,
-    select: str="smallest",
-    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractHilbertSpace, Array]:
+def op_spectral_bounds_lanczos(
+    op: Operator, 
+    hilbert_space: AbstractHilbertSpace, 
+    num_iterations: int=25,
+    *, 
+    orthogonalize: bool=False,
+    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Scalar, Scalar]:
 
-    def matvec(q):
-        y = hilbert_space.from_coeffs(q)
-        result = operator(y)
-        return result.coeffs
-
-    eigvals, eigvecs, residuals = restart_lanczos(
-        matvec, hilbert_space.dim, num_eig, num_iterations,
-        buffer=buffer, num_restarts=num_restarts, select=select,
-        is_complex=True, key=key)
-
-    Ys = hilbert_space.from_coeffs(eigvecs.T)
-    return eigvals, Ys, residuals
+    alpha, beta, _ = op_lanczos(op, hilbert_space, num_iterations, orthogonalize=orthogonalize, key=key)
+    eigvals = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1], eigvals_only=True)
+    return jnp.min(eigvals), jnp.max(eigvals)

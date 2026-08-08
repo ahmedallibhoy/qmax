@@ -344,6 +344,8 @@ class ScalarMulOperator(Operator):
 
     def __init__(self, op: Operator, c: ScalarLike):
         if isinstance(op, ScalarMulOperator):
+            # If op is a ScalarMulOperator, i.e. op = c0 * A
+            # then scalar multiplication can be collapsed to c * c0 * A
             self.op = op.op
             self.c = c * op.c 
         else:

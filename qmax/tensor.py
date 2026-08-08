@@ -355,7 +355,7 @@ def apply_and_rotate(
     t: ArrayLike, 
     num_factors: int) -> Array:
 
-    s = jnp.moveaxis(t, -n, 0)
+    s = jnp.moveaxis(t, -num_factors, 0)
     rest = s.shape[1:]
     out = jax.vmap(fn, in_axes=1, out_axes=1)(s.reshape(s.shape[0], -1))
     return jnp.moveaxis(out.reshape((out.shape[0],) + rest), 0, -1) 
