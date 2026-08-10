@@ -18,11 +18,6 @@ class AbstractTimeStepper(eqx.Module):
     order: eqx.AbstractClassVar[int]
 
     @property
-    def t_quad(self) -> Array:
-        result, _ = _gl_rule(self.num_nodes)
-        return result
-
-    @property
     def quad_rule(self) -> Array:
         return _gl_rule(self.num_nodes)
 

@@ -53,6 +53,7 @@ class PauliOperator(Operator):
     def action(self, y: TwoLevelState) -> TwoLevelState:
         return y.hilbert_space.from_coeffs((self.matrix @ y.coeffs[..., None])[..., 0])
 
+    # TODO: should probably use _PauliProductMixin
     def exp_action(self, h: ScalarLike, y: TwoLevelState) -> TwoLevelState:
         return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 

@@ -13,10 +13,7 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
-# The order of accuracy of an exponentiator, or None when it is exact and so
-# places no order limit on the solution.
 type Order = Optional[int]
-
 
 def min_order(*orders: Order) -> Order:
     finite = [order for order in orders if order is not None]

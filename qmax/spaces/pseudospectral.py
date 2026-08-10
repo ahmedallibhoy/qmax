@@ -10,7 +10,12 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
-from .spatial_discretization import SpatialDiscretization, SpatiallyDiscretizedState, _to_tuple
+from .spatial_discretization import (
+    SpatialDiscretization, 
+    SpatiallyDiscretizedState, 
+    AbstractPotentialEnergy, 
+    _to_tuple
+)
 
 
 class PseudoSpectralState(SpatiallyDiscretizedState):

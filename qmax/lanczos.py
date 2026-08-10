@@ -1,16 +1,18 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional, Callable
+from typing import TYPE_CHECKING, Optional
 import warnings
 
 import jax
 import jax.numpy as jnp
 
-from jaxtyping import PRNGKeyArray, Array, Scalar, ArrayLike, ScalarLike
+from jaxtyping import PRNGKeyArray, Array
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 if TYPE_CHECKING:
     from .operator import Operator
 
+
+# TODO: restarted variants of Lanczos
 
 def op_lanczos(
     op: Operator,
@@ -49,7 +51,7 @@ def op_lanczos(
         w_next = z - alpha_next * q_next - beta * q
         return alpha_next, q_next, w_next
 
-    def lanczos_outer_loop(carry, _):
+    def lanczos_loop(carry, _):
         idx, beta, Q, w = carry
 
         alpha_next, q_next, w_next = lanczos_step(beta, Q[idx], w)
@@ -69,7 +71,7 @@ def op_lanczos(
     Q0 = hilbert_space.zeros((num_iterations + 1,))
 
     init = (0, w0.norm(), Q0, w0)
-    carry, (alpha, beta) = jax.lax.scan(lanczos_outer_loop, init, length=num_iterations)
+    carry, (alpha, beta) = jax.lax.scan(lanczos_loop, init, length=num_iterations)
     _, _, Q, _ = carry
 
     return alpha, beta, Q[1:]

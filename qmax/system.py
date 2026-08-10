@@ -3,22 +3,24 @@ from typing import Callable, Optional
 import warnings
 from abc import abstractmethod
 from functools import reduce
+from math import ceil
 
 import equinox as eqx
 import jax 
 import jax.numpy as jnp
 
-from jaxtyping import ScalarLike, Array, ArrayLike
+from jaxtyping import ScalarLike, Array, ArrayLike, PyTree
+
+from ._internal import _update_field
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator
 from .exponentiators import ScaleSquareExponentiator, min_order
 from .split import AbstractSplitMethod, Strang
-from .timestepper import AbstractTimeStepper
+from .timestepper import AbstractTimeStepper, Midpoint
 from .spaces.spatial_discretization import SpatialDiscretization
 from .spaces.finite_difference import FiniteDifference, FiniteDifferenceLaplacian, FiniteDifferencePotentialEnergy
 from .spaces.pseudospectral import PseudoSpectral, PseudoSpectralLaplacian, PseudoSpectralPotentialEnergy
-
 from .tensor import TensorProduct, AbstractTensorOperator
 
 
@@ -27,7 +29,8 @@ __all__ = [
     "TimeInvariantSystem", 
     "TimeVaryingSystem", 
     "ScalarSplitTimeVaryingSystem", 
-    "QuantumHamiltonianDescent"
+    "QuantumHamiltonianDescent", 
+    "PropagateResult"
 ]
 
 
@@ -75,123 +78,122 @@ def adapt_operator(
     return adapted["obj"]
 
 
-class AbstractSystem(eqx.Module):
-    hbar: ScalarLike = eqx.field(default=1.0, kw_only=True)
+class PropagateResult(eqx.Module):
+    y1: AbstractState
+    ys: PyTree
+    ts: ArrayLike
 
-    def check_consistency(self, time_stepper: AbstractTimeStepper):
+
+def _save_y(t, y): 
+    return y
+
+
+type AdaptParams = tuple[ScalarLike, ScalarLike, AbstractHilbertSpace, int]
+
+class AbstractSystem(eqx.Module):
+    timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
+    hbar: ScalarLike = eqx.field(default=1.0, kw_only=True)
+    adapt_params: Optional[AdaptParams] = eqx.field(default=None, static=True, kw_only=True)
+
+    def check_consistency(self):
         pass
+
+    def with_timestepper(self, timestepper: AbstractTimeStepper) -> AbstractSystem:
+        new_self =_update_field(self, "adapt_params", None)
+        return eqx.tree_at(lambda sys: sys.timestepper, new_self,  timestepper)
+
+    @property
+    def weights(self) -> Array:
+        return self.timestepper.weights
+
+    @property
+    def quad_rule(self) -> Array:
+        return self.timestepper.quad_rule
 
     @abstractmethod
     def propagate_stage(
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState,
-        weights: ArrayLike,
-        quad_rule: ArrayLike) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
         pass
 
     def adapt(
         self, 
         t0: ScalarLike, 
-        t1: ScalarLike, 
-        dt: ScalarLike, 
-        y0: AbstractState, 
-        time_stepper) -> AbstractSystem:
-        
-        t_left = jnp.arange(t0, t1, dt)
-        t_range = jnp.concatenate([t_left, t_left[-1:] + dt])
-        return self.adapt_t_range(t_range, y0, time_stepper)
+        t1: ScalarLike,
+        hilbert_space: AbstractHilbertSpace, 
+        num_steps: int, 
+        timestepper: Optional[AbstractTimeStepper]=None) -> AbstractSystem:
 
-    def adapt_dt_range(
+        if timestepper is not None:
+            _self = self.with_timestepper(timestepper)
+        else:
+            _self = self
+
+        new_self = _self._adapt(t0, t1, hilbert_space, num_steps)
+        return _update_field(new_self, "adapt_params", (t0, t1, hilbert_space, num_steps))
+
+    def _adapt(
         self, 
         t0: ScalarLike, 
-        dt_range: ArrayLike, 
-        y0: AbstractState, 
-        time_stepper) -> AbstractSystem:
-        
-        t_range = jnp.concatenate([jnp.asarray(t0)[None], t0 + jnp.cumsum(dt_range)])
-        return self.adapt_t_range(t_range, y0, time_stepper)
+        t1: ScalarLike, 
+        hilbert_space: AbstractHilbertSpace, 
+        num_steps: int) -> AbstractSystem:
 
-    def adapt_t_range(
-        self, 
-        t_range: ArrayLike, 
-        y0: AbstractState, 
-        time_stepper) -> AbstractSystem:
-        
         return self
 
-
-
     def propagate(
         self, 
         t0: ScalarLike, 
         t1: ScalarLike, 
-        dt: ScalarLike, 
         y0: AbstractState, 
-        time_stepper) -> tuple[AbstractState, Array]:
+        num_steps: int,
+        save_every: int=1, 
+        save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y) -> PropagateResult:
 
-        t_left = jnp.arange(t0, t1, dt)
-        t_range = jnp.concatenate([t_left, t_left[-1:] + dt])
-        return self.propagate_t_range(t_range, y0, time_stepper)
+        dt = (t1 - t0) / num_steps
+        params = (t0, t1, y0.hilbert_space, num_steps)
 
-    def propagate_dt_range(
-        self, 
-        t0: ScalarLike, 
-        dt_range: ArrayLike, 
-        y0: AbstractState, 
-        time_stepper) -> tuple[AbstractState, Array]:
+        if self.adapt_params is not None and self.adapt_params != params:
+            t0_a, t1_a, hs_a, num_steps_a = self.adapt_params
 
-        t_range = jnp.concatenate([jnp.asarray(t0)[None], t0 + jnp.cumsum(dt_range)])
-        return self.propagate_t_range(t_range, y0, time_stepper)
+            if y0.hilbert_space != hs_a:
+                warnings.warn(
+                    f"System adapted to Hilbert space {hs_a}"
+                    f"but received state of type {y0.hilbert_space}. "
+                    f"Accuracy may be less than reported order estimates",
+                    stacklevel=3,
+                )
 
-    def propagate_t_range(   
-        self, 
-        t_range: ArrayLike,
-        y0: AbstractState,
-        time_stepper: AbstractTimeStepper) -> tuple[AbstractState, Array]:
+            dt_a = (t1_a - t0_a) / num_steps_a
 
-        self.check_consistency(time_stepper)
-        dt_range = t_range[1:] - t_range[:-1]
+            if abs(dt) > abs(dt_a):
+                warnings.warn(
+                    f"Stepsize dt={dt} is greater than"
+                    f"the stepsize the system was adapted to {dt_a}. "
+                    f"Accuracy may be less than reported order estimates",
+                    stacklevel=3,
+                )
 
-        def step(y, args):
-            t, dt = args
-            y_next = self.propagate_stage(t, dt, y, time_stepper.weights, time_stepper.quad_rule)
-            return y_next, y_next
+        if not num_steps % save_every == 0:
+            raise ValueError(f"num_steps={num_steps} is not divisible by save_every={save_every}")
 
-        _, ys = jax.lax.scan(step, y0, (t_range[:-1], dt_range))      
-        ys = jax.tree.map(lambda a, b: jnp.concatenate([a[None, :], b]), y0, ys)  
+        self.check_consistency()
+        t_range = jnp.linspace(t0, t1, num_steps // save_every + 1, endpoint=True)
 
-        return ys, t_range
+        def inner_loop(y, t):
+            y_next = self.propagate_stage(t, dt, y)
+            return y_next, None
 
-    """
-    def propagate(
-        self, 
-        t0: ScalarLike, 
-        t1: ScalarLike, 
-        dt: ScalarLike, 
-        y0: AbstractState, 
-        time_stepper: AbstractTimeStepper,
-        saveat: Optional[ArrayLike]=None) -> tuple[AbstractState, Array]:
+        def loop(y, args):
+            t, t_next = args
+            y_next, _ = jax.lax.scan(inner_loop, y, jnp.linspace(t, t_next, save_every, endpoint=False))
+            return y_next, save_fn(t_next, y_next)
 
-        self.check_consistency(time_stepper)
-        
-        if saveat is None:
-            saveat = t1
-
-        def inner_step(y, args):
-            t, dt = args
-            y_next = self.propagate_stage(t, dt, y, time_stepper.weights, time_stepper.quad_rule)
-            return y_next, _ 
-
-        def outer_step(y, args):
-            y, _ = jax.lax.scan(inner_step, y, )
-
-
-        def step(y, args):
-    """
-
+        y1, ys = jax.lax.scan(loop, y0, (t_range[:-1], t_range[1:]))
+        return PropagateResult(y1, ys, t_range[1:])
 
 
 class TimeInvariantSystem(AbstractSystem):
@@ -200,26 +202,26 @@ class TimeInvariantSystem(AbstractSystem):
     """
     op: Operator
 
-    def adapt_t_range(
+    def _adapt(
         self, 
-        t_range: ArrayLike,
-        y0: AbstractState, 
-        time_stepper) -> AbstractSystem:
+        t0: ScalarLike, 
+        t1: ScalarLike, 
+        hilbert_space: AbstractHilbertSpace, 
+        num_steps: int) -> AbstractSystem:
 
-        dt_range = t_range[1:] - t_range[:-1]
-        dt_max = jnp.max(jnp.abs(dt_range))
-        dt_max = dt_max / self.hbar * jnp.max(jnp.abs(jnp.sum(time_stepper.weights, axis=1)))
-        op = adapt_operator(self.op, y0.hilbert_space, dt_max)
-
+        dt = jnp.abs((t1 - t0) / num_steps)
+        dt = dt / self.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
+        op = adapt_operator(self.op, hilbert_space, dt)
+        
         return eqx.tree_at(lambda sys: sys.op, self, op)
 
-    def check_consistency(self, time_stepper: AbstractTimeStepper):
-        if self.op.exp_order is not None and self.op.exp_order != time_stepper.order:
-            effective_order = min_order(self.op.exp_order, time_stepper.order)
+    def check_consistency(self):
+        if self.op.exp_order is not None and self.op.exp_order != self.timestepper.order:
+            effective_order = min_order(self.op.exp_order, self.timestepper.order)
             warnings.warn(
-                f"Orders do not match: time_stepper.order={time_stepper.order} and "
+                f"Orders do not match: timestepper.order={self.timestepper.order} and "
                 f"op.exp_order={self.op.exp_order}, so effective order of solution is "
-                f"limited to min({time_stepper.order}, {self.op.exp_order}) = {effective_order}",
+                f"limited to min({self.timestepper.order}, {self.op.exp_order}) = {effective_order}",
                 stacklevel=3,
             )
 
@@ -227,14 +229,12 @@ class TimeInvariantSystem(AbstractSystem):
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState,
-        weights: ArrayLike,
-        quad_rule: ArrayLike) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
         y_next = y
 
-        for i in range(weights.shape[0]):
-            w = jnp.sum(weights[i, :])
+        for i in range(self.weights.shape[0]):
+            w = jnp.sum(self.weights[i, :])
             y_next = self.op.exp((-1j / self.hbar) * w * dt, y_next)
 
         return y_next
@@ -262,29 +262,17 @@ class TimeVaryingSystem(AbstractSystem):
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState,
-        weights: ArrayLike,
-        quad_rule: ArrayLike) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
         y_next = y
-        t_quad, _ = quad_rule
+        t_quad, _ = self.quad_rule
 
-        for i in range(weights.shape[0]):
-            op_list = [w * self.t_op(t + h * dt) for w, h in zip(weights[i, :], t_quad)]
+        for i in range(self.weights.shape[0]):
+            op_list = [w * self.t_op(t + h * dt) for w, h in zip(self.weights[i, :], t_quad)]
             op = reduce(lambda a, b: (a + b).with_exponentiator(self.split_method), op_list)
             y_next = op.exp((-1j / self.hbar) * dt, y_next)
 
         return y_next
-
-
-def _stage_coeffs(c, c_int, weights, quad_rule, t, dt):
-    t_quad, w_quad = quad_rule
-    cs = jax.vmap(c)(t + dt * t_quad)
-    coeffs = weights @ cs
-    if c_int is None:
-        return coeffs 
-    c_bar = (c_int(t + dt) - c_int(t)) / dt
-    return coeffs + jnp.sum(weights, axis=1) * (c_bar - w_quad @ cs)
 
 
 type ScalarTimeDependence = Callable[[ScalarLike], ScalarLike]
@@ -320,33 +308,50 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
     c2_int: Optional[ScalarTimeDependence] = None
     split_method: AbstractSplitMethod = eqx.field(default=Strang(), kw_only=True)
 
-    def adapt_t_range(
+    def stage_coeffs(self, t: ScalarLike, dt: ScalarLike) -> tuple[Array, Array]:
+        t_quad, w_quad = self.quad_rule
+        
+        def _coeffs(c, c_int):
+            cs = jax.vmap(c)(t + dt * t_quad)
+            coeffs = self.weights @ cs
+            if c_int is None:
+                return coeffs 
+            c_bar = (c_int(t + dt) - c_int(t)) / dt
+            return coeffs + jnp.sum(self.weights, axis=1) * (c_bar - w_quad @ cs)
+
+        c1_coeffs = _coeffs(self.c1, self.c1_int)
+        c2_coeffs = _coeffs(self.c2, self.c2_int)
+        return c1_coeffs, c2_coeffs
+
+    def _adapt(
         self, 
-        t_range: ArrayLike,
-        y0: AbstractState, 
-        time_stepper) -> AbstractSystem:
+        t0: ScalarLike, 
+        t1: ScalarLike, 
+        hilbert_space: AbstractHilbertSpace, 
+        num_steps: int) -> AbstractSystem:
 
         def propagate_dt(t, dt):
-            c1_coeffs =_stage_coeffs(self.c1, self.c1_int, weights, time_stepper.quad_rule, t, dt)
-            c2_coeffs =_stage_coeffs(self.c2, self.c2_int, weights, time_stepper.quad_rule, t, dt)
+            c1_coeffs, c2_coeffs = self.stage_coeffs(t, dt)
             dt1 = jnp.max(jnp.abs(c1_coeffs)) * dt / self.hbar
             dt2 = jnp.max(jnp.abs(c2_coeffs)) * dt / self.hbar
             return dt1, dt2
 
-        dt_range = t_range[1:] - t_range[:-1]
-        dt1s, dt2s = jax.vmap(propagate_dt)(t_range[:-1], dt_range)
+        t_range = jnp.linspace(t0, t1, num_steps + 1, endpoint=True)
+        dt = (t1 - t0) / num_steps
+        dt1s, dt2s = jax.vmap(propagate_dt, in_axes=(0, None))(t_range[:-1], dt)
 
-        op1 = adapt_operator(self.op1, y0.hilbert_space, jnp.max(jnp.abs(dt1s)))
-        op2 = adapt_operator(self.op2, y0.hilbert_space, jnp.max(jnp.abs(dt2s)))
+        h1, h2 = self.split_method.h_scales
+        op1 = adapt_operator(self.op1, hilbert_space, h1 * jnp.max(jnp.abs(dt1s)))
+        op2 = adapt_operator(self.op2, hilbert_space, h2 * jnp.max(jnp.abs(dt2s)))
 
         return eqx.tree_at(lambda sys: (sys.op1, sys.op2), self, (op1, op2))
 
-    def check_consistency(self, time_stepper: AbstractTimeStepper):
+    def check_consistency(self):
         # Exact exponentiators report order None and place no limit on the
         # solution, so they drop out rather than participating in the minimum.
         orders = [
             order for order in
-            (self.op1.exp_order, self.op2.exp_order, self.split_method.order, time_stepper.order)
+            (self.op1.exp_order, self.op2.exp_order, self.split_method.order, self.timestepper.order)
             if order is not None
         ]
 
@@ -354,9 +359,9 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
             effective_order = min_order(*orders)
             warnings.warn(
                 f"Orders do not match: op1.exp_order={self.op1.exp_order}, op2.exp_order={self.op2.exp_order}, "
-                f"split_method.order={self.split_method.order}, and time_stepper.order={time_stepper.order}, "
+                f"split_method.order={self.split_method.order}, and timestepper.order={self.timestepper.order}, "
                 f"so order is limited to "
-                f"min({self.op1.exp_order}, {self.op2.exp_order}, {self.split_method.order}, {time_stepper.order}) "
+                f"min({self.op1.exp_order}, {self.op2.exp_order}, {self.split_method.order}, {self.timestepper.order}) "
                 f"= {effective_order}.",
                 stacklevel=3,
             )
@@ -365,17 +370,14 @@ class ScalarSplitTimeVaryingSystem(AbstractSystem):
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState,
-        weights: ArrayLike,
-        quad_rule: ArrayLike) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
+        c1_coeffs, c2_coeffs = self.stage_coeffs(t, dt)
         y_next = y
-        coeffs1 = _stage_coeffs(self.c1, self.c1_int, weights, quad_rule, t, dt)
-        coeffs2 = _stage_coeffs(self.c2, self.c2_int, weights, quad_rule, t, dt)
 
-        for i in range(weights.shape[0]):
+        for i in range(self.weights.shape[0]):
             y_next = self.split_method.exp(
-                coeffs1[i] * self.op1 + coeffs2[i] * self.op2, (-1j / self.hbar) * dt, y_next)
+                c1_coeffs[i] * self.op1 + c2_coeffs[i] * self.op2, (-1j / self.hbar) * dt, y_next)
 
         return y_next
 
@@ -400,7 +402,8 @@ class QuantumHamiltonianDescent(ScalarSplitTimeVaryingSystem):
         self, 
         objective: Callable[[ArrayLike], ScalarLike], 
         hilbert_space: SpatialDiscretization,
-        split_method=Strang()):
+        split_method=Strang(), 
+        timestepper=Midpoint()):
 
         if type(hilbert_space) == FiniteDifference:
             op1 = -0.5 * FiniteDifferenceLaplacian(hilbert_space.spatial_dim)
@@ -420,4 +423,4 @@ class QuantumHamiltonianDescent(ScalarSplitTimeVaryingSystem):
         self.c2_int = lambda t: t ** 2 / 2
 
         self.split_method = split_method
-
+        self.timestepper = timestepper

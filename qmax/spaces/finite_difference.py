@@ -13,7 +13,12 @@ from ..operator import Operator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
 from ..tensor import TensorProduct, TensorState, KroneckerSum
 from ..utils import over_batch
-from .spatial_discretization import SpatialDiscretization, SpatiallyDiscretizedState, _to_tuple
+from .spatial_discretization import (
+    SpatialDiscretization, 
+    SpatiallyDiscretizedState, 
+    AbstractPotentialEnergy,
+    _to_tuple
+)
 
 
 class FiniteDifference1DState(SpatiallyDiscretizedState):

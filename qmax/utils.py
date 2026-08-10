@@ -35,4 +35,5 @@ def over_batch(
     flat = y.coeffs.reshape(-1, y.coeffs.shape[-1])
     out = jax.vmap(lambda c: fn(space.from_coeffs(c)).coeffs)(flat)
     return space.from_coeffs(out.reshape(*y.coeffs.shape[:-1], out.shape[-1]))
+
    

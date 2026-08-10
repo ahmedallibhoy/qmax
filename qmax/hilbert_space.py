@@ -7,7 +7,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike, ScalarLike, PRNGKeyArray
 
 if TYPE_CHECKING:
     from .operator import Operator
@@ -61,7 +61,7 @@ class AbstractHilbertSpace(eqx.Module):
         batch_shape = self.batch_shape(shape)
         return self.from_coeffs(jnp.zeros(batch_shape))
 
-    def random(self, key, shape: tuple[int, ...]=()) -> AbstractState:
+    def random(self, key: PRNGKeyArray, shape: tuple[int, ...]=()) -> AbstractState:
         batch_shape = self.batch_shape(shape)
         random_coeffs = jax.random.normal(key, shape=batch_shape, dtype=complex)
         return self.from_coeffs(random_coeffs)

@@ -10,6 +10,8 @@ import lineax as lx
 
 from jaxtyping import ScalarLike, Array, ArrayLike
 
+from ._internal import _update_field
+
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import AbstractExponentiator, ExactExponentiator, ScaleSquareExponentiator
 from .split import AbstractSplitMethod, Strang
@@ -80,11 +82,8 @@ class Operator(eqx.Module):
         # falls through to a branch that calls len() on the module. Bypassing
         # __init__ is safe -- only the exponentiator changes, and nothing that
         # __check_init__ validates (e.g. domain compatibility) is affected.
-        obj = object.__new__(type(self))
-        for field in dataclasses.fields(self):
-            value = exponentiator if field.name == "exponentiator" else getattr(self, field.name)
-            object.__setattr__(obj, field.name, value)
-        return obj
+
+        return _update_field(self, "exponentiator", exponentiator)
 
     # Public, domain-checked entry points
     def __call__(self, y: AbstractState) -> AbstractState:
