@@ -22,6 +22,14 @@ class IncompatibleDomainError(TypeError):
     pass
 
 
+class NoExactExponentialError(Exception):
+    pass 
+
+
+class NoRealSpectrumError(Exception):
+    pass
+
+
 def _reconcile_domains(A, B):                   
     if A is AbstractHilbertSpace: 
         return B             
@@ -100,7 +108,7 @@ class Operator(eqx.Module):
         pass
 
     def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        raise NotImplementedError
+        raise NoExactExponentialError
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         """
@@ -267,9 +275,8 @@ class ShiftOperator(Operator):
 
     def spectral_bounds(self, hilbert_space):
         if jnp.iscomplexobj(self.c):
-            raise NotImplementedError(
-                f"spectral_bounds assumes a real spectrum, but c={self.c} is complex, "
-                f"so {type(self.op).__name__} + c * Identity() is not Hermitian"
+            raise NoRealSpectrumError(
+                f"{type(self.op).__name__} + c * Identity() is not Hermitian since c={self.c} is complex"
             )
 
         return self.op.spectral_bounds(hilbert_space) + self.c
@@ -380,9 +387,8 @@ class ScalarMulOperator(Operator):
 
     def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
         if jnp.iscomplexobj(self.c):
-            raise NotImplementedError(
-                f"spectral_bounds assumes a real spectrum, but c={self.c} is complex, "
-                f"so c * {type(self.op).__name__} is not Hermitian"
+            raise NoRealSpectrumError(
+                f"c * {type(self.op).__name__} is not Hermitian since c={self.c} is complex"
             )
 
         return jnp.sort(self.c * self.op.spectral_bounds(hilbert_space))
@@ -417,3 +423,35 @@ class Identity(Operator):
 
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return jnp.eye(hilbert_space.dim)
+
+
+class AbstractDiagonalOperator(Operator):
+    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
+
+    @abstractmethod
+    def eigvals(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        pass
+
+    def action(self, y: AbstractState) -> AbstractState:
+        return y.hilbert_space.from_coeffs(self.eigvals(y.hilbert_space) * y.coeffs)
+
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        coeffs = jnp.exp(h * self.eigvals(y.hilbert_space)) * y.coeffs
+        return y.hilbert_space.from_coeffs(coeffs)
+
+    def solve(
+        self, 
+        b: AbstractState, 
+        scale: ScalarLike=-1.0, 
+        shift: ScalarLike=0.0) -> AbstractState:
+
+        hilbert_space = b.hilbert_space
+        eigvals = self.eigvals(hilbert_space)
+        return hilbert_space.from_coeffs(b.coeffs / (scale * eigvals + shift))
+
+    def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        eigvals = self.eigvals(hilbert_space)
+        return jnp.array([jnp.min(eigvals), jnp.max(eigvals)])
+
+    def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        return jnp.diag(self.eigvals(hilbert_space))

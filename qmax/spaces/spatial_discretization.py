@@ -13,6 +13,7 @@ from jaxtyping import ScalarLike, Array, ArrayLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator
 
+
 def _to_tuple(x, dtype=float):
     if jnp.isscalar(x):
         return (x,)
@@ -113,17 +114,15 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
         return (jnp.array(self.xf) - jnp.array(self.x0)) / sizes
 
-    @abstractmethod
     def laplacian(self) -> Operator:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
-    def potential_energy(self, 
-        potential: Callable[[ArrayLike], ScalarLike]) -> Operator:
-        pass
+    def potential_energy(self, potential: Callable[[ArrayLike], ScalarLike]) -> Operator:
+        raise NotImplementedError
 
 
 class AbstractPotentialEnergy(Operator):
+    domain: ClassVar = SpatialDiscretization
     potential: Callable[[ArrayLike], ScalarLike]
 
     def values(self, hilbert_space: SpatialDiscretization) -> Array:
@@ -143,7 +142,7 @@ class AbstractPotentialEnergy(Operator):
 
         hilbert_space = b.hilbert_space
         values = self.values(hilbert_space)
-        return hilbert_space.from_coeffs(b.coeffs / (scale * hilbert_space.flatten(values) + shift))
+        return hilbert_space.from_values(b.values / (scale * values + shift))
 
     def spectral_bounds(self, hilbert_space: SpatialDiscretization) -> Array:
         values = self.values(hilbert_space)

@@ -8,7 +8,7 @@ import equinox as eqx
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator
+from ..operator import Operator, AbstractDiagonalOperator, NoExactExponentialError
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
 from .spatial_discretization import (
     SpatialDiscretization, 
@@ -71,10 +71,26 @@ class PseudoSpectral(SpatialDiscretization):
         full = jnp.fft.fftn(values, self.mesh_size, axes=self.spatial_axes, norm="forward")
         return PseudoSpectralState(self.flatten(self.truncate(full)), self)
 
+    @property
+    def lossless(self):
+        return self.num_modes == self.mesh_size
 
-class PseudoSpectralLaplacian(Operator):
+    def laplacian(self) -> PseudoSpectralLaplacian:
+        return PseudoSpectralLaplacian()
+
+    def potential_energy(self, 
+        potential: Callable[[ArrayLike], ScalarLike]) -> PseudoSpectralPotentialEnergy:
+
+        if self.lossless:
+            exp = ExactExponentiator()
+        else:
+            exp = PseudoSpectralExponentiator()
+
+        return PseudoSpectralPotentialEnergy(potential, exponentiator=exp)
+
+
+class PseudoSpectralLaplacian(AbstractDiagonalOperator):
     domain: ClassVar = PseudoSpectral
-    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def eigvals(self, hilbert_space: PseudoSpectral) -> Array:
         num_modes = hilbert_space.num_modes
@@ -82,30 +98,6 @@ class PseudoSpectralLaplacian(Operator):
         k_per_axis = [2 * jnp.pi * jnp.fft.fftfreq(n, d=d) for (n, d) in zip(num_modes, ds)]
         ks = hilbert_space.grid_vectors(k_per_axis)
         return -jnp.linalg.norm(ks, axis=-1) ** 2
-
-    def action(self, y: PseudoSpectralState) -> PseudoSpectralState:
-        return PseudoSpectralState(self.eigvals(y.hilbert_space) * y.coeffs, y.hilbert_space)
-
-    def exp_action(self, h: ScalarLike, y: PseudoSpectralState) -> PseudoSpectralState:
-        coeffs = jnp.exp(h * self.eigvals(y.hilbert_space)) * y.coeffs
-        return PseudoSpectralState(coeffs, y.hilbert_space)
-
-    def solve(
-        self, 
-        b: PseudoSpectralState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> PseudoSpectralState:
-
-        hilbert_space = b.hilbert_space
-        eigvals = self.eigvals(hilbert_space)
-        return hilbert_space.from_coeffs(b.coeffs / (scale * eigvals + shift))
-
-    def spectral_bounds(self, hilbert_space: PseudoSpectral) -> Array:
-        eigvals = self.eigvals(hilbert_space)
-        return jnp.array([jnp.min(eigvals), jnp.max(eigvals)])
-
-    def to_matrix(self, hilbert_space: PseudoSpectral) -> Array:
-        return jnp.diag(self.eigvals(hilbert_space))
 
 
 class PseudoSpectralExponentiator(AbstractExponentiator):
@@ -119,21 +111,19 @@ class PseudoSpectralExponentiator(AbstractExponentiator):
         return 1
 
 
-class PseudoSpectralPotentialEnergy(Operator):
+class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
     domain: ClassVar = PseudoSpectral
     exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
-    potential: Callable[[ScalarLike], ScalarLike]
 
-    def values(self, hilbert_space: PseudoSpectral) -> Array:
-        return hilbert_space.eval(self.potential)
-
-    def action(self, y: PseudoSpectralState) -> PseudoSpectralState:
-        vals = self.values(y.hilbert_space) * y.values 
-        return y.hilbert_space.from_values(vals)
-
-    def spectral_bounds(self, hilbert_space: PseudoSpectral) -> Array:
-        values = self.values(hilbert_space)
-        return jnp.array([jnp.min(values), jnp.max(values)])
+    def exp_action(self, h: ScalarLike, y: PseudoSpectralState) -> PseudoSpectralState:
+        if y.hilbert_space.lossless:
+            return super().exp_action(h, y)
+        
+        raise NoExactExponentialError(
+            f"Exact exponentiation of PseudoSpectralPotentialEnergy is not supported "
+            f"when num_modes={y.hilbert_space.num_modes} != mesh_size={y.hilbert_space.mesh_size}. "
+            f"Use PseudoSpectralExponentiator instead"
+        )
 
     def solve(
         self, 
@@ -141,12 +131,10 @@ class PseudoSpectralPotentialEnergy(Operator):
         scale: ScalarLike=-1.0, 
         shift: ScalarLike=0.0) -> PseudoSpectralState:
 
-        if b.hilbert_space.num_modes == b.hilbert_space.mesh_size:
-            hilbert_space = b.hilbert_space
-            values = self.values(hilbert_space)
-            return hilbert_space.from_values(b.values / (scale * values + shift))
+        if b.hilbert_space.lossless:
+            return AbstractPotentialEnergy.solve(self, b, scale, shift)
         else:
-            return super().solve(b, scale, shift)
+            return Operator.solve(self, b, scale, shift)
 
     def to_matrix(self, hilbert_space: PseudoSpectral):
         Vhat = jnp.fft.fftn(

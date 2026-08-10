@@ -405,17 +405,8 @@ class QuantumHamiltonianDescent(ScalarSplitTimeVaryingSystem):
         split_method=Strang(), 
         timestepper=Midpoint()):
 
-        if type(hilbert_space) == FiniteDifference:
-            op1 = -0.5 * FiniteDifferenceLaplacian(hilbert_space.spatial_dim)
-            op2 = FiniteDifferencePotentialEnergy(objective)
-        elif type(hilbert_space) == PseudoSpectral:
-            op1 = -0.5 * PseudoSpectralLaplacian()
-            op2 = PseudoSpectralPotentialEnergy(objective)
-        else:
-            raise ValueError(f"Invalid Hilbert space, recieved {hilbert_space}")
-
-        self.op1 = op1
-        self.op2 = op2
+        self.op1 = -0.5 * hilbert_space.laplacian()
+        self.op2 = hilbert_space.potential_energy(objective)
 
         self.c1 = lambda t: 1.0 / t
         self.c2 = lambda t: t
