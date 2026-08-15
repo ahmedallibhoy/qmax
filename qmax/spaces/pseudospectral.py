@@ -78,7 +78,8 @@ class PseudoSpectral(SpatialDiscretization):
     def laplacian(self) -> PseudoSpectralLaplacian:
         return PseudoSpectralLaplacian()
 
-    def potential_energy(self, 
+    def potential_energy(
+        self, 
         potential: Callable[[ArrayLike], ScalarLike]) -> PseudoSpectralPotentialEnergy:
 
         if self.lossless:
@@ -103,8 +104,7 @@ class PseudoSpectralLaplacian(AbstractDiagonalOperator):
 class PseudoSpectralExponentiator(AbstractExponentiator):
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        exp_vals = jnp.exp(h * op.values(y.hilbert_space)) * y.values
-        return y.hilbert_space.from_values(exp_vals)
+        return AbstractPotentialEnergy.exp_action(op, h, y)
 
     @property
     def order(self) -> int:
@@ -117,7 +117,7 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
 
     def exp_action(self, h: ScalarLike, y: PseudoSpectralState) -> PseudoSpectralState:
         if y.hilbert_space.lossless:
-            return super().exp_action(h, y)
+            return AbstractPotentialEnergy.exp_action(self, h, y)
         
         raise NoExactExponentialError(
             f"Exact exponentiation of PseudoSpectralPotentialEnergy is not supported "

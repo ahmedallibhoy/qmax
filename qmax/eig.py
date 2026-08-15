@@ -32,7 +32,7 @@ def op_eigh_lanczos(
     orthogonalize: bool=True,
     key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractState, Array]:
 
-    alpha, beta, Q = op_lanczos(op, hilbert_space, num_iterations, orthogonalize, key)
+    alpha, beta, Q, _ = op_lanczos(op, hilbert_space, num_iterations, orthogonalize, key)
     eigvals, Y = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
     eigvecs = Q.contract(Y)
     residuals = jnp.abs(beta[-1] * Y[-1, :])
@@ -48,6 +48,6 @@ def op_spectral_bounds_lanczos(
     orthogonalize: bool=False,
     key: PRNGKeyArray=jax.random.key(0)) -> tuple[Scalar, Scalar]:
 
-    alpha, beta, _ = op_lanczos(op, hilbert_space, num_iterations, orthogonalize=orthogonalize, key=key)
+    alpha, beta, _, _ = op_lanczos(op, hilbert_space, num_iterations, orthogonalize=orthogonalize, key=key)
     eigvals = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1], eigvals_only=True)
     return jnp.min(eigvals), jnp.max(eigvals)

@@ -29,7 +29,23 @@ S_Y = jnp.array([[0., -1j], [1j, 0.]], dtype=complex)
 S_Z = jnp.array([[1., 0.], [0., -1.]], dtype=complex)
 
 
-class PauliOperator(Operator):
+class AbstractPauliOperator(Operator):
+
+    def exp_action(self, h: ScalarLike, y: QubitsState) -> QubitsState:                    
+        return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
+
+    def spectral_bounds(self, hilbert_space: Qubits) -> Array:     
+        return jnp.array([-1.0, 1.0])
+
+    def solve(self, 
+        b: QubitsState, 
+        scale: ScalarLike=-1.0, 
+        shift: ScalarLike=0.0) -> Qubits:           
+        
+        return (shift * b - scale * self.action(b)) / (shift ** 2 - scale ** 2)
+
+
+class PauliOperator(AbstractPauliOperator):
     domain: ClassVar = TwoLevel
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
     matrix: Array
@@ -52,17 +68,6 @@ class PauliOperator(Operator):
 
     def action(self, y: TwoLevelState) -> TwoLevelState:
         return y.hilbert_space.from_coeffs((self.matrix @ y.coeffs[..., None])[..., 0])
-
-    # TODO: should probably use _PauliProductMixin
-    def exp_action(self, h: ScalarLike, y: TwoLevelState) -> TwoLevelState:
-        return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
-
-    def spectral_bounds(self, hilbert_space: TwoLevel) -> Array:
-        return jnp.array([-1, 1])
-
-    def solve(self, b: TwoLevelState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
-        A = scale * self.matrix + shift * jnp.eye(2)
-        return b.hilbert_space.from_coeffs(jnp.linalg.solve(A, b.coeffs[..., None])[..., 0])
 
     def to_matrix(self, hilbert_space: TwoLevel) -> Array:
         return self.matrix
@@ -94,23 +99,7 @@ class Qubits(TensorPower):
         self.power = num_bits
 
 
-class _PauliProductMixin:
-
-    def exp_action(self, h: ScalarLike, y: QubitsState) -> QubitsState:                    
-        return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
-
-    def spectral_bounds(self, hilbert_space: Qubits) -> Array:     
-        return jnp.array([-1.0, 1.0])
-
-    def solve(self, 
-        b: QubitsState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> Qubits:           
-        
-        return (shift * b - scale * self.action(b)) / (shift ** 2 - scale ** 2)
-
-
-class PauliProduct(_PauliProductMixin, KroneckerProduct):
+class PauliProduct(AbstractPauliOperator, KroneckerProduct):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def __init__(self, ax_list: list[str]):
@@ -119,7 +108,7 @@ class PauliProduct(_PauliProductMixin, KroneckerProduct):
         )
 
 
-class BatchPauliProduct(_PauliProductMixin, BatchKroneckerProduct):
+class BatchPauliProduct(AbstractPauliOperator, BatchKroneckerProduct):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def __init__(self, ax_list: list[str]):

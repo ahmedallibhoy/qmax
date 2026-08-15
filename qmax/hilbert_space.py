@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Union, Sequence
 from abc import abstractmethod
 
 import equinox as eqx
@@ -67,7 +67,36 @@ class AbstractHilbertSpace(eqx.Module):
         return self.from_coeffs(random_coeffs)
 
     def zeros_like(self, y: AbstractState) -> AbstractState:
-        return self.state_type(jnp.zeros_like(y.coeffs), self)
+        return self.from_coeffs(jnp.zeros_like(y.coeffs))
+
+    def stack(self, ys: Sequence[AbstractState], axis=0) -> AbstractState:
+        if any(y.hilbert_space != self for y in ys):
+            raise ValueError("Cannot join states from different spaces")    
+        
+        max_rank = max([y.rank for y in ys])
+
+        if axis < 0:
+            axis += max_rank + 1
+
+        if not 0 <= axis < max_rank + 1:
+            raise ValueError(f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}")
+        
+        return self.from_coeffs(jnp.stack([y.coeffs for y in ys], axis))
+
+    def concatenate(self, ys: Sequence[AbstractState], axis=0) -> AbstractState:
+        if any(y.hilbert_space != self for y in ys):
+            raise ValueError("Cannot join states from different spaces")
+
+        max_rank = max([y.rank for y in ys])
+
+        if axis < 0:
+            axis += max_rank
+
+        if not 0 <= axis < max_rank:
+            raise ValueError(f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}")
+
+        coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
+        return self.from_coeffs(jnp.concatenate(coeffs, axis))
 
 
 class AbstractState(eqx.Module):
@@ -153,27 +182,32 @@ class AbstractState(eqx.Module):
         weights: ArrayLike, 
         axes: Union[int, tuple]=(0, 0)) -> AbstractState:
 
-        rank = len(self.shape)
-
         if isinstance(axes, int):
             w_axes, c_axes = tuple(range(axes)), tuple(range(axes))
         else:
             w_axes, c_axes = axes
             w_axes, c_axes = _to_tuple(w_axes), _to_tuple(c_axes)
 
-        c_axes = tuple(a + rank if a < 0 else a for a in c_axes)
-
-        if any(not 0 <= a < rank for a in c_axes):
-            raise ValueError(
-                f"axes {c_axes} out of range for a state with {rank} batch axes; "
-                "the coefficient axis cannot be contracted")
-
+        c_axes = tuple(self.coeff_axis(a) for a in c_axes)
         new_coeffs = jnp.tensordot(weights, self.coeffs, axes=(w_axes, c_axes))
         return self.hilbert_space.from_coeffs(new_coeffs)
 
     @property
     def shape(self) -> tuple[int, ...]:
         return self.coeffs.shape[:-1]
+
+    @property
+    def rank(self) -> int:
+        return len(self.shape)
+
+    def coeff_axis(self, axis: int) -> int:
+        if axis < 0:
+            axis += self.rank 
+
+        if not 0 <= axis < self.rank:
+            raise ValueError(f"axis={axis} out of range for batched state vector of rank {self.rank}")
+
+        return axis
 
     def __getitem__(self, idx: Index) -> AbstractState:            
         return self.hilbert_space.from_coeffs(self.coeffs[_coeff_index(idx)])

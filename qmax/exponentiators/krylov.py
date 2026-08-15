@@ -77,8 +77,7 @@ class KrylovExponentiator(AbstractExponentiator):
         hilbert_space = y.hilbert_space
 
         def fn(y_i):
-            alpha, beta, Q = op_lanczos(
-                op, hilbert_space, self.num_iterations,
+            alpha, beta, Q, _ = op_lanczos(op, hilbert_space, self.num_iterations,
                 orthogonalize=self.orthogonalize, w0=y_i)
 
             beta0 = y_i.norm()
