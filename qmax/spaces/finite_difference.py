@@ -51,6 +51,8 @@ class _FiniteDifference1D(SpatialDiscretization):
 
 class _FiniteDifference1DLaplacian(Operator):
     domain: ClassVar[type[AbstractHilbertSpace]] = _FiniteDifference1D
+    is_hermitian: ClassVar[bool] = True
+    is_unitary: ClassVar[bool] = False
     exponentiator: AbstractExponentiator = eqx.field(default=CrankNicolson(), kw_only=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:

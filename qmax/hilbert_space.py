@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from .operator import Operator
 
 
+type Shape = tuple[int, ...]
+
 type Index = Union[int, tuple[int, ...]]
 
 
@@ -39,7 +41,7 @@ class AbstractHilbertSpace(eqx.Module):
     def dim(self) -> int:
         pass
 
-    def batch_shape(self, shape: tuple[int, ...]) -> tuple[int, ...]:
+    def batch_shape(self, shape: Shape) -> Shape:
         return shape + (self.dim,)
 
     def innerp(self, y1: AbstractState, y2: AbstractState) -> ScalarLike:
@@ -57,11 +59,11 @@ class AbstractHilbertSpace(eqx.Module):
     def from_coeffs(self, coeffs: ArrayLike) -> AbstractState:
         return self.state_type(coeffs, self)
 
-    def zeros(self, shape: tuple[int, ...]=()) -> AbstractState:
+    def zeros(self, shape: Shape=()) -> AbstractState:
         batch_shape = self.batch_shape(shape)
         return self.from_coeffs(jnp.zeros(batch_shape))
 
-    def random(self, key: PRNGKeyArray, shape: tuple[int, ...]=()) -> AbstractState:
+    def random(self, key: PRNGKeyArray, shape: Shape=()) -> AbstractState:
         batch_shape = self.batch_shape(shape)
         random_coeffs = jax.random.normal(key, shape=batch_shape, dtype=complex)
         return self.from_coeffs(random_coeffs)
@@ -193,7 +195,7 @@ class AbstractState(eqx.Module):
         return self.hilbert_space.from_coeffs(new_coeffs)
 
     @property
-    def shape(self) -> tuple[int, ...]:
+    def shape(self) -> Shape:
         return self.coeffs.shape[:-1]
 
     @property

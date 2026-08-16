@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..lanczos import op_lanczos
+from ..lanczos import lanczos
 from ..utils import over_batch
 from .base import AbstractExponentiator, Order
 from ..eig import op_spectral_bounds_lanczos
@@ -77,7 +77,7 @@ class KrylovExponentiator(AbstractExponentiator):
         hilbert_space = y.hilbert_space
 
         def fn(y_i):
-            alpha, beta, Q, _ = op_lanczos(op, hilbert_space, self.num_iterations,
+            alpha, beta, Q, _ = lanczos(op, hilbert_space, self.num_iterations,
                 orthogonalize=self.orthogonalize, w0=y_i)
 
             beta0 = y_i.norm()

@@ -92,7 +92,9 @@ class PseudoSpectral(SpatialDiscretization):
 
 class PseudoSpectralLaplacian(AbstractDiagonalOperator):
     domain: ClassVar = PseudoSpectral
-
+    is_hermitian: ClassVar[bool] = True
+    is_unitary: ClassVar[bool] = False
+    
     def eigvals(self, hilbert_space: PseudoSpectral) -> Array:
         num_modes = hilbert_space.num_modes
         ds = [(hilbert_space.xf[i] - hilbert_space.x0[i]) / n for i, n in enumerate(num_modes)]

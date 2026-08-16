@@ -31,6 +31,14 @@ S_Z = jnp.array([[1., 0.], [0., -1.]], dtype=complex)
 
 class AbstractPauliOperator(Operator):
 
+    @property
+    def is_hermitian(self) -> bool:
+        return True
+
+    @property
+    def is_unitary(self) -> bool:
+        return True
+
     def exp_action(self, h: ScalarLike, y: QubitsState) -> QubitsState:                    
         return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 

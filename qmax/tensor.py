@@ -195,6 +195,14 @@ class LiftOperator(AbstractTensorOperator):
     def domain(self):
         return tuple(self.op.domain if i == self.factor_idx else AbstractHilbertSpace for i in range(self.num_factors))
 
+    @property
+    def is_hermitian(self) -> bool:
+        return self.op.is_hermitian
+
+    @property
+    def is_unitary(self) -> bool:
+        return self.op.is_unitary
+
     def action(self, y: TensorState) -> TensorState:
         return apply_along_state(lambda s: self.op(s), y, self.factor_idx)
 
@@ -253,6 +261,14 @@ class KroneckerSum(AbstractTensorOperator):
     def domain(self):
         return tuple(op.domain for op in self.ops)
 
+    @property
+    def is_hermitian(self) -> bool:
+        return all(op.is_hermitian for op in self.ops)
+
+    @property
+    def is_unitary(self) -> bool:
+        return False
+
     def action(self, y: TensorState) -> TensorState:
         y_list = [
             apply_along_state(lambda s, op=op: op(s), y, factor_idx)
@@ -298,6 +314,14 @@ class KroneckerProduct(AbstractTensorOperator):
     @property
     def domain(self):
         return tuple(op.domain for op in self.ops)
+
+    @property
+    def is_hermitian(self) -> bool:
+        return all(op.is_hermitian for op in self.ops)
+
+    @property
+    def is_unitary(self) -> bool:
+        return all(op.is_unitary for op in self.ops)
 
     def action(self, y: TensorState) -> TensorState:
         for factor_idx, op in enumerate(self.ops):
@@ -397,6 +421,14 @@ class BatchKroneckerSum(AbstractTensorOperator):
     def domain(self):
         return tuple(op.domain for op in self.ops)
 
+    @property
+    def is_hermitian(self) -> bool:
+        return all(op.is_hermitian for op in self.ops)
+
+    @property
+    def is_unitary(self) -> bool:
+        return False
+
     def action(self, y: TensorState) -> TensorState:
         num_factors = y.hilbert_space.num_factors
         factorspace = y.hilbert_space.factorspace
@@ -458,6 +490,14 @@ class BatchKroneckerProduct(AbstractTensorOperator):
     @property
     def domain(self):
         return tuple(op.domain for op in self.ops)
+
+    @property
+    def is_hermitian(self) -> bool:
+        return all(op.is_hermitian for op in self.ops)
+
+    @property
+    def is_unitary(self) -> bool:
+        return all(op.is_unitary for op in self.ops)
 
     def action(self, y: TensorState) -> TensorState:
         num_factors = y.hilbert_space.num_factors

@@ -8,5 +8,5 @@ from . import exponentiators
 
 from . import tensor
 
-from .system import *
+from .propagator import *
 from .utils import *

@@ -21,7 +21,7 @@ def gram_schmidt2(y, Z):
     return y2
 
 
-def op_lanczos(
+def lanczos(
     op: Operator,
     hilbert_space: AbstractHilbertSpace, 
     num_iterations: int, 
@@ -44,6 +44,8 @@ def op_lanczos(
         )
 
     def lanczos_step(beta, q, w):
+        # TODO: what should actually happen when beta == 0 is that 
+        # we select a unit q_next that is orthogonal to Q
         q_next = w / jnp.where(beta == 0, 1.0, beta)
         z = op.action(q_next)        
         alpha_next = jnp.real(q_next @ z)
@@ -129,7 +131,7 @@ def restart_lanczos(
         w0 = gram_schmidt2(w0, Q0)
         beta0 = w0.norm()
 
-        alpha, beta, Q, w = op_lanczos(op, hilbert_space, max_krylov_dim - num_ritz - 1,
+        alpha, beta, Q, w = lanczos(op, hilbert_space, max_krylov_dim - num_ritz - 1,
             orthogonalize=True, w0=w0, Q0=Q0, idx0=num_ritz + 1)
 
         alpha = jnp.append(alpha0, alpha)
@@ -155,7 +157,7 @@ def restart_lanczos(
 
         return carry_next, None
 
-    alpha, beta, Q, w = op_lanczos(op, hilbert_space, max_krylov_dim, orthogonalize=True, key=key)
+    alpha, beta, Q, w = lanczos(op, hilbert_space, max_krylov_dim, orthogonalize=True, key=key)
 
     theta, Y = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
     Qk, sk, thetak = selectk(theta, Y, Q)

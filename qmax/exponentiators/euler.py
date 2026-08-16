@@ -34,7 +34,7 @@ class ImplicitEuler(AbstractExponentiator):
 class CrankNicolson(AbstractExponentiator):
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return op.solve(y + h / 2 * op.action(y), scale=-h / 2, shift=1.0)
+        return op.solve(y + (h / 2) * op.action(y), scale=-h / 2, shift=1.0)
 
     @property
     def order(self) -> Order:

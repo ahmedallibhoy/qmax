@@ -124,6 +124,8 @@ class SpatialDiscretization(AbstractHilbertSpace):
 class AbstractPotentialEnergy(Operator):
     domain: ClassVar = SpatialDiscretization
     potential: Callable[[ArrayLike], ScalarLike]
+    is_hermitian: ClassVar[bool] = True
+    is_unitary: ClassVar[bool] = False
 
     def values(self, hilbert_space: SpatialDiscretization) -> Array:
         return hilbert_space.eval(self.potential)

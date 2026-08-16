@@ -7,10 +7,17 @@ import jax.numpy as jnp
 from jaxtyping import PRNGKeyArray, Array, Scalar
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .lanczos import op_lanczos
+from .lanczos import lanczos
 
 if TYPE_CHECKING:
     from .operator import Operator
+
+
+# TODO:
+#   1. Davidson's method 
+#   2. Chebyshev filter based preconditioning
+#
+#
 
 
 def op_eigh(
