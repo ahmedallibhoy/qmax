@@ -4,6 +4,7 @@ from jaxtyping import ScalarLike
 
 from .hilbert_space import AbstractHilbertSpace
 from .operator import Operator
+from .exponentiators import NotExponentiableError
 from .tensor import AbstractTensorOperator
 
 
@@ -34,9 +35,6 @@ def _adapt_dict(
                 root = eqx.tree_at(lambda o, k=key: getattr(o, k), root, op_dict[key]["obj"])
 
     op_dict["obj"] = root
-    if op_dict["exp_delegated"]:
-        return op_dict
-
     new_exp = root.exponentiator.adapt(root, hilbert_space, dt_max * op_dict["h_scale"])
     op_dict["obj"] = root.with_exponentiator(new_exp)
     return op_dict

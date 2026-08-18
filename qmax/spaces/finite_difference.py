@@ -9,7 +9,7 @@ import lineax as lx
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator
+from ..operator import Operator, AbstractHermitianOperator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
 from ..tensor import TensorProduct, TensorState, KroneckerSum
 from ..utils import over_batch
@@ -49,18 +49,19 @@ class _FiniteDifference1D(SpatialDiscretization):
         return self.dx_range[0]
 
 
-class _FiniteDifference1DLaplacian(Operator):
+class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
     domain: ClassVar[type[AbstractHilbertSpace]] = _FiniteDifference1D
-    is_hermitian: ClassVar[bool] = True
-    is_unitary: ClassVar[bool] = False
     exponentiator: AbstractExponentiator = eqx.field(default=CrankNicolson(), kw_only=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(
             [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+
         values_prev = jnp.concatenate(
             [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+
         lapl_values = (values_next - 2 * y.values + values_prev) / (y.hilbert_space.dx ** 2)
+        
         return y.hilbert_space.from_values(lapl_values)
 
     def solve(
@@ -138,7 +139,7 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
         return FiniteDifferencePotentialEnergy(potential)
 
 
-class FiniteDifferenceLaplacian(KroneckerSum):
+class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
     domain: ClassVar[type[AbstractHilbertSpace]] = FiniteDifference
 
     def __init__(self, spatial_dim: int):

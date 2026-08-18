@@ -12,10 +12,21 @@ from .hilbert_space import AbstractState, AbstractHilbertSpace
 from .operator import Operator
 from .control import AbstractControl, ControlFunction
 from .timestepper import AbstractTimeStepper, Midpoint
-from .split import AbstractSplitMethod, Strang
+from .exponentiators import AbstractSplitMethod, Strang
 from .spaces.spatial_discretization import SpatialDiscretization
 from .tensor import AbstractTensorOperator
-from .adapt import adapt
+from .adapt import adapt_operator
+
+
+# TODO:
+#   1. ControlledPropagator should evaluate a Hamiltonian of the form
+#           H(t) = H_0 + \sum_{i=1}^{m}u_i(t)H_i
+#   2. Progress bars
+#   3. propagate() should optionally compute cost functions:
+#       a. Running cost c(t, y, args) 
+#       b. Terminal cost V(t1, y1, args)
+#
+
 
 
 class PropagateResult(eqx.Module):
@@ -201,7 +212,7 @@ class ControlledPropagator(AbstractPropagator):
         y_next = y
 
         for i in range(self.weights.shape[0]):
-            y_next = self.split_method.exp(
+            y_next = self.split_method(
                 c1_coeffs[i] * self.op1 + c2_coeffs[i] * self.op2, (-1j / self.hbar) * dt, y_next)
 
         return y_next
@@ -249,7 +260,7 @@ class QuantumHamiltonianDescent(ControlledPropagator):
         y_next = y
 
         for i in range(self.weights.shape[0]):
-            y_next = self.split_method.exp(
+            y_next = self.split_method(
                 c1_coeffs[i] * self.op1 + c2_coeffs[i] * self.op2, (-1j / self.hbar) * dt, y_next)
 
         return y_next

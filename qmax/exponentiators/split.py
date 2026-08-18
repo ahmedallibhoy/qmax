@@ -9,18 +9,29 @@ import jax.numpy as jnp
 
 from jaxtyping import ScalarLike, Array
 
-from .hilbert_space import AbstractState
-from .exponentiators import Order, min_order, AbstractExponentiator
+from ..hilbert_space import AbstractState
+from .base import Order, min_order, AbstractExponentiator, NotExponentiableError
 
 if TYPE_CHECKING:
-    from .operator import AddOperator
-
+    from ..operator import Operator, AddOperator
 
 class AbstractSplitMethod(AbstractExponentiator):
     
     def effective_order(self, add_op: AddOperator) -> Order:
         return min_order(
-            self.order, add_op.op1.exponentiator.order, add_op.op2.exponentiator.order)
+            self.order, add_op.op1.exp_order, add_op.op2.exp_order)
+
+    def check_exponentiable(self, op: Operator):
+        from ..operator import AddOperator
+
+        if not isinstance(op, AddOperator):
+            raise NotExponentiableError(
+                f"{type(self).__name__} can only exponentiate operators of type AddOperator "
+                f"but received operator of type {type(op).__name__}"
+            )
+
+        op.op1.check_exponentiable_tree()
+        op.op2.check_exponentiable_tree()
 
     @property
     @abstractmethod

@@ -8,13 +8,16 @@ import jax
 import jax.numpy as jnp
 import lineax as lx
 
-from jaxtyping import ScalarLike, Array, ArrayLike
+from jaxtyping import ScalarLike, Array, ArrayLike, PRNGKeyArray
 
 from ._internal import _update_field
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .exponentiators import AbstractExponentiator, ExactExponentiator, ScaleSquareExponentiator
-from .split import AbstractSplitMethod, Strang
+from .exponentiators import (
+    AbstractExponentiator, ExactExponentiator, NoExponentiator,
+    ShiftScaleExponentiator, TruncatedTaylorExponentiator, NotExponentiableError,
+    AbstractSplitMethod, Strang
+)
 from .utils import over_batch
 
 
@@ -22,7 +25,7 @@ class IncompatibleDomainError(TypeError):
     pass
 
 
-class NoExactExponentialError(Exception):
+class NoExactExponentialError(NotExponentiableError):
     pass 
 
 
@@ -65,19 +68,14 @@ def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
         return x
     if isinstance(x, Identity):
         return 1.0
-    if isinstance(x, NegOperator) and isinstance(x.op, Identity):
-        return -1.0
-    if isinstance(x, ScalarMulOperator) and isinstance(x.op, Identity):
-        return x.c
+    if isinstance(x, ShiftScaleOperator) and isinstance(x.op, Identity):
+        return x.shift + x.scale
     return None
 
 
 class Operator(eqx.Module):
     domain: ClassVar = AbstractHilbertSpace
-    lx_tags: ClassVar = []
-    is_hermitian: ClassVar[bool] = False
-    is_unitary: ClassVar[bool] = False
-    exponentiator: eqx.AbstractVar[AbstractExponentiator]
+    exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
 
     def _check_domain(self, y: AbstractState):
         try:
@@ -88,31 +86,61 @@ class Operator(eqx.Module):
                 f"but received a state on {_get_name(y.hilbert_space.structure)}"
             )
 
-    def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        # Rebuild field-wise rather than via eqx.tree_at: exponentiators are
-        # leaf-less modules, so tree_at can't locate them by leaf identity and
-        # falls through to a branch that calls len() on the module. Bypassing
-        # __init__ is safe -- only the exponentiator changes, and nothing that
-        # __check_init__ validates (e.g. domain compatibility) is affected.
 
+    def with_exponentiator(self, exponentiator: AbstractExponentiator):
+        # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
         return _update_field(self, "exponentiator", exponentiator)
 
+    @property
+    def can_exponentiate(self) -> bool:
+        try:
+            self.check_exponentiable_tree()
+            return True
+        except NotExponentiableError:
+            return False
+
+    # --------------------------------------------------------------------------------------------
+    # Exponentiator delegators
+    #   Convenience wrappers for querying properties of which are operator dependent. 
+    #   These should be thin wrappers which pass self to the corresponding method of AbstractExponentiator
+    # --------------------------------------------------------------------------------------------
+    
+    def check_exponentiable_tree(self) -> None:
+        self.exponentiator.check_exponentiable_tree(self)
+
+    @property
+    def exp_order(self):
+        try:
+            return self.exponentiator.effective_order(self)
+        except NotExponentiableError as e:
+            raise e.under(self) from None
+
+    # --------------------------------------------------------------------------------------------
     # Public, domain-checked entry points
+    # --------------------------------------------------------------------------------------------
+
     def __call__(self, y: AbstractState) -> AbstractState:
         self._check_domain(y)
         return self.action(y)
 
     def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         self._check_domain(y)
-        return self.exponentiator.exp(self, h, y)
+        return self.exponentiator(self, h, y)
 
+    # --------------------------------------------------------------------------------------------
     # Interfaces
+    # --------------------------------------------------------------------------------------------
+
     @abstractmethod
     def action(self, y: AbstractState) -> AbstractState:
         pass
 
+    @abstractmethod
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        pass
+
     def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        raise NoExactExponentialError
+        raise NoExactExponentialError(f"Exact exponential cannot be computed: {type(self).__name__} does not override base exp_action")
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         """
@@ -126,10 +154,6 @@ class Operator(eqx.Module):
         def fn(b_i):
             shape = jax.eval_shape(lambda: b_i)
             lx_op = lx.FunctionLinearOperator(func, input_structure=shape)
-            
-            if len(self.lx_tags) > 0:
-                lx_op = lx.TaggedLinearOperator(lx_op, self.lx_tags)
-
             sol = lx.linear_solve(lx_op, b_i, solver=lx.GMRES(rtol=1e-9, atol=1e-9))
             return sol.value
 
@@ -144,46 +168,45 @@ class Operator(eqx.Module):
     def expected_value(self, y: AbstractState) -> ScalarLike:
         return y.expected_value(self)
 
-    @property
-    def exp_order(self):
-        return self.exponentiator.order
-
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         raise NotImplementedError
 
-    # Operator algebra
+    # --------------------------------------------------------------------------------------------
+    # Operator Algebra
+    # --------------------------------------------------------------------------------------------
+
     def __add__(self, other: Union[Operator, ScalarLike]) -> Operator:
         c = _as_shift(other)
         if c is not None:
-            return ShiftOperator(self, c)
+            return ShiftScaleOperator(self, shift=c)
         if not isinstance(other, Operator):
             return NotImplemented
 
         # self may be the identity term instead
         c = _as_shift(self)
         if c is not None:
-            return ShiftOperator(other, c)  
+            return ShiftScaleOperator(other, shift=c)  
             
         return AddOperator(self, other)
 
     def __radd__(self, other: Union[Operator, ScalarLike]) -> Operator:
         c = _as_shift(other)
         if c is not None:
-            return ShiftOperator(self, c)
+            return ShiftScaleOperator(self, shift=c)
         if not isinstance(other, Operator):
             return NotImplemented
 
         # self may be the identity term instead
         c = _as_shift(self)
         if c is not None:
-            return ShiftOperator(other, c)
+            return ShiftScaleOperator(other, shift=c)
 
         return AddOperator(other, self)
 
     def __sub__(self, other: Union[Operator, ScalarLike]) -> Operator:
         c = _as_shift(other)
         if c is not None:
-            return ShiftOperator(self, -c)
+            return ShiftScaleOperator(self, shift=-c)
         if isinstance(other, Operator):
             return self + (-other) 
         return NotImplemented
@@ -191,129 +214,172 @@ class Operator(eqx.Module):
     def __rsub__(self, other: Union[Operator, ScalarLike]) -> Operator:
         c = _as_shift(other)
         if c is not None:
-            return ShiftOperator(-self, c)
+            return ShiftScaleOperator(self, shift=c, scale=-1.0)
         if isinstance(other, Operator):
             return other + (-self) 
         return NotImplemented
 
-    def __mul__(self, other: ScalarLike) -> ScalarMulOperator:
+    def __mul__(self, other: ScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ScalarMulOperator(self, other)
+        return ShiftScaleOperator(self, scale=other)
 
-    def __rmul__(self, other: ScalarLike) -> ScalarMulOperator:
+    def __rmul__(self, other: ScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ScalarMulOperator(self, other) 
+        return ShiftScaleOperator(self, scale=other) 
 
-    def __truediv__(self, other: ScalarLike) -> ScalarMulOperator:
+    def __matmul__(self, other: Operator) -> Operator:
+        if not isinstance(other, Operator):
+            return NotImplemented
+
+        c = _as_shift(other)
+        if c is not None:
+            return c * self 
+
+        c = _as_shift(self)
+        if c is not None:
+            return c * other
+
+        return MatMulOperator(self, other)
+
+    def __rmatmul__(self, other: Operator) -> Operator:
+        if not isinstance(other, Operator):
+            return NotImplemented
+
+        # A @ (c * I) == c * A
+        c = _as_shift(other)
+        if c is not None:
+            return c * self 
+
+        # (c * I) @ B == c * B
+        c = _as_shift(self)
+        if c is not None:
+            return c * other
+
+        return MatMulOperator(other, self)
+
+    def adjoint(self) -> Operator:
+        return AdjOperator(self)
+
+    @property
+    def H(self) -> Operator:
+        return self.adjoint()
+
+    def __truediv__(self, other: ScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ScalarMulOperator(self, 1.0 / other) 
+        return ShiftScaleOperator(self, scale=1.0 / other) 
 
     def __neg__(self) -> Operator:
-        if isinstance(self, NegOperator):
-            return self.op
-
-        return NegOperator(self)
+        return ShiftScaleOperator(self, scale=-1.0)
 
     def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
             "h_scale": h_scale,
-            "exp_delegated": False
         }
 
 
-class ShiftOperator(Operator):
+class AbstractHermitianOperator(Operator):
+
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return self.action(y)
+
+    def adjoint(self) -> AbstractHermitianOperator:
+        return self
+
+
+class ShiftScaleOperator(Operator):
     """
-    Implements op + c * Identity()
+    Implements shift * Identity() + scale * op
     """
     op: Operator
-    c: ScalarLike
+    shift: ScalarLike = 0.0
+    scale: ScalarLike = 1.0
 
-    def __init__(self, op: Operator, c: ScalarLike):
-        if isinstance(op, ShiftOperator):
-            # If op is a ShiftOperator, i.e. op = A + c0 * I
-            # then shift can be collapsed to A + (c0 + c) * I
+    def __init__(
+        self, 
+        op: Operator, 
+        shift: ScalarLike=0.0,
+        scale: ScalarLike=1.0, 
+        exponentiator: Optional[AbstractExponentiator]=None):
+
+        if isinstance(op, ShiftScaleOperator):
+            # If op = s0 * I + c0 * A then 
+            # s1 * I + c1 * op can be collapsed to (s1 + c1 * s0) * I + c0 * c1 * A 
             self.op = op.op
-            self.c = c + op.c 
+            self.shift = shift + scale * op.shift
+            self.scale = scale * op.scale
         else:
             self.op = op 
-            self.c = c
+            self.shift = shift 
+            self.scale = scale 
+
+        if exponentiator is not None:
+            self.exponentiator = exponentiator
+        else:
+            self.exponentiator = ShiftScaleExponentiator()
 
     @property
     def domain(self): 
         return self.op.domain
 
-    @property
-    def is_hermitian(self):
-        return self.op.is_hermitian and (not jnp.iscomplexobj(self.c))
+    def action(self, y: AbstractState) -> AbstractState:
+        return self.scale * self.op.action(y) + self.shift * y
 
-    @property
-    def is_unitary(self):
-        # TODO: should branch on if |c| == 1 if we can avoid tracer issues
-        return False
-
-    @property
-    def exponentiator(self): 
-        return self.op.exponentiator
-
-    @property
-    def exp_order(self):
-        return self.op.exp_order
-
-    def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        # exponentiator is a property delegating to self.op, so push the swap
-        # into the wrapped operator and re-wrap with the shift.
-        return ShiftOperator(self.op.with_exponentiator(exponentiator), self.c)
-
-    def action(self, y):
-        return self.op.action(y) + self.c * y
-
-    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        # The shift factors out exactly, so delegate to the base operator's own
-        # exponentiator rather than inheriting Operator.exp, which would hand
-        # *this* operator to it. A split method would then look for op1/op2 here
-        # and not find them.
-        self._check_domain(y)
-        return jnp.exp(h * self.c) * self.op.exp(h, y)
-
-    def exp_action(self, h, y):
-        return jnp.exp(h * self.c) * self.op.exp_action(h, y)
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return jnp.conj(self.scale) * self.op.adj_action(y) + jnp.conj(self.shift) * y
 
     def solve(self, b, scale=-1.0, shift=0.0):
-        return self.op.solve(b, scale, shift + scale * self.c)
+        return self.op.solve(b, scale * self.scale, shift + scale * self.shift)
 
     def spectral_bounds(self, hilbert_space):
-        if not self.is_hermitian:
+        if jnp.iscomplexobj(self.shift) or jnp.iscomplexobj(self.scale):
             raise NoRealSpectrumError(
-                f"{type(self.op).__name__} + c * Identity() is not Hermitian since c={self.c} is complex"
+                f"scale * {type(self.op).__name__} + shift * Identity() does not have a real spectrum since shift={self.shift} or scale={self.scale} is complex"
             )
 
-        return self.op.spectral_bounds(hilbert_space) + self.c
+        return jnp.sort(self.scale * self.op.spectral_bounds(hilbert_space) + self.shift)
 
     def to_matrix(self, hilbert_space):
-        return self.op.to_matrix(hilbert_space) + self.c * jnp.eye(hilbert_space.dim)
+        return self.scale * self.op.to_matrix(hilbert_space) + self.shift * jnp.eye(hilbert_space.dim)
+
+    def adjoint(self) -> Operator:
+        return jnp.conj(self.shift) + jnp.conj(self.scale) * self.op.adjoint()
 
     def to_dict(self, h_scale: int=1.0) -> dict:
         return {
             "class": type(self).__name__,
             "obj": self,
             "h_scale": h_scale,
-            "exp_delegated": True, 
-            "op": self.op.to_dict(h_scale)
+            "op": self.op.to_dict(jnp.abs(self.scale) * h_scale)
         }
 
 
 class AddOperator(Operator):
     op1: Operator
     op2: Operator
-    exponentiator: AbstractExponentiator = eqx.field(default=Strang(), kw_only=True)
+
+    def __init__(
+        self, 
+        op1: Operator, 
+        op2: Operator, 
+        exponentiator: Optional[AbstractExponentiator]=None):
+
+        self.op1 = op1 
+        self.op2 = op2
+
+        if exponentiator is not None:
+            self.exponentiator = exponentiator
+        elif not op1.can_exponentiate or not op2.can_exponentiate:
+            self.exponentiator = TruncatedTaylorExponentiator()
+        else:
+            self.exponentiator = Strang()
 
     def __check_init__(self):
         try:
@@ -328,26 +394,20 @@ class AddOperator(Operator):
     def domain(self):
         return _reconcile_domains(self.op1.domain, self.op2.domain)
 
-    @property
-    def is_hermitian(self):
-        return self.op1.is_hermitian and self.op2.is_hermitian
-
-    @property
-    def is_unitary(self):
-        return False
-
-    @property
-    def exp_order(self):
-        return self.exponentiator.effective_order(self)
-
     def action(self, y: AbstractState) -> AbstractState:
         return self.op1.action(y) + self.op2.action(y)
+
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return self.op1.adj_action(y) + self.op2.adj_action(y)
 
     def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.op1.spectral_bounds(hilbert_space) + self.op2.spectral_bounds(hilbert_space)
 
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
         return self.op1.to_matrix(hilbert_space) + self.op2.to_matrix(hilbert_space)
+
+    def adjoint(self) -> Operator:
+        return self.op1.adjoint() + self.op2.adjoint()
 
     def to_dict(self, h_scale: int=1.0) -> dict:
         if isinstance(self.exponentiator, AbstractSplitMethod):
@@ -362,140 +422,65 @@ class AddOperator(Operator):
             "class": type(self).__name__,
             "obj": self,
             "h_scale": h_scale,
-            "exp_delegated": False,
             "op1": op1_val,
             "op2": op2_val
         }
 
 
-class NegOperator(Operator):
-    op: Operator
+class MatMulOperator(Operator):
+    op1: Operator
+    op2: Operator
+    exponentiator: AbstractExponentiator = eqx.field(default=TruncatedTaylorExponentiator(), kw_only=True)
 
     @property
     def domain(self):
-        return self.op.domain
-
-    @property
-    def is_hermitian(self):
-        return self.op.is_hermitian
-
-    @property
-    def is_unitary(self):
-        return self.op.is_unitary
-
-    @property
-    def exponentiator(self):
-        return self.op.exponentiator
-
-    @property
-    def exp_order(self):
-        return self.op.exp_order
-
-    def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        return -self.op.with_exponentiator(exponentiator)
+        return _reconcile_domains(self.op1.domain, self.op2.domain)
 
     def action(self, y: AbstractState) -> AbstractState:
-        return -self.op.action(y)
+        return self.op1.action(self.op2.action(y))
 
-    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp(-h, y)
-
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp_action(-h, y)
-
-    def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
-        return self.op.solve(b, -scale, shift)
-
-    def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
-        return jnp.sort(-self.op.spectral_bounds(hilbert_space))
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return self.op2.adj_action(self.op1.adj_action(y))
 
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
-        return -self.op.to_matrix(hilbert_space)
+        return self.op1.to_matrix(hilbert_space) @ self.op2.to_matrix(hilbert_space)
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "exp_delegated": True,
-            "op": self.op.to_dict(h_scale=h_scale),
-        }
+    def adjoint(self) -> Operator:
+        return self.op2.adjoint() @ self.op1.adjoint()
 
 
-class ScalarMulOperator(Operator):
+class AdjOperator(Operator):
     op: Operator
-    c: ScalarLike
 
-    def __init__(self, op: Operator, c: ScalarLike):
-        if isinstance(op, ScalarMulOperator):
-            # If op is a ScalarMulOperator, i.e. op = c0 * A
-            # then scalar multiplication can be collapsed to c * c0 * A
-            self.op = op.op
-            self.c = c * op.c 
+    def __init__(self, op: Operator, exponentiator: Optional[AbstractExponentiator]=None):
+        self.op = op
+
+        if exponentiator is not None:
+            self.exponentiator = exponentiator
         else:
-            self.op = op 
-            self.c = c
+            self.exponentiator = NoExponentiator()
 
     @property
     def domain(self):
         return self.op.domain
 
-    @property
-    def is_hermitian(self):
-        return self.op.is_hermitian and (not jnp.iscomplexobj(self.c))
-
-    @property
-    def is_unitary(self):
-        # TODO: should branch on if |c| == 1 if we can avoid tracer issues
-        return False
-
-    @property
-    def exponentiator(self):
-        return self.op.exponentiator
-
-    @property
-    def exp_order(self):
-        return self.op.exp_order
-
-    def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        return self.c * self.op.with_exponentiator(exponentiator)
-
     def action(self, y: AbstractState) -> AbstractState:
-        return self.c * self.op.action(y)
+        return self.op.adj_action(y)
 
-    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp(self.c * h, y)
-
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return self.op.exp_action(self.c * h, y)
-
-    def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
-        return self.op.solve(b, self.c * scale, shift)
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return self.op.action(y)
 
     def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
-        if not self.is_hermitian:
-            raise NoRealSpectrumError(
-                f"c * {type(self.op).__name__} is not Hermitian since c={self.c} is complex"
-            )
-
-        return jnp.sort(self.c * self.op.spectral_bounds(hilbert_space))
+        return self.op.spectral_bounds(hilbert_space)
 
     def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
-        return self.c * self.op.to_matrix(hilbert_space)
+        return jnp.conj(self.op.to_matrix(hilbert_space).T)
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "exp_delegated": True,
-            "op": self.op.to_dict(h_scale=jnp.abs(self.c) * h_scale),
-        }
+    def adjoint(self) -> Operator:
+        return self.op
 
 
-class Identity(Operator):
-    is_hermitian: ClassVar[bool] = True
-    is_unitary: ClassVar[bool] = True
+class Identity(AbstractHermitianOperator):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def action(self, y: AbstractState) -> AbstractState:
@@ -514,19 +499,31 @@ class Identity(Operator):
         return jnp.eye(hilbert_space.dim)
 
 
-class AbstractDiagonalOperator(Operator):
+class Zero(AbstractHermitianOperator):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
-    
-    @property
-    def is_hermitian(self):
-        return False
 
-    @property
-    def is_unitary(self):
-        return False
+    def action(self, y: AbstractState) -> AbstractState:
+        return y.hilbert_space.zeros_like(y)
+
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return y
+
+    def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+        return b / shift
+
+    def spectral_bounds(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        return jnp.array([0.0, 0.0])
+
+    def to_matrix(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        return jnp.zeros((hilbert_space.dim, hilbert_space.dim))
+
+
+class AbstractDiagonalOperator(AbstractHermitianOperator):
+    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     @abstractmethod
     def eigvals(self, hilbert_space: AbstractHilbertSpace) -> Array:
+        # Assumed that eigvals are real
         pass
 
     def action(self, y: AbstractState) -> AbstractState:

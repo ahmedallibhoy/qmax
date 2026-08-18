@@ -11,7 +11,12 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike, Array, ArrayLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator
+from ..operator import Operator, AbstractHermitianOperator
+
+
+# TODO:
+#   1. Abstract position and momentum operators
+#   2. Abstract annihilation and creation operators?
 
 
 def _to_tuple(x, dtype=float):
@@ -33,6 +38,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
     endpoint: eqx.AbstractClassVar[bool]
 
     # To avoid array valued fields which trigger a warning on static hilbert_spaces
+    # TODO: I feel like there should be a better workaround for this...
     x0: tuple[float, ...] = eqx.field(converter=_to_tuple)
     xf: tuple[float, ...] = eqx.field(converter=_to_tuple)
     mesh_size: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
@@ -121,11 +127,9 @@ class SpatialDiscretization(AbstractHilbertSpace):
         raise NotImplementedError
 
 
-class AbstractPotentialEnergy(Operator):
+class AbstractPotentialEnergy(AbstractHermitianOperator):
     domain: ClassVar = SpatialDiscretization
     potential: Callable[[ArrayLike], ScalarLike]
-    is_hermitian: ClassVar[bool] = True
-    is_unitary: ClassVar[bool] = False
 
     def values(self, hilbert_space: SpatialDiscretization) -> Array:
         return hilbert_space.eval(self.potential)
