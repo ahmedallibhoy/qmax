@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar, Union
+from typing import Callable, ClassVar
 from abc import abstractmethod
 from functools import reduce
-import itertools
 
 import math
 
@@ -15,8 +14,8 @@ from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Operator, Identity
-from .exponentiators import Order, min_order, AbstractExponentiator, ExactExponentiator, TruncatedTaylorExponentiator
+from .operator import Operator, Identity, IncompatibleDomainError
+from .exponentiators import Order, min_order, AbstractExponentiator, TruncatedTaylorExponentiator
 
 
 def apply_along_tensor(
@@ -67,11 +66,6 @@ class TensorState(AbstractState):
 class AbstractTensorSpace(AbstractHilbertSpace):
     state_type: ClassVar = TensorState
 
-    @property
-    @abstractmethod
-    def structure(self):
-        pass
-
     @abstractmethod
     def factor(self, idx: int) -> AbstractHilbertSpace:
         pass 
@@ -109,13 +103,12 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         ]
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
 
+    def lift(self, op: Operator, factor_idx: int) -> LiftOperator:
+        return LiftOperator(self, op, factor_idx)
+
 
 class TensorProduct(AbstractTensorSpace):
     spaces: tuple[AbstractHilbertSpace, ...]
-
-    @property
-    def structure(self):
-        return tuple(s.structure for s in self.spaces)
 
     def factor(self, idx: int) -> AbstractHilbertSpace:
         return self.spaces[idx] 
@@ -132,10 +125,6 @@ class TensorProduct(AbstractTensorSpace):
 class TensorPower(AbstractTensorSpace):
     factorspace: AbstractHilbertSpace
     power: int
-
-    @property
-    def structure(self):
-        return tuple(self.factorspace.structure for _ in range(self.power))
 
     def factor(self, idx: int) -> AbstractHilbertSpace:
         return self.factorspace
@@ -155,8 +144,13 @@ class TensorPower(AbstractTensorSpace):
 
 
 class AbstractTensorOperator(Operator):
-    """
-    """
+
+    def _check_tensor_domain(self):
+        if not isinstance(self.domain, AbstractTensorSpace):
+            raise IncompatibleDomainError(
+                f"{type(self).__name__} acts on a tensor space but received "
+                f"domain of type {type(self.domain).__name__}"
+            )
 
 
 class LiftExp(AbstractExponentiator):
@@ -172,10 +166,9 @@ class LiftExp(AbstractExponentiator):
     def adapt_children(
         self,
         op: LiftOperator,
-        hilbert_space: AbstractHilbertSpace,
         dt_max: ScalarLike) -> Operator:
 
-        return _update_field(op, "op", op.op.adapt(hilbert_space[op.factor_idx], dt_max))
+        return _update_field(op, "op", op.op.adapt(dt_max))
 
     @property
     def operator_type(self) -> type:
@@ -195,34 +188,44 @@ class LiftExp(AbstractExponentiator):
 class LiftOperator(AbstractTensorOperator):
     op: Operator
     factor_idx: int
-    num_factors: int
     exponentiator: AbstractExponentiator = eqx.field(default=LiftExp(), kw_only=True)
 
+    def __check_init__(self):
+        self._check_tensor_domain()
+
+        if self.op.domain != self.domain[self.factor_idx]:
+            raise IncompatibleDomainError(
+                f"Domain at index {self.factor_idx} is {self.domain[self.factor_idx]} but "
+                f"operand acts on {self.op.domain}"
+            )
+
     @property
-    def domain(self):
-        return tuple(self.op.domain if i == self.factor_idx else AbstractHilbertSpace for i in range(self.num_factors))
+    def num_factors(self):
+        return self.domain.num_factors
 
     def action(self, y: TensorState) -> TensorState:
-        return apply_along_state(lambda s: self.op(s), y, self.factor_idx)
+        return apply_along_state(lambda s: self.op.action(s), y, self.factor_idx)
 
     def adj_action(self, y):
         return apply_along_state(lambda s: self.op.adj_action(s), y, self.factor_idx)
 
-    def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
-        return self.op.spectral_bounds(hilbert_space[self.factor_idx])
+    @property
+    def spectral_bounds(self) -> Array:
+        return self.op.spectral_bounds
 
-    def solve(self, b: TensorState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> TensorState:
-        return apply_along_state(lambda s: self.op.solve(s, scale, shift), b, self.factor_idx)
+    def _solve(self, b: TensorState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> TensorState:
+        return apply_along_state(lambda s: self.op._solve(s, scale, shift), b, self.factor_idx)
 
-    def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
+    def to_matrix(self) -> Array:
         mat_list = [
-            jnp.eye(hilbert_space[idx].dim) if idx != self.factor_idx else self.op.to_matrix(hilbert_space[idx])
-            for idx in range(hilbert_space.num_factors)
+            jnp.eye(self.domain[idx].dim) if idx != self.factor_idx else self.op.to_matrix()
+            for idx in range(self.num_factors)
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
     def adjoint(self) -> Operator:
-        return LiftOperator(self.op.adjoint(), self.factor_idx, self.num_factors)
+        return LiftOperator(self.domain, self.op.adjoint(), self.factor_idx)
+
 
 class KroneckerSumExp(AbstractExponentiator):
 
@@ -240,11 +243,10 @@ class KroneckerSumExp(AbstractExponentiator):
     def adapt_children(
         self,
         op: KroneckerSum,
-        hilbert_space: AbstractHilbertSpace,
         dt_max: ScalarLike) -> Operator:
 
         return _update_field(op, "ops", tuple(
-            factor.adapt(hilbert_space[idx], dt_max) for idx, factor in enumerate(op.ops)))
+            factor.adapt(dt_max) for idx, factor in enumerate(op.ops)))
 
     @property
     def operator_type(self) -> type:
@@ -266,13 +268,25 @@ class KroneckerSum(AbstractTensorOperator):
     ops: tuple[Operator, ...]
     exponentiator: AbstractExponentiator = eqx.field(default=KroneckerSumExp(), kw_only=True)
 
-    @property
-    def domain(self):
-        return tuple(op.domain for op in self.ops)
+    def __check_init__(self):
+        self._check_tensor_domain()
+
+        if len(self.ops) != self.domain.num_factors:
+            raise ValueError(
+                f"Received {len(self.ops)} operators but "
+                f"{self.domain} has {self.domain.num_factors} factors"
+            )
+
+        for idx in range(self.domain.num_factors):
+            if self.ops[idx].domain != self.domain[idx]:
+                raise IncompatibleDomainError(
+                    f"Domain at index {idx} is {self.domain[idx]} but "
+                    f"operand at index {idx} acts on {self.ops[idx].domain}"
+                )
 
     def action(self, y: TensorState) -> TensorState:
         return reduce(lambda a, b: a + b, [
-            apply_along_state(lambda s, op=op: op(s), y, factor_idx)
+            apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
             for factor_idx, op in enumerate(self.ops)
         ])
 
@@ -282,36 +296,50 @@ class KroneckerSum(AbstractTensorOperator):
             for factor_idx, op in enumerate(self.ops)
         ])
 
-    def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
-        bounds = [op.spectral_bounds(hilbert_space[idx]) for idx, op in enumerate(self.ops)]
+    @property
+    def spectral_bounds(self) -> Array:
+        bounds = [op.spectral_bounds for idx, op in enumerate(self.ops)]
         return jnp.sum(jnp.array(bounds), axis=0)
 
-    def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
-        mat = jnp.zeros((hilbert_space.dim, hilbert_space.dim), dtype=complex)
+    def to_matrix(self) -> Array:
+        mat = jnp.zeros((self.domain.dim, self.domain.dim), dtype=complex)
         for factor_idx, op in enumerate(self.ops):
             mat_list = [
-                jnp.eye(hilbert_space[idx].dim) if idx != factor_idx else op.to_matrix(hilbert_space[idx])
-                for idx in range(hilbert_space.num_factors)
+                jnp.eye(self.domain[idx].dim) if idx != factor_idx else op.to_matrix()
+                for idx in range(self.domain.num_factors)
             ]
             mat += reduce(lambda a, b: jnp.kron(a, b), mat_list)
         return mat
 
     def adjoint(self) -> Operator:
-        return KroneckerSum(tuple(op.adjoint() for op in self.ops))
+        return KroneckerSum(self.domain, tuple(op.adjoint() for op in self.ops))
+
 
 class KroneckerProduct(AbstractTensorOperator):
     ops: tuple[Operator, ...]
     exponentiator: AbstractExponentiator = eqx.field(default=TruncatedTaylorExponentiator(), kw_only=True)
 
-    @property
-    def domain(self):
-        return tuple(op.domain for op in self.ops)
+    def __check_init__(self):
+        self._check_tensor_domain()
+
+        if len(self.ops) != self.domain.num_factors:
+            raise ValueError(
+                f"Received {len(self.ops)} operators but "
+                f"{self.domain} has {self.domain.num_factors} factors"
+            )
+
+        for idx in range(self.domain.num_factors):
+            if self.ops[idx].domain != self.domain[idx]:
+                raise IncompatibleDomainError(
+                    f"Domain at index {idx} is {self.domain[idx]} but "
+                    f"operand at index {idx} acts on {self.ops[idx].domain}"
+                )
 
     def action(self, y: TensorState) -> TensorState:
         for factor_idx, op in enumerate(self.ops):
             if isinstance(op, Identity):
                 continue
-            y = apply_along_state(lambda s, op=op: op(s), y, factor_idx)
+            y = apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
 
         return y
 
@@ -322,21 +350,22 @@ class KroneckerProduct(AbstractTensorOperator):
             y = apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
         return y
 
-    def spectral_bounds(self, hilbert_space: AbstractTensorSpace) -> Array:
+    @property
+    def spectral_bounds(self) -> Array:
         lo, hi = 1.0, 1.0
         for idx, op in enumerate(self.ops):
-            a, b = op.spectral_bounds(hilbert_space[idx])
+            a, b = op.spectral_bounds
             corners = jnp.array([lo * a, lo * b, hi * a, hi * b])
             lo, hi = jnp.min(corners), jnp.max(corners)
         return jnp.array([lo, hi])
 
-    def to_matrix(self, hilbert_space: AbstractTensorSpace) -> Array:
+    def to_matrix(self) -> Array:
         mat_list = [
-            op.to_matrix(hilbert_space[idx]) for idx, op in enumerate(self.ops)
+            op.to_matrix() for idx, op in enumerate(self.ops)
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
     def adjoint(self) -> Operator:
-        return KroneckerProduct(tuple(op.adjoint() for op in self.ops))
+        return KroneckerProduct(self.domain, tuple(op.adjoint() for op in self.ops))
 
 

@@ -19,17 +19,12 @@ if TYPE_CHECKING:
 
 class AbstractSplitMethod(AbstractExponentiator):
 
-    def adapt_children(
-        self,
-        op: AddOperator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> Operator:
-
+    def adapt_children(self, op: AddOperator, dt_max: ScalarLike) -> Operator:
         h1, h2 = self.h_scales
         return _update_fields(
             op,
-            op1=op.op1.adapt(hilbert_space, h1 * dt_max),
-            op2=op.op2.adapt(hilbert_space, h2 * dt_max),
+            op1=op.op1.adapt(h1 * dt_max),
+            op2=op.op2.adapt(h2 * dt_max),
         )
 
     def effective_order(self, add_op: AddOperator) -> Order:

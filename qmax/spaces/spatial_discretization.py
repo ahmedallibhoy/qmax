@@ -128,28 +128,26 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
 
 class AbstractPotentialEnergy(AbstractHermitianOperator):
-    domain: ClassVar = SpatialDiscretization
     potential: Callable[[ArrayLike], ScalarLike]
 
-    def values(self, hilbert_space: SpatialDiscretization) -> Array:
-        return hilbert_space.eval(self.potential)
+    @property
+    def values(self) -> Array:
+        return self.domain.eval(self.potential)
 
     def action(self, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
-        return y.hilbert_space.from_values(self.values(y.hilbert_space) * y.values)
+        return self.domain.from_values(self.values * y.values)
 
     def exp_action(self, h: ScalarLike, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
-        return y.hilbert_space.from_values(jnp.exp(h * self.values(y.hilbert_space)) * y.values)
+        return self.domain.from_values(jnp.exp(h * self.values) * y.values)
 
-    def solve(
-        self, 
-        b: SpatiallyDiscretizedState, 
-        scale: ScalarLike=-1.0, 
+    def _solve(
+        self,
+        b: SpatiallyDiscretizedState,
+        scale: ScalarLike=-1.0,
         shift: ScalarLike=0.0) -> SpatiallyDiscretizedState:
 
-        hilbert_space = b.hilbert_space
-        values = self.values(hilbert_space)
-        return hilbert_space.from_values(b.values / (scale * values + shift))
+        return self.domain.from_values(b.values / (scale * self.values + shift))
 
-    def spectral_bounds(self, hilbert_space: SpatialDiscretization) -> Array:
-        values = self.values(hilbert_space)
-        return jnp.array([jnp.min(values), jnp.max(values)])
+    @property
+    def spectral_bounds(self) -> Array:
+        return jnp.array([jnp.min(self.values), jnp.max(self.values)])

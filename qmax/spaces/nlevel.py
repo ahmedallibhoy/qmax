@@ -53,10 +53,10 @@ class NLevel(AbstractHilbertSpace):
         return y
 
     def annihilator(self) -> Annihilator:
-        return Annihilator()
+        return Annihilator(self)
 
     def creator(self) -> Creator:
-        return Creator()
+        return Creator(self)
 
     
 def annihilate(y: NLevelState) -> NLevelState:
@@ -74,7 +74,6 @@ def create(y: NLevelState) -> NLevelState:
 
 
 class Annihilator(Operator):
-    domain: ClassVar[type(AbstractHilbertSpace)] = NLevel
 
     def action(self, y: NLevelState) -> NLevelState:
         return annihilate(y)
@@ -82,16 +81,15 @@ class Annihilator(Operator):
     def adj_action(self, y: NLevelState) -> NLevelState:
         return create(y)
 
-    def to_matrix(self, hilbert_space: NLevel) -> Array:
-        vals = jnp.sqrt(jnp.arange(1, hilbert_space.dim))
+    def to_matrix(self) -> Array:
+        vals = jnp.sqrt(jnp.arange(1, self.domain.dim))
         return jnp.diag(vals, k=1)
 
     def adjoint(self) -> Creator:
-        return Creator()
+        return Creator(self.domain)
 
 
 class Creator(Operator):
-    domain: ClassVar[type(AbstractHilbertSpace)] = NLevel
 
     def action(self, y: NLevelState) -> NLevelState:
         return create(y)
@@ -99,11 +97,11 @@ class Creator(Operator):
     def adj_action(self, y: NLevelState) -> NLevelState:
         return annihilate(y)
 
-    def to_matrix(self, hilbert_space: NLevel) -> Array:
-        vals = jnp.sqrt(jnp.arange(1, hilbert_space.dim))
+    def to_matrix(self) -> Array:
+        vals = jnp.sqrt(jnp.arange(1, self.domain.dim))
         return jnp.diag(vals, k=-1)
 
     def adjoint(self) -> Annihilator:
-        return Annihilator()
+        return Annihilator(self.domain)
 
 

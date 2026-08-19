@@ -10,6 +10,14 @@ from ..exponentiators import AbstractExponentiator, ExactExponentiator
 from ..tensor import TensorState, TensorPower, KroneckerProduct
 
 
+PAULI_MATRICES = {
+    "i": jnp.eye(2, dtype=complex),
+    "x": jnp.array([[0., 1.], [1., 0.]], dtype=complex),
+    "y": jnp.array([[0., -1j], [1j, 0.]], dtype=complex),
+    "z": jnp.array([[1., 0.], [0., -1.]], dtype=complex)
+}
+
+
 class TwoLevelState(AbstractState):
     """
     """
@@ -22,46 +30,43 @@ class TwoLevel(AbstractHilbertSpace):
     def dim(self) -> int:
         return 2
 
+    def pauli(self, axis) -> PauliOperator:
+        return PauliOperator(self, axis)
 
-PAULI_MATRICES = {
-    "i": jnp.eye(2, dtype=complex),
-    "x": jnp.array([[0., 1.], [1., 0.]], dtype=complex),
-    "y": jnp.array([[0., -1j], [1j, 0.]], dtype=complex),
-    "z": jnp.array([[1., 0.], [0., -1.]], dtype=complex)
-}
 
 class AbstractPauliOperator(AbstractHermitianOperator):
 
     def exp_action(self, h: ScalarLike, y: QubitsState) -> QubitsState:                    
         return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 
-    def spectral_bounds(self, hilbert_space: Qubits) -> Array:     
+    @property
+    def spectral_bounds(self) -> Array:
         return jnp.array([-1.0, 1.0])
 
-    def solve(self, 
-        b: QubitsState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> Qubits:           
-        
+    def _solve(self,
+        b: QubitsState,
+        scale: ScalarLike=-1.0,
+        shift: ScalarLike=0.0) -> QubitsState:
+
         return (shift * b - scale * self.action(b)) / (shift ** 2 - scale ** 2)
 
 
 class PauliOperator(AbstractPauliOperator):
-    domain: ClassVar = TwoLevel
     axis: str
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
-    def __init__(self, axis):
+    def __init__(self, domain: TwoLevel, axis: str):
         if axis not in ("i", "x", "y", "z"):
             raise ValueError(
                 f"Invalid axis={axis!r}; axis must be one of 'i', 'x', 'y', or 'z'."
             )
+        self.domain = domain
         self.axis = axis
 
     def action(self, y: TwoLevelState) -> TwoLevelState:
-        return y.hilbert_space.from_coeffs((self.to_matrix(y.hilbert_space) @ y.coeffs[..., None])[..., 0])
+        return self.domain.from_coeffs((self.to_matrix() @ y.coeffs[..., None])[..., 0])
 
-    def to_matrix(self, hilbert_space: TwoLevel) -> Array:
+    def to_matrix(self) -> Array:
         return PAULI_MATRICES[self.axis]
 
 
@@ -90,11 +95,16 @@ class Qubits(TensorPower):
         self.factorspace = TwoLevel()
         self.power = num_bits
 
+    def pauli_product(self, ax_list: list[str]) -> PauliProduct:
+        return PauliProduct(self, ax_list)
+
 
 class PauliProduct(AbstractPauliOperator, KroneckerProduct):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
-    def __init__(self, ax_list: list[str]):
+    def __init__(self, domain: Qubits, ax_list: list[str]):
+        self.domain = domain
         self.ops = tuple(
-            Identity() if ax.lower() == "i" else PauliOperator(ax.lower()) for ax in ax_list
+            domain[idx].identity() if ax.lower() == "i" else PauliOperator(domain[idx], ax.lower())
+            for idx, ax in enumerate(ax_list)
         )

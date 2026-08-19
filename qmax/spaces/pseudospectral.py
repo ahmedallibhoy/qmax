@@ -1,4 +1,4 @@
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Optional
 
 from functools import partial, reduce
 
@@ -8,8 +8,8 @@ import equinox as eqx
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator, AbstractDiagonalOperator, NoExactExponentialError
-from ..exponentiators import AbstractExponentiator, ExactExponentiator
+from ..operator import Operator, AbstractDiagonalOperator
+from ..exponentiators import Order, AbstractExponentiator
 from .spatial_discretization import (
     SpatialDiscretization, 
     SpatiallyDiscretizedState, 
@@ -76,24 +76,20 @@ class PseudoSpectral(SpatialDiscretization):
         return self.num_modes == self.mesh_size
 
     def laplacian(self) -> PseudoSpectralLaplacian:
-        return PseudoSpectralLaplacian()
+        return PseudoSpectralLaplacian(self)
 
     def potential_energy(
         self, 
         potential: Callable[[ArrayLike], ScalarLike]) -> PseudoSpectralPotentialEnergy:
 
-        if self.lossless:
-            exp = ExactExponentiator()
-        else:
-            exp = PseudoSpectralExponentiator()
-
-        return PseudoSpectralPotentialEnergy(potential, exponentiator=exp)
+        return PseudoSpectralPotentialEnergy(self, potential)
 
 
 class PseudoSpectralLaplacian(AbstractDiagonalOperator):
-    domain: ClassVar = PseudoSpectral
-    
-    def eigvals(self, hilbert_space: PseudoSpectral) -> Array:
+
+    @property
+    def eigvals(self) -> Array:
+        hilbert_space = self.domain
         num_modes = hilbert_space.num_modes
         ds = [(hilbert_space.xf[i] - hilbert_space.x0[i]) / n for i, n in enumerate(num_modes)]
         k_per_axis = [2 * jnp.pi * jnp.fft.fftfreq(n, d=d) for (n, d) in zip(num_modes, ds)]
@@ -110,48 +106,44 @@ class PseudoSpectralExponentiator(AbstractExponentiator):
     def operator_type(self) -> type:
         return PseudoSpectralPotentialEnergy
 
+    def effective_order(self, op: PseudoSpectralPotentialEnergy) -> Order:
+        return None if op.domain.lossless else 1
+
     @property
-    def order(self) -> int:
-        return 1
+    def order(self) -> Order:
+        return None
 
 
 class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
-    domain: ClassVar = PseudoSpectral
     exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
 
-    def exp_action(self, h: ScalarLike, y: PseudoSpectralState) -> PseudoSpectralState:
-        if y.hilbert_space.lossless:
-            return AbstractPotentialEnergy.exp_action(self, h, y)
-        
-        raise NoExactExponentialError(
-            f"Exact exponentiation of PseudoSpectralPotentialEnergy is not supported "
-            f"when num_modes={y.hilbert_space.num_modes} != mesh_size={y.hilbert_space.mesh_size}. "
-            f"Use PseudoSpectralExponentiator instead"
-        )
+    @property
+    def has_exact_exponential(self) -> bool:
+        return self.domain.lossless
 
-    def solve(
+    def _solve(
         self, 
         b: PseudoSpectralState, 
         scale: ScalarLike=-1.0, 
         shift: ScalarLike=0.0) -> PseudoSpectralState:
 
-        if b.hilbert_space.lossless:
-            return AbstractPotentialEnergy.solve(self, b, scale, shift)
+        if self.domain.lossless:
+            return AbstractPotentialEnergy._solve(self, b, scale, shift)
         else:
-            return Operator.solve(self, b, scale, shift)
+            return Operator._solve(self, b, scale, shift)
 
-    def to_matrix(self, hilbert_space: PseudoSpectral):
+    def to_matrix(self):
         Vhat = jnp.fft.fftn(
-            self.values(hilbert_space), hilbert_space.mesh_size,
-            axes=hilbert_space.spatial_axes, norm="forward").reshape(-1)
+            self.values, self.domain.mesh_size,
+            axes=self.domain.spatial_axes, norm="forward").reshape(-1)
         
-        mode_per_axis = [jnp.round(jnp.fft.fftfreq(n) * n).astype(int) for n in hilbert_space.num_modes]
-        mode_vecs = hilbert_space.grid_vectors(mode_per_axis)     
-        diff = (mode_vecs[:, None, :] - mode_vecs[None, :, :]) % jnp.array(hilbert_space.mesh_size) 
+        mode_per_axis = [jnp.round(jnp.fft.fftfreq(n) * n).astype(int) for n in self.domain.num_modes]
+        mode_vecs = self.domain.grid_vectors(mode_per_axis)     
+        diff = (mode_vecs[:, None, :] - mode_vecs[None, :, :]) % jnp.array(self.domain.mesh_size) 
         
         flat = jnp.ravel_multi_index(
             [diff[..., a] for a in range(diff.shape[-1])], 
-            hilbert_space.mesh_size, mode="wrap") 
+            self.domain.mesh_size, mode="wrap") 
             
         return Vhat[flat]
 

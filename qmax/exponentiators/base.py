@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import ScalarLike
 
-from .._internal import _overrides, _update_field
+from .._internal import _update_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 
 if TYPE_CHECKING:
@@ -36,14 +36,9 @@ class AbstractExponentiator(eqx.Module):
     # Do not override
     # --------------------------------------------------------------------------------------------
 
-    def adapt_tree(
-        self, 
-        op: Operator, 
-        hilbert_space: AbstractHilbertSpace, 
-        dt_max: ScalarLike) -> Operator:
-
-        op = self.adapt_children(op, hilbert_space, dt_max)
-        return op.with_exponentiator(self.adapt(op, hilbert_space, dt_max))
+    def adapt_tree(self, op: Operator, dt_max: ScalarLike) -> Operator:
+        op = self.adapt_children(op, dt_max)
+        return op.with_exponentiator(self.adapt(op, dt_max))
 
     def __call__(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         self.check_exponentiable_tree(op)
@@ -92,14 +87,14 @@ class AbstractExponentiator(eqx.Module):
     def adapt(
         self,
         op: Operator,
-        hilbert_space: AbstractHilbertSpace,
         dt_max: ScalarLike) -> AbstractExponentiator:
         """
-        Given a max stepsize, an operator, and a Hilbert space, returns an instance of type(self)
-        with any parameters tuned to guarantee that reported order estimate is valid while reducing 
-        computational burden. 
+        Given a max stepsize and an operator, returns an instance of type(self) with any
+        parameters tuned to guarantee that reported order estimate is valid while reducing
+        computational burden.
 
-        Should be override on exponentiators acting on leaf operators with tunable parameter values.  
+        Should be overridden on exponentiators acting on leaf operators with tunable parameter
+        values.
         """
 
         return self
@@ -107,12 +102,11 @@ class AbstractExponentiator(eqx.Module):
     def adapt_children(
         self, 
         op, 
-        hilbert_space, 
         dt_max) -> Operator:
         """
-        Returns an instance of type(op) whose children are adapted to this hilbert_space. 
-        
-        Should override on exponentiators acting on composite operators. 
+        Returns an instance of type(op) whose children are adapted.
+
+        Should be overridden on exponentiators acting on composite operators.
         """
         return op
 
@@ -158,8 +152,7 @@ class ExactExponentiator(AbstractExponentiator):
         return op.exp_action(h, y)
 
     def check_exponentiable(self, op) -> None:
-        from ..operator import Operator
-        if not _overrides(type(op), "exp_action", Operator):
+        if not op.has_exact_exponential:
             raise NotExponentiableError(
                 f"ExactExponentiator requires {type(op).__name__} to implement exp_action")
 
@@ -176,14 +169,9 @@ class ShiftScaleExponentiator(AbstractExponentiator):
     def exp(self, op, h, y):
         return jnp.exp(h * op.shift) * op.op.exp(h * op.scale, y)
 
-    def adapt_children(
-        self,
-        op: Operator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> Operator:
-
+    def adapt_children(self, op: Operator, dt_max: ScalarLike) -> Operator:
         # only the scale stretches the step; the shift contributes a phase
-        return _update_field(op, "op", op.op.adapt(hilbert_space, jnp.abs(op.scale) * dt_max))
+        return _update_field(op, "op", op.op.adapt(jnp.abs(op.scale) * dt_max))
 
     @property
     def operator_type(self) -> type:

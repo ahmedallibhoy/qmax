@@ -33,10 +33,6 @@ class AbstractHilbertSpace(eqx.Module):
     state_type: eqx.AbstractClassVar[type[AbstractState]]
 
     @property
-    def structure(self) -> type[AbstractHilbertSpace]:
-        return type(self)
-
-    @property
     @abstractmethod
     def dim(self) -> int:
         pass
@@ -99,6 +95,10 @@ class AbstractHilbertSpace(eqx.Module):
 
         coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
         return self.from_coeffs(jnp.concatenate(coeffs, axis))
+
+    def identity(self) -> Operator:
+        from .operator import Identity
+        return Identity(self)
 
 
 class AbstractState(eqx.Module):

@@ -23,19 +23,20 @@ def gram_schmidt2(y, Z):
 
 def lanczos(
     op: Operator,
-    hilbert_space: AbstractHilbertSpace, 
-    num_iterations: int, 
+    num_iterations: int,
     *,
     orthogonalize: bool=True,
-    key: PRNGKeyArray=jax.random.key(0), 
+    key: PRNGKeyArray=jax.random.key(0),
     w0: Optional[AbstractState]=None,
     Q0: Optional[AbstractState]=None,
     idx0: int=0) -> tuple[Array, Array, AbstractState]:
 
     """
-    Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of: 
+    Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of:
         Golub, Gene H., and Charles F. Van Loan. Matrix computations. JHU press, 2013.
     """
+
+    hilbert_space = op.domain
 
     if num_iterations > hilbert_space.dim - idx0:
         warnings.warn(
@@ -93,7 +94,6 @@ def _select_indices(select, theta, num):
 
 def restart_lanczos(
     op: Operator,
-    hilbert_space: AbstractHilbertSpace, 
     num_ritz: int,
     max_krylov_dim: int=100,
     num_restarts: int=4,
@@ -102,11 +102,13 @@ def restart_lanczos(
 
     """
     Essentially reproduces the method described in:
-        Wu, Kesheng, and Horst Simon. "Thick-restart Lanczos method for large symmetric eigenvalue problems." 
+        Wu, Kesheng, and Horst Simon. "Thick-restart Lanczos method for large symmetric eigenvalue problems."
         SIAM Journal on Matrix Analysis and Applications 22.2 (2000): 602-616.
     """
 
     # need (max_krylov_dim - num_ritz) ~ num_ritz
+
+    hilbert_space = op.domain
 
     if num_ritz >= max_krylov_dim:
         raise ValueError(f"num_ritz={num_ritz} must be < max_krylov_dim={max_krylov_dim}")
@@ -131,7 +133,7 @@ def restart_lanczos(
         w0 = gram_schmidt2(w0, Q0)
         beta0 = w0.norm()
 
-        alpha, beta, Q, w = lanczos(op, hilbert_space, max_krylov_dim - num_ritz - 1,
+        alpha, beta, Q, w = lanczos(op, max_krylov_dim - num_ritz - 1,
             orthogonalize=True, w0=w0, Q0=Q0, idx0=num_ritz + 1)
 
         alpha = jnp.append(alpha0, alpha)
@@ -157,7 +159,7 @@ def restart_lanczos(
 
         return carry_next, None
 
-    alpha, beta, Q, w = lanczos(op, hilbert_space, max_krylov_dim, orthogonalize=True, key=key)
+    alpha, beta, Q, w = lanczos(op, max_krylov_dim, orthogonalize=True, key=key)
 
     theta, Y = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
     Qk, sk, thetak = selectk(theta, Y, Q)

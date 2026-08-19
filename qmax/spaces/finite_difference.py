@@ -50,7 +50,6 @@ class _FiniteDifference1D(SpatialDiscretization):
 
 
 class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
-    domain: ClassVar[type[AbstractHilbertSpace]] = _FiniteDifference1D
     exponentiator: AbstractExponentiator = eqx.field(default=CrankNicolson(), kw_only=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
@@ -60,17 +59,17 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
         values_prev = jnp.concatenate(
             [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
 
-        lapl_values = (values_next - 2 * y.values + values_prev) / (y.hilbert_space.dx ** 2)
-        
-        return y.hilbert_space.from_values(lapl_values)
+        lapl_values = (values_next - 2 * y.values + values_prev) / (self.domain.dx ** 2)
 
-    def solve(
-        self, 
-        b: _FiniteDifference1DState, 
-        scale: ScalarLike=-1.0, 
+        return self.domain.from_values(lapl_values)
+
+    def _solve(
+        self,
+        b: _FiniteDifference1DState,
+        scale: ScalarLike=-1.0,
         shift: ScalarLike=0.0) -> _FiniteDifference1DState:
 
-        hilbert_space = b.hilbert_space
+        hilbert_space = self.domain
         dim = hilbert_space.dim
         dx = hilbert_space.dx
 
@@ -86,12 +85,13 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
 
         return over_batch(fn, b)
 
-    def spectral_bounds(self, hilbert_space: _FiniteDifference1D) -> Array:
-        return jnp.array([-4 / hilbert_space.dx ** 2, 0.0])
+    @property
+    def spectral_bounds(self) -> Array:
+        return jnp.array([-4 / self.domain.dx ** 2, 0.0])
 
-    def to_matrix(self, hilbert_space: _FiniteDifference1D) -> Array:
-        dim = hilbert_space.dim
-        dx = hilbert_space.dx
+    def to_matrix(self) -> Array:
+        dim = self.domain.dim
+        dx = self.domain.dx
         L = (-2 * jnp.eye(dim) + jnp.eye(dim, k=1) + jnp.eye(dim, k=-1)) / (dx ** 2)
         return L
 
@@ -119,10 +119,6 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
         self.mesh_size = num_steps
 
     @property
-    def structure(self):
-        return type(self)
-
-    @property
     def dim(self) -> Array:
         return reduce(lambda a, b: a * b, self.mesh_size)
 
@@ -130,25 +126,25 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
         return self.from_coeffs(self.flatten(values))
 
     def laplacian(self) -> FiniteDifferenceLaplacian:
-        return FiniteDifferenceLaplacian(self.spatial_dim)
+        return FiniteDifferenceLaplacian(self)
 
     def potential_energy(
-        self, 
+        self,
         potential: Callable[[ArrayLike], ScalarLike]) -> FiniteDifferencePotentialEnergy:
-        
-        return FiniteDifferencePotentialEnergy(potential)
+
+        return FiniteDifferencePotentialEnergy(self, potential)
 
 
 class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
-    domain: ClassVar[type[AbstractHilbertSpace]] = FiniteDifference
 
-    def __init__(self, spatial_dim: int):
-        self.ops = tuple(_FiniteDifference1DLaplacian() for _ in range(spatial_dim))
+    def __init__(self, domain: FiniteDifference):
+        self.domain = domain
+        self.ops = tuple(
+            _FiniteDifference1DLaplacian(domain[idx]) for idx in range(domain.num_factors))
 
 
 class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy):
-    domain: ClassVar[type[AbstractHilbertSpace]] = FiniteDifference
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
-    def to_matrix(self, fd: FiniteDifference) -> Array:
-        return jnp.diag(fd.flatten(self.values(fd)))
+    def to_matrix(self) -> Array:
+        return jnp.diag(self.domain.flatten(self.values))

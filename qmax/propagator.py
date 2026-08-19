@@ -9,12 +9,11 @@ import jax.numpy as jnp
 from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
 
 from .hilbert_space import AbstractState, AbstractHilbertSpace
-from .operator import Operator
+from .operator import Operator, IncompatibleDomainError
 from .control import AbstractControl, ControlFunction
 from .timestepper import AbstractTimeStepper, Midpoint
 from .exponentiators import AbstractSplitMethod, Strang
 from .spaces.spatial_discretization import SpatialDiscretization
-from .tensor import AbstractTensorOperator
 
 
 # TODO:
@@ -40,11 +39,12 @@ def _save_y(t, y):
 
 class AbstractPropagator(eqx.Module):
     t0: float = eqx.field(static=True)
-    t1: float = eqx.field(static=True) 
-    hilbert_space: AbstractHilbertSpace
+    t1: float = eqx.field(static=True)
     num_steps: int = eqx.field(static=True)
     hbar: float = eqx.field(default=1.0, kw_only=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
+
+    hilbert_space: eqx.AbstractVar[AbstractHilbertSpace]
 
     @property
     def weights(self) -> Array:
@@ -103,12 +103,11 @@ class TimeInvariantPropagator(AbstractPropagator):
 
     def __init__(
         self, 
-        t0: ScalarLike, 
-        t1: ScalarLike, 
+        t0: ScalarLike,
+        t1: ScalarLike,
         op: Operator,
-        hilbert_space: AbstractHilbertSpace,
         *,
-        dt_max: Optional[ScalarLike]=None, 
+        dt_max: Optional[ScalarLike]=None,
         hbar: ScalarLike=1.0,
         timestepper: AbstractTimeStepper = Midpoint()):
 
@@ -123,9 +122,14 @@ class TimeInvariantPropagator(AbstractPropagator):
         self.timestepper = timestepper
         self.hbar = hbar
 
+        op.check_exponentiable_tree()
+
         h = self.dt / self.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
-        self.op = op.adapt(hilbert_space, h)
-        self.hilbert_space = hilbert_space
+        self.op = op.adapt(h)
+
+    @property
+    def hilbert_space(self) -> AbstractHilbertSpace:
+        return self.op.domain
 
     def propagate_stage(
         self,
@@ -156,13 +160,12 @@ class ControlledPropagator(AbstractPropagator):
         t1: ScalarLike, 
         op1: Operator,
         op2: Operator,
-        u1_max: Scalar, 
+        u1_max: Scalar,
         u2_max: Scalar,
-        hilbert_space: AbstractHilbertSpace,
         *,
-        dt_max: Optional[ScalarLike]=None, 
+        dt_max: Optional[ScalarLike]=None,
         hbar: ScalarLike=1.0,
-        timestepper: AbstractTimeStepper = Midpoint(), 
+        timestepper: AbstractTimeStepper = Midpoint(),
         split_method: AbstractSplitMethod = Strang()):
 
         self.t0 = t0
@@ -176,18 +179,30 @@ class ControlledPropagator(AbstractPropagator):
         self.timestepper = timestepper
         self.hbar = hbar
 
-        self.u1_max = u1_max 
-        self.u2_max = u2_max 
+        self.u1_max = u1_max
+        self.u2_max = u2_max
 
-        w_max = jnp.max(jnp.sum(jnp.abs(self.weights), axis=1))  
+        if op1.domain != op2.domain:
+            raise IncompatibleDomainError(
+                f"{type(op1).__name__} acts on {op1.domain}, "
+                f"but {type(op2).__name__} acts on {op2.domain}"
+            )
+
+        # propagate_stage splits c1 * op1 + c2 * op2, so validate that whole tree up front
+        split_method.check_exponentiable_tree(op1 + op2)
+
+        w_max = jnp.max(jnp.sum(jnp.abs(self.weights), axis=1))
         h1, h2 = split_method.h_scales
         dt1 = h1 * w_max * self.u1_max * self.dt / self.hbar
         dt2 = h2 * w_max * self.u2_max * self.dt / self.hbar
 
-        self.op1 = op1.adapt(hilbert_space, dt1)
-        self.op2 = op2.adapt(hilbert_space, dt2)
+        self.op1 = op1.adapt(dt1)
+        self.op2 = op2.adapt(dt2)
         self.split_method = split_method
-        self.hilbert_space = hilbert_space
+
+    @property
+    def hilbert_space(self) -> AbstractHilbertSpace:
+        return self.op1.domain
 
     def coeffs(self, t: ScalarLike, dt: ScalarLike, u: AbstractControl) -> Array:
         t_quad, w_quad = self.quad_rule
@@ -244,7 +259,7 @@ class QuantumHamiltonianDescent(ControlledPropagator):
         op1 = -0.5 * hilbert_space.laplacian()
         op2 = hilbert_space.potential_energy(objective)
 
-        super().__init__(t0, t1, op1, op2, u1_max, u2_max, hilbert_space, 
+        super().__init__(t0, t1, op1, op2, u1_max, u2_max,
             dt_max=dt_max, hbar=1.0, timestepper=timestepper, split_method=split_method)
 
     def propagate_stage(

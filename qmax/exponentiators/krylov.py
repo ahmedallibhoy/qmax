@@ -48,16 +48,11 @@ class KrylovExponentiator(AbstractExponentiator):
     num_iterations: int = 10
     orthogonalize: bool = False
 
-    def adapt(
-        self,
-        op: Operator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> AbstractExponentiator:
-
+    def adapt(self, op: Operator, dt_max: ScalarLike) -> AbstractExponentiator:
         try:
-            lmin, lmax = op.spectral_bounds(hilbert_space)
+            lmin, lmax = op.spectral_bounds
         except NotImplementedError:
-            lmin, lmax = op_spectral_bounds_lanczos(op, hilbert_space)
+            lmin, lmax = op_spectral_bounds_lanczos(op)
 
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
@@ -74,10 +69,9 @@ class KrylovExponentiator(AbstractExponentiator):
         return KrylovExponentiator(n, self.orthogonalize)
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        hilbert_space = y.hilbert_space
 
         def fn(y_i):
-            alpha, beta, Q, _ = lanczos(op, hilbert_space, self.num_iterations,
+            alpha, beta, Q, _ = lanczos(op, self.num_iterations,
                 orthogonalize=self.orthogonalize, w0=y_i)
 
             beta0 = y_i.norm()

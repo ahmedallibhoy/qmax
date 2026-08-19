@@ -100,17 +100,13 @@ class ChebyshevExponentiator(AbstractExponentiator):
                 "It is recommended to set jax_enable_x64=True or use a different exponentiator "
             )
 
-    def adapt(
-        self,
-        op: Operator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> AbstractExponentiator:
-
+    def adapt(self, op: Operator, dt_max: ScalarLike) -> AbstractExponentiator:
         try:
-            lmin, lmax = op.spectral_bounds(hilbert_space)
+            lmin, lmax = op.spectral_bounds
         except NotImplementedError:
-            lmin, lmax = op_spectral_bounds_lanczos(op, hilbert_space)         
-            
+            lmin, lmax = op_spectral_bounds_lanczos(op)
+
+
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
         if jax.config.x64_enabled:
@@ -126,8 +122,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
         return ChebyshevExponentiator(n)
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        hilbert_space = y.hilbert_space
-        lambda_min, lambda_max = op.spectral_bounds(hilbert_space)
+        lambda_min, lambda_max = op.spectral_bounds
 
         a, b = 0.5 * (lambda_max - lambda_min), 0.5 * (lambda_max + lambda_min)
         c = jnp.exp(b * h)
@@ -161,11 +156,9 @@ class LaguerreExponentiator(AbstractExponentiator):
     num_iterations: int
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        from ..operator import Identity   # avoid circular import
-        hilbert_space = y.hilbert_space
-        _, lambda_max = op.spectral_bounds(hilbert_space)
+        _, lambda_max = op.spectral_bounds
 
-        op_scaled = lambda_max * Identity() - op
+        op_scaled = lambda_max - op
         idx_list = jnp.arange(self.num_iterations)
         coeffs = (h ** idx_list) / (1 + h) ** (idx_list + 1)
 

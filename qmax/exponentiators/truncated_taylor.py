@@ -147,11 +147,11 @@ THETA_TABLES = {
 
 
 def hutchinson(
-    operator: Operator, 
-    hilbert_space: AbstractHilbertSpace, 
-    num_samples: int=10, 
+    operator: Operator,
+    num_samples: int=10,
     key: PRNGKeyArray=jax.random.key(0)) -> Scalar:
 
+    hilbert_space = operator.domain
     sign_coeffs = 1 - 2 * jax.random.bernoulli(key, shape=(num_samples, hilbert_space.dim))
     y = hilbert_space.from_coeffs(sign_coeffs)
     vals = hilbert_space.expected_value(operator, y)
@@ -197,7 +197,6 @@ def _unit_states(hilbert_space: AbstractHilbertSpace, indices: Array) -> Abstrac
 
 def block_estimate(
     operator: Operator,
-    hilbert_space: AbstractHilbertSpace,
     p: int=1,
     num_samples: int=2,
     num_iterations: int=3,
@@ -219,6 +218,8 @@ def block_estimate(
     The estimate is a lower bound on ||A^p||_1, as it is the largest 1-norm found over the
     probe columns tried.
     """
+
+    hilbert_space = operator.domain
 
     def action(_, y):
         return operator(y)
@@ -315,27 +316,25 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         if self.m < 2 or self.m > M_MAX:
             raise ValueError(f"Recieved m={self.m} but m must be between 2 and {M_MAX}.")
 
-    def adapt(
-        self,
-        op: Operator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> AbstractExponentiator:
+    def adapt(self, op: Operator, dt_max: ScalarLike) -> AbstractExponentiator:
 
         # Essentially reproduces Code Fragment 3.1 in the above referenced Mohy and Higham paper
 
         from ..operator import NoRealSpectrumError
 
+        dim = op.domain.dim
+
         try:
-            lmin, lmax = op.spectral_bounds(hilbert_space)
+            lmin, lmax = op.spectral_bounds
             mu1 = 0.5 * (lmin + lmax)
-            mu2 = 1.0 / hilbert_space.dim * hutchinson(op, hilbert_space)
-            theta1 = block_estimate(jnp.abs(dt_max) * (op - mu1), hilbert_space, num_samples=L)
-            theta2 = block_estimate(jnp.abs(dt_max) * (op - mu2), hilbert_space, num_samples=L)
+            mu2 = 1.0 / dim * hutchinson(op)
+            theta1 = block_estimate(jnp.abs(dt_max) * (op - mu1), num_samples=L)
+            theta2 = block_estimate(jnp.abs(dt_max) * (op - mu2), num_samples=L)
             mu = mu1 if theta1 < theta2 else mu2
             theta = min(theta1, theta2)
         except (NotImplementedError, NoRealSpectrumError):
-            mu = 1.0 / hilbert_space.dim * hutchinson(op, hilbert_space)
-            theta = block_estimate(jnp.abs(dt_max) * (op - mu), hilbert_space, num_samples=L)
+            mu = 1.0 / dim * hutchinson(op)
+            theta = block_estimate(jnp.abs(dt_max) * (op - mu), num_samples=L)
 
         op_shift = op - mu
         theta_list = _theta_table(self.max_tol)
@@ -349,7 +348,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         else:
             # d_p = ||A^p||^(1/p) for p = 2 .. P_MAX + 1;  alpha_p = max(d_p, d_{p+1})
             ds = jnp.array([
-                block_estimate(jnp.abs(dt_max) * op_shift, hilbert_space, num_samples=L, p=p) ** (1.0 / p)
+                block_estimate(jnp.abs(dt_max) * op_shift, num_samples=L, p=p) ** (1.0 / p)
                 for p in range(2, P_MAX + 2)
             ])
             alphas = jnp.maximum(ds[:-1], ds[1:])        # alphas[p - 2] = alpha_p,  p = 2..P_MAX
@@ -376,7 +375,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         theta_list = _theta_table(self.max_tol)
         
         if self.s is None:
-            theta = block_estimate(jnp.abs(h) * (op - self.mu), y.hilbert_space)
+            theta = block_estimate(jnp.abs(h) * (op - self.mu))
             s = jnp.maximum(1, jnp.ceil(theta / theta_list[self.m - 1])).astype(int)
         else:
             s = self.s 
