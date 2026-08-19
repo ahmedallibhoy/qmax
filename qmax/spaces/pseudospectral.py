@@ -9,7 +9,7 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractDiagonalOperator, NoExactExponentialError
-from ..exponentiators import AbstractExponentiator, ExactExponentiator, NotExponentiableError
+from ..exponentiators import AbstractExponentiator, ExactExponentiator
 from .spatial_discretization import (
     SpatialDiscretization, 
     SpatiallyDiscretizedState, 
@@ -106,12 +106,9 @@ class PseudoSpectralExponentiator(AbstractExponentiator):
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         return AbstractPotentialEnergy.exp_action(op, h, y)
 
-    def check_exponentiable(self, op: Operator):
-        if not isinstance(op, PseudoSpectralPotentialEnergy):
-            raise NotExponentiableError(
-                f"{type(self)} can only exponentiate operators of type PseudoSpectralPotentialEnergy "
-                f"but received operator of type {type(op)}"
-            )
+    @property
+    def operator_type(self) -> type:
+        return PseudoSpectralPotentialEnergy
 
     @property
     def order(self) -> int:

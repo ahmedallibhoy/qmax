@@ -13,9 +13,10 @@ import jax.numpy as jnp
 
 from jaxtyping import Array, ArrayLike, ScalarLike
 
+from ._internal import _update_field
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator, Identity
-from .exponentiators import Order, min_order, AbstractExponentiator, ExactExponentiator, TruncatedTaylorExponentiator, NotExponentiableError
+from .exponentiators import Order, min_order, AbstractExponentiator, ExactExponentiator, TruncatedTaylorExponentiator
 
 
 def apply_along_tensor(
@@ -168,13 +169,19 @@ class LiftExp(AbstractExponentiator):
         
         return apply_along_state(lambda s: lift_op.op.exp(h, s), y, lift_op.factor_idx)
 
-    def check_exponentiable(self, op: Operator):
-        if not isinstance(op, LiftOperator):
-            raise NotExponentiableError(
-                f"{type(self).__name__} can only exponentiate operators of type LiftOperator "
-                f"but received operator of type {type(op).__name__}"
-            )
+    def adapt_children(
+        self,
+        op: LiftOperator,
+        hilbert_space: AbstractHilbertSpace,
+        dt_max: ScalarLike) -> Operator:
 
+        return _update_field(op, "op", op.op.adapt(hilbert_space[op.factor_idx], dt_max))
+
+    @property
+    def operator_type(self) -> type:
+        return LiftOperator
+
+    def check_exponentiable(self, op: Operator):
         op.op.check_exponentiable_tree()
 
     @property
@@ -182,7 +189,7 @@ class LiftExp(AbstractExponentiator):
         return None
 
     def effective_order(self, lift_op: LiftOperator) -> Order:
-        return lift_op.op.exp_order
+        return lift_op.op.tree_order
 
 
 class LiftOperator(AbstractTensorOperator):
@@ -217,15 +224,6 @@ class LiftOperator(AbstractTensorOperator):
     def adjoint(self) -> Operator:
         return LiftOperator(self.op.adjoint(), self.factor_idx, self.num_factors)
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "op": self.op.to_dict(h_scale)
-        }
-
-
 class KroneckerSumExp(AbstractExponentiator):
 
     def exp(
@@ -239,13 +237,20 @@ class KroneckerSumExp(AbstractExponentiator):
 
         return y
 
-    def check_exponentiable(self, op: Operator):
-        if not isinstance(op, KroneckerSum):
-            raise NotExponentiableError(
-                f"{type(self).__name__} can only exponentiate operators of type KroneckerSum "
-                f"but received operator of type {type(op).__name__}"
-            )
+    def adapt_children(
+        self,
+        op: KroneckerSum,
+        hilbert_space: AbstractHilbertSpace,
+        dt_max: ScalarLike) -> Operator:
 
+        return _update_field(op, "ops", tuple(
+            factor.adapt(hilbert_space[idx], dt_max) for idx, factor in enumerate(op.ops)))
+
+    @property
+    def operator_type(self) -> type:
+        return KroneckerSum
+
+    def check_exponentiable(self, op: Operator):
         for factor in op.ops:
             factor.check_exponentiable_tree()
 
@@ -254,7 +259,7 @@ class KroneckerSumExp(AbstractExponentiator):
         return None
 
     def effective_order(self, kron_op: KroneckerSum) -> Order:
-        return min_order(*[op.exp_order for op in kron_op.ops])
+        return min_order(*[op.tree_order for op in kron_op.ops])
 
 
 class KroneckerSum(AbstractTensorOperator):
@@ -293,15 +298,6 @@ class KroneckerSum(AbstractTensorOperator):
 
     def adjoint(self) -> Operator:
         return KroneckerSum(tuple(op.adjoint() for op in self.ops))
-
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "ops": [op.to_dict(h_scale) for op in self.ops]
-        }
-
 
 class KroneckerProduct(AbstractTensorOperator):
     ops: tuple[Operator, ...]
@@ -343,11 +339,4 @@ class KroneckerProduct(AbstractTensorOperator):
     def adjoint(self) -> Operator:
         return KroneckerProduct(tuple(op.adjoint() for op in self.ops))
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "ops": None
-        }
 

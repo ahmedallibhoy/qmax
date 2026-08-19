@@ -14,9 +14,9 @@ from ._internal import _update_field
 
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import (
-    AbstractExponentiator, ExactExponentiator, NoExponentiator,
+    Order, AbstractExponentiator, ExactExponentiator, NoExponentiator,
     ShiftScaleExponentiator, TruncatedTaylorExponentiator, NotExponentiableError,
-    AbstractSplitMethod, Strang
+    Strang
 )
 from .utils import over_batch
 
@@ -80,24 +80,15 @@ class Operator(eqx.Module):
     def _check_domain(self, y: AbstractState):
         try:
             _reconcile_domains(self.domain, y.hilbert_space.structure)
-        except IncompatibleDomainError as e:
+        except IncompatibleDomainError:
             raise IncompatibleDomainError(
                 f"{type(self).__name__} acts on {_get_name(self.domain)}, "
                 f"but received a state on {_get_name(y.hilbert_space.structure)}"
             )
 
-
     def with_exponentiator(self, exponentiator: AbstractExponentiator):
         # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
         return _update_field(self, "exponentiator", exponentiator)
-
-    @property
-    def can_exponentiate(self) -> bool:
-        try:
-            self.check_exponentiable_tree()
-            return True
-        except NotExponentiableError:
-            return False
 
     # --------------------------------------------------------------------------------------------
     # Exponentiator delegators
@@ -105,15 +96,19 @@ class Operator(eqx.Module):
     #   These should be thin wrappers which pass self to the corresponding method of AbstractExponentiator
     # --------------------------------------------------------------------------------------------
     
+    @property
+    def can_exponentiate(self) -> bool:
+        return self.exponentiator.can_exponentiate(self)
+
     def check_exponentiable_tree(self) -> None:
         self.exponentiator.check_exponentiable_tree(self)
 
     @property
-    def exp_order(self):
-        try:
-            return self.exponentiator.effective_order(self)
-        except NotExponentiableError as e:
-            raise e.under(self) from None
+    def tree_order(self) -> Order:
+        return self.exponentiator.tree_order(self)
+
+    def adapt(self, hilbert_space: AbstractHilbertSpace, dt_max: ScalarLike) -> Operator:
+        return self.exponentiator.adapt_tree(self, hilbert_space, dt_max)
 
     # --------------------------------------------------------------------------------------------
     # Public, domain-checked entry points
@@ -277,13 +272,6 @@ class Operator(eqx.Module):
     def __neg__(self) -> Operator:
         return ShiftScaleOperator(self, scale=-1.0)
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-        }
-
 
 class AbstractHermitianOperator(Operator):
 
@@ -352,15 +340,6 @@ class ShiftScaleOperator(Operator):
     def adjoint(self) -> Operator:
         return jnp.conj(self.shift) + jnp.conj(self.scale) * self.op.adjoint()
 
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "op": self.op.to_dict(jnp.abs(self.scale) * h_scale)
-        }
-
-
 class AddOperator(Operator):
     op1: Operator
     op2: Operator
@@ -384,7 +363,7 @@ class AddOperator(Operator):
     def __check_init__(self):
         try:
             _reconcile_domains(self.op1.domain, self.op2.domain)
-        except IncompatibleDomainError as e:
+        except IncompatibleDomainError:
             raise IncompatibleDomainError(
                 f"Incompatible domains: {type(self.op1).__name__} acts on {_get_name(self.op1.domain)}, "
                 f"but {type(self.op2).__name__} acts on {_get_name(self.op2.domain)},"
@@ -408,23 +387,6 @@ class AddOperator(Operator):
 
     def adjoint(self) -> Operator:
         return self.op1.adjoint() + self.op2.adjoint()
-
-    def to_dict(self, h_scale: int=1.0) -> dict:
-        if isinstance(self.exponentiator, AbstractSplitMethod):
-            h1, h2 = self.exponentiator.h_scales
-            op1_val = self.op1.to_dict(h1 * h_scale)
-            op2_val = self.op2.to_dict(h2 * h_scale)
-        else:
-            op1_val = None
-            op2_val = None
-        
-        return {
-            "class": type(self).__name__,
-            "obj": self,
-            "h_scale": h_scale,
-            "op1": op1_val,
-            "op2": op2_val
-        }
 
 
 class MatMulOperator(Operator):

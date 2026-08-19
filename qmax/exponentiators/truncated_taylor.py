@@ -285,7 +285,7 @@ def _taylor_expm(
 
 class TruncatedTaylorExponentiator(AbstractExponentiator):
     """
-    Approximates exp(hA) @ y using a matrix-free adaption of the scaling and squaring 
+    Approximates exp(hA) @ y using a matrix-free adaption of the scaling + Taylor expansion
     method introduced by Mohy and Higham. For any μ and integer s,
 
         exp(hA) @ y = e^(hμ / s) * exp(h(A - μ * I) / s)^s @ y
@@ -296,22 +296,9 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         y_{k + 1} = e^(hμ / s) * T_m(h(A - μ * I) / s) @ y_{k}, y_0 = y
 
     Since the Taylor expansion has m terms, and is computed s times, the total amount 
-    of computational effort required by this method can be approximated by s * m. 
-
-    Error Analysis: T_m(X) = exp(X + ΔX) where |ΔX| < ε|X| whenever |X| < θ_{m - 1}, 
-    where θ_{m - 1} is a precomputed constant. Letting X = h(A - mu * I) / s, we have 
-    
-        T_m(X)^s = exp(h(A - μ * I) + sΔX),    s|ΔX| < εh|A - mu * I|
-
-    whenever h|A - μ * I| < sθ_{m - 1}. Given a fixed m, the parameters μ and s must be 
-    chosen to satisfy this bound in order for the backward error estimate to hold. This is 
-    accomplished by letting μ = 0.5 * (λ_max + λ_min), which minimizes |A - μ * I|, then 
-    choosing s = ceil(h|A - μ * I| / θ_{m - 1}). 
-    
-    The optional adapt method identifies the value m that minimizes s * m where s is set 
-    according to the previous procedure. 
-    
-    This exponentiator does not support reverse-mode automatic differentiation.
+    of computational effort required by this method can be approximated by s * m. The adapt 
+    method identifies the m, s, and μ that minimizes s * m while ensuring that the backward
+    error is at most max_tol. 
 
     References:
 

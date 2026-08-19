@@ -7,11 +7,12 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import ScalarLike
 
-from .._internal import _overrides
+from .._internal import _overrides, _update_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 
 if TYPE_CHECKING:
     from ..operator import Operator
+
 
 type Order = Optional[int]
 
@@ -31,48 +32,123 @@ class NotExponentiableError(Exception):
 
 class AbstractExponentiator(eqx.Module):
 
-    def adapt(
-        self,
-        op: Operator,
-        hilbert_space: AbstractHilbertSpace,
-        dt_max: ScalarLike) -> AbstractExponentiator:
+    # --------------------------------------------------------------------------------------------
+    # Do not override
+    # --------------------------------------------------------------------------------------------
 
-        return self
+    def adapt_tree(
+        self, 
+        op: Operator, 
+        hilbert_space: AbstractHilbertSpace, 
+        dt_max: ScalarLike) -> Operator:
+
+        op = self.adapt_children(op, hilbert_space, dt_max)
+        return op.with_exponentiator(self.adapt(op, hilbert_space, dt_max))
 
     def __call__(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         self.check_exponentiable_tree(op)
         return self.exp(op, h, y)
 
-    @abstractmethod
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        pass
-
     def check_exponentiable_tree(self, op: Operator) -> None:
         """
-        Checks `op` and everything beneath it in the expression tree, recording `op` in the path
-        of any NotExponentiableError raised from below. This is the only place the path is
-        extended, so every entry point -- Operator.exp, Operator.check_exponentiable_tree, or a
-        direct call to this exponentiator -- annotates the root exactly once.
+        Traverses the expression tree of op to ensure op is compatible with this 
+        exponentiator. If not, raises NotExponentiableError reproducing the path 
+        to the offending node. 
         """
         try:
+            if not isinstance(op, self.operator_type):
+                raise NotExponentiableError(
+                    f"{type(self).__name__} can only exponentiate operators of type "
+                    f"{self.operator_type.__name__} but received operator of type "
+                    f"{type(op).__name__}"
+                )
             self.check_exponentiable(op)
         except NotExponentiableError as e:
             raise e.under(op) from None
 
+    def can_exponentiate(self, op: Operator) -> bool:
+        """
+        Traverses the expression tree of op and returns True if this exponentiator 
+        can be called on op without raising an error. 
+        """
+        try:
+            self.check_exponentiable_tree(op)
+            return True
+        except NotExponentiableError:
+            return False
+
+    def tree_order(self, op: Operator) -> Order:
+        """
+        Traverses the expression tree of op to compute effective order of this 
+        exponentiator when applied to op
+        """
+        self.check_exponentiable_tree(op)
+        return self.effective_order(op)
+
+    # --------------------------------------------------------------------------------------------
+    # Should be overriden by subclasses if necessary
+    # --------------------------------------------------------------------------------------------
+
+    def adapt(
+        self,
+        op: Operator,
+        hilbert_space: AbstractHilbertSpace,
+        dt_max: ScalarLike) -> AbstractExponentiator:
+        """
+        Given a max stepsize, an operator, and a Hilbert space, returns an instance of type(self)
+        with any parameters tuned to guarantee that reported order estimate is valid while reducing 
+        computational burden. 
+
+        Should be override on exponentiators acting on leaf operators with tunable parameter values.  
+        """
+
+        return self
+
+    def adapt_children(
+        self, 
+        op, 
+        hilbert_space, 
+        dt_max) -> Operator:
+        """
+        Returns an instance of type(op) whose children are adapted to this hilbert_space. 
+        
+        Should override on exponentiators acting on composite operators. 
+        """
+        return op
+
+    @abstractmethod
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        pass
+
+    @property
+    def operator_type(self) -> type[Operator]:
+        """
+        Type of operator this exponentiator is compatible with
+        """
+        from ..operator import Operator
+        return Operator
+
+
     def check_exponentiable(self, op: Operator) -> None:
         """
-        Checks whether this exponentiator can act on `op` itself, recursing into whichever
-        children its exp() needs via their check_exponentiable_tree(). Overridden by
-        subclasses; never call this directly, use check_exponentiable_tree.
+        Validates exponentiability by recursing into a composite operators tree via 
+        op_child.check_exponentiable_tree for each child, op_child, of op
         """
         pass
 
     @property
     @abstractmethod
     def order(self) -> Order:
-        pass
+        """
+        The intrinsic order of the method itself, independent of any operator. None means the
+        method contributes no truncation error of its own.
+        """
 
     def effective_order(self, op: Operator) -> Order:
+        """
+        The minimum of the intrinsic order and the orders of the exponentiators of each 
+        child of op, queried via op_child.tree_order for each child, op_child, of op
+        """
         return self.order
 
 
@@ -100,15 +176,21 @@ class ShiftScaleExponentiator(AbstractExponentiator):
     def exp(self, op, h, y):
         return jnp.exp(h * op.shift) * op.op.exp(h * op.scale, y)
 
-    def check_exponentiable(self, op: Operator):
+    def adapt_children(
+        self,
+        op: Operator,
+        hilbert_space: AbstractHilbertSpace,
+        dt_max: ScalarLike) -> Operator:
+
+        # only the scale stretches the step; the shift contributes a phase
+        return _update_field(op, "op", op.op.adapt(hilbert_space, jnp.abs(op.scale) * dt_max))
+
+    @property
+    def operator_type(self) -> type:
         from ..operator import ShiftScaleOperator
+        return ShiftScaleOperator
 
-        if not isinstance(op, ShiftScaleOperator):
-            raise NotExponentiableError(
-                f"{type(self).__name__} can only exponentiate operators of type ShiftScaleOperator "
-                f"but received operator of type {type(op).__name__}"
-            )
-
+    def check_exponentiable(self, op: Operator):
         op.op.check_exponentiable_tree()
 
     @property
@@ -116,17 +198,21 @@ class ShiftScaleExponentiator(AbstractExponentiator):
         return None
 
     def effective_order(self, op):
-        return op.op.exp_order
+        return op.op.tree_order
 
 
 class NoExponentiator(AbstractExponentiator):
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        raise NotExponentiableError(f"Cannot exponentiate. Use .with_exponentiator to assign an exponentiator")
+        raise NotExponentiableError(
+            f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
+            "Use .with_exponentiator to assign an exponentiator")
 
     def check_exponentiable(self, op: Operator):
-        raise NotExponentiableError(f"Cannot exponentiate. Use .with_exponentiator to assign an exponentiator")
+        raise NotExponentiableError(
+            f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
+            "Use .with_exponentiator to assign an exponentiator")
 
     @property
     def order(self) -> Order:
-        raise NotExponentiableError(f"Cannot exponentiate. Use .with_exponentiator to assign an exponentiator")
+        return None

@@ -496,7 +496,7 @@ class TestShift:
         space, op = base
         shifted = op + 2.0
         assert shifted.exponentiator is op.exponentiator
-        assert shifted.exp_order == op.exp_order
+        assert shifted.tree_order == op.tree_order
 
     @pytest.mark.parametrize("base", BASES.values(), ids=list(BASES))
     def test_solve_folds_the_shift_into_the_base(self, base, key):

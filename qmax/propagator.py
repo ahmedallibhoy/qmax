@@ -15,7 +15,6 @@ from .timestepper import AbstractTimeStepper, Midpoint
 from .exponentiators import AbstractSplitMethod, Strang
 from .spaces.spatial_discretization import SpatialDiscretization
 from .tensor import AbstractTensorOperator
-from .adapt import adapt_operator
 
 
 # TODO:
@@ -125,7 +124,7 @@ class TimeInvariantPropagator(AbstractPropagator):
         self.hbar = hbar
 
         h = self.dt / self.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
-        self.op = adapt_operator(op, hilbert_space, h)
+        self.op = op.adapt(hilbert_space, h)
         self.hilbert_space = hilbert_space
 
     def propagate_stage(
@@ -185,8 +184,8 @@ class ControlledPropagator(AbstractPropagator):
         dt1 = h1 * w_max * self.u1_max * self.dt / self.hbar
         dt2 = h2 * w_max * self.u2_max * self.dt / self.hbar
 
-        self.op1 = adapt_operator(op1, hilbert_space, dt1)
-        self.op2 = adapt_operator(op2, hilbert_space, dt2)
+        self.op1 = op1.adapt(hilbert_space, dt1)
+        self.op2 = op2.adapt(hilbert_space, dt2)
         self.split_method = split_method
         self.hilbert_space = hilbert_space
 
