@@ -8,6 +8,7 @@ from ..hilbert_space import AbstractState, AbstractHilbertSpace
 from ..operator import Operator, Identity, AbstractHermitianOperator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
 from ..tensor import TensorState, TensorPower, KroneckerProduct
+from .nlevel import NLevel, NLevelState
 
 
 PAULI_MATRICES = {
@@ -18,17 +19,14 @@ PAULI_MATRICES = {
 }
 
 
-class TwoLevelState(AbstractState):
+class TwoLevelState(NLevelState):
     """
     """
 
 
-class TwoLevel(AbstractHilbertSpace):
+class TwoLevel(NLevel):
     state_type: ClassVar = TwoLevelState
-
-    @property
-    def dim(self) -> int:
-        return 2
+    dim: ClassVar[int] = 2
 
     def pauli(self, axis) -> PauliOperator:
         return PauliOperator(self, axis)
@@ -71,27 +69,14 @@ class PauliOperator(AbstractPauliOperator):
 
 
 class QubitsState(TensorState):
-
-    @property
-    def probabilities(self) -> Array:
-        return jnp.abs(self.coeffs) ** 2
-
-    def bit_probability(self, idx: int) -> Array:
-        n = self.hilbert_space.num_factors
-        p = self.probabilities
-        left, right = 2 ** idx, 2 ** (n - idx - 1)
-        return p.reshape(*p.shape[:-1], left, 2, right).sum(axis=(-3, -1))[..., 1]
-
-    @property
-    def bit_probabilities(self) -> Array:
-        n = self.hilbert_space.num_factors
-        return jnp.stack([self.bit_probability(i) for i in range(n)], axis=-1)
+    """
+    """
 
 
 class Qubits(TensorPower):
     state_type: ClassVar = QubitsState
 
-    def __init__(self, num_bits: int):
+    def __init__(self, num_bits: int=1):
         self.factorspace = TwoLevel()
         self.power = num_bits
 

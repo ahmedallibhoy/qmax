@@ -17,6 +17,9 @@ from ..operator import Operator, AbstractHermitianOperator
 # TODO:
 #   1. Abstract position and momentum operators
 #   2. Abstract annihilation and creation operators?
+#   3. Nonrectangular spatial discretizations
+#       a. spherical / cylindrical spaces
+#       b. abstract point meshes
 
 
 def _to_tuple(x, dtype=float):
@@ -42,11 +45,6 @@ class SpatialDiscretization(AbstractHilbertSpace):
     x0: tuple[float, ...] = eqx.field(converter=_to_tuple)
     xf: tuple[float, ...] = eqx.field(converter=_to_tuple)
     mesh_size: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
-
-    @property
-    @abstractmethod
-    def dim(self) -> int:
-        pass
 
     @abstractmethod
     def from_values(self, values: ArrayLike) -> SpatiallyDiscretizedState:

@@ -19,8 +19,7 @@ if TYPE_CHECKING:
 
 
 # TODO:
-#   1. Adapation and parameter setting that don't assume A is hermitian.
-#   2. Alternative adapation schemes evaluating t over range [t0, t1] for timestepping and exponential integrators
+#   Alternative adapation schemes evaluating t over range [t0, t1] for timestepping and exponential integrators
 
 
 
@@ -159,10 +158,16 @@ def hutchinson(
 
 
 def norm1(y: AbstractState) -> Scalar:
+    """
+    Computes 1-norm of y
+    """
     return jnp.sum(jnp.abs(y.coeffs), axis=-1)
 
 
 def normalize(Y: AbstractState) -> AbstractState:
+    """
+    Normalizes columns of batched state Y to have unit 1-norm.
+    """
     M = Y.coeffs
     coeffs = M / jnp.where(jnp.abs(M) > 0, jnp.abs(M), jnp.ones_like(M))
     return Y.hilbert_space.from_coeffs(coeffs)
@@ -170,11 +175,9 @@ def normalize(Y: AbstractState) -> AbstractState:
 
 def _top_indices(h: Array, num_indices: int, exclude: Optional[Array]=None) -> Array:
     """
-    Indices of the num_indices largest entries of h, skipping anything in exclude.
-
-    A masked argmax per index rather than a sort: only a handful of entries are ever
-    wanted, so this is O(num_indices * n) against the O(n log n) of argsort, and at the
-    sizes involved the selection would otherwise dominate the whole estimate.
+    Returns indices of top num_indices entries in h sorted in decreasing order, 
+    excluding those indices in exclude. When num_indices is small compared to h.shape[0], 
+    this is faster than argsort(h)[:num_indices] (O(num_indices * n) vs. O(n log n))
     """
     if exclude is not None:
         h = h.at[exclude].set(-jnp.inf)
@@ -189,7 +192,9 @@ def _top_indices(h: Array, num_indices: int, exclude: Optional[Array]=None) -> A
 
 
 def _unit_states(hilbert_space: AbstractHilbertSpace, indices: Array) -> AbstractState:
-    """The batch of unit basis states e_i, one for each i in indices."""
+    """
+    Returns e_i for i in indices
+    """
     num_indices = indices.shape[0]
     coeffs = jnp.zeros((num_indices, hilbert_space.dim))
     return hilbert_space.from_coeffs(coeffs.at[jnp.arange(num_indices), indices].set(1.0))
@@ -203,20 +208,12 @@ def block_estimate(
     key: PRNGKeyArray=jax.random.key(0)) -> Scalar:
 
     """
-    Simplification of the method to estimate the 1-norm of the matrix A^p from:
+    Simplification of the below referenced method to estimate the 1-norm of the matrix A^p, 
+    skipping convergence / early termination checks. 
 
         Higham, Nicholas J., and Françoise Tisseur.
         "A block algorithm for matrix 1-norm estimation, with an application to 1-norm pseudospectra."
         SIAM Journal on Matrix Analysis and Applications 21.4 (2000): 1185-1201.
-
-    The convergence tests of Algorithm 2.4 are dropped, so num_iterations always runs to
-    completion. At the two or three iterations used in practice they rarely fire, and
-    without them the routine holds no data-dependent control flow: it fuses into a single
-    jit region, and it can be called from traced code (e.g. on an unadapted operator,
-    where h is only known at trace time).
-
-    The estimate is a lower bound on ||A^p||_1, as it is the largest 1-norm found over the
-    probe columns tried.
     """
 
     hilbert_space = operator.domain
@@ -233,8 +230,6 @@ def block_estimate(
     Y = jax.lax.fori_loop(0, p, action, Y)
     est = jnp.max(norm1(Y))
 
-    # The adjoint sweep exists only to pick the next probe columns, so the final
-    # iteration has no use for one.
     used = []
     for _ in range(num_iterations - 1):
         Z = jax.lax.fori_loop(0, p, adj_action, normalize(Y))

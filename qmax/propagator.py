@@ -23,6 +23,7 @@ from .spaces.spatial_discretization import SpatialDiscretization
 #   3. propagate() should optionally compute cost functions:
 #       a. Running cost c(t, y, args) 
 #       b. Terminal cost V(t1, y1, args)
+#   4. Checkpoints + explicit adjoints
 #
 
 

@@ -19,6 +19,13 @@ from .exponentiators import (
 from .utils import over_batch
 
 
+BRANCH = "├"
+PIPE = "|"
+ANGLE = "└"
+DASH = "─"
+PAD = "    "
+
+
 class IncompatibleDomainError(TypeError):
     pass
 
@@ -159,39 +166,39 @@ class Operator(eqx.Module):
 
         c = _as_shift(other)
         if c is not None:
-            return ShiftScaleOperator(self.domain, self, shift=c)
+            return ShiftScaleOperator(self, shift=c)
         if not isinstance(other, Operator):
             return NotImplemented
 
         # self may be the identity term instead
         c = _as_shift(self)
         if c is not None:
-            return ShiftScaleOperator(self.domain, other, shift=c)  
+            return ShiftScaleOperator(other, shift=c)  
             
-        return AddOperator(self.domain, self, other)
+        return AddOperator(self, other)
 
     def __radd__(self, other: Union[Operator, ScalarLike]) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
         if c is not None:
-            return ShiftScaleOperator(self.domain, self, shift=c)
+            return ShiftScaleOperator(self, shift=c)
         if not isinstance(other, Operator):
             return NotImplemented
 
         # self may be the identity term instead
         c = _as_shift(self)
         if c is not None:
-            return ShiftScaleOperator(self.domain, other, shift=c)
+            return ShiftScaleOperator(other, shift=c)
 
-        return AddOperator(self.domain, other, self)
+        return AddOperator(other, self)
 
     def __sub__(self, other: Union[Operator, ScalarLike]) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
         if c is not None:
-            return ShiftScaleOperator(self.domain, self, shift=-c)
+            return ShiftScaleOperator(self, shift=-c)
         if isinstance(other, Operator):
             return self + (-other) 
 
@@ -202,7 +209,7 @@ class Operator(eqx.Module):
 
         c = _as_shift(other)
         if c is not None:
-            return ShiftScaleOperator(self.domain, self, shift=c, scale=-1.0)
+            return ShiftScaleOperator(self, shift=c, scale=-1.0)
         if isinstance(other, Operator):
             return other + (-self) 
 
@@ -212,13 +219,13 @@ class Operator(eqx.Module):
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ShiftScaleOperator(self.domain, self, scale=other)
+        return ShiftScaleOperator(self, scale=other)
 
     def __rmul__(self, other: ScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ShiftScaleOperator(self.domain, self, scale=other) 
+        return ShiftScaleOperator(self, scale=other) 
 
     def __matmul__(self, other: Operator) -> Operator:
         self._check_compatible(other)
@@ -234,7 +241,7 @@ class Operator(eqx.Module):
         if c is not None:
             return c * other
 
-        return MatMulOperator(self.domain, self, other)
+        return MatMulOperator(self, other)
 
     def __rmatmul__(self, other: Operator) -> Operator:
         self._check_compatible(other)
@@ -252,10 +259,10 @@ class Operator(eqx.Module):
         if c is not None:
             return c * other
 
-        return MatMulOperator(self.domain, other, self)
+        return MatMulOperator(other, self)
 
     def adjoint(self) -> Operator:
-        return AdjOperator(self.domain, self)
+        return AdjOperator(self)
 
     @property
     def H(self) -> Operator:
@@ -265,10 +272,19 @@ class Operator(eqx.Module):
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ShiftScaleOperator(self.domain, self, scale=1.0 / other) 
+        return ShiftScaleOperator(self, scale=1.0 / other) 
 
     def __neg__(self) -> Operator:
-        return ShiftScaleOperator(self.domain, self, scale=-1.0)
+        return ShiftScaleOperator(self, scale=-1.0)
+
+    def to_str(self) -> str:
+        return f"{type(self).__name__}"
+
+    def draw_tree(self, prefix="") -> str:
+        return f"{self.to_str()}"
+
+    def __str__(self) -> str:
+        return self.draw_tree()
 
 
 class AbstractHermitianOperator(Operator):
@@ -290,13 +306,12 @@ class ShiftScaleOperator(Operator):
 
     def __init__(
         self, 
-        domain: AbstractHilbertSpace,
         op: Operator, 
         shift: ScalarLike=0.0,
         scale: ScalarLike=1.0, 
         exponentiator: Optional[AbstractExponentiator]=None):
 
-        self.domain = domain
+        self.domain = op.domain
 
         if isinstance(op, ShiftScaleOperator):
             # If op = s0 * I + c0 * A then 
@@ -313,13 +328,6 @@ class ShiftScaleOperator(Operator):
             self.exponentiator = exponentiator
         else:
             self.exponentiator = ShiftScaleExponentiator()
-
-    def __check_init__(self):
-        if self.op.domain != self.domain:
-            raise IncompatibleDomainError(
-                f"Received Hilbert space {self.domain}, but operand "
-                f"{type(self.op).__name__} acts on {self.op.domain}. "
-            )
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.scale * self.op.action(y) + self.shift * y
@@ -346,6 +354,13 @@ class ShiftScaleOperator(Operator):
     def adjoint(self) -> Operator:
         return jnp.conj(self.shift) + jnp.conj(self.scale) * self.op.adjoint()
 
+    def to_str(self) -> str:
+        return f"{type(self).__name__}(shift={self.shift}, scale={self.scale})"
+
+    def draw_tree(self, prefix="") -> str:
+        op_tree = self.op.draw_tree(prefix + PAD + " ")
+        return f"{self.to_str()}\n{prefix}{PAD + ANGLE + DASH}{op_tree}"
+
 
 class AddOperator(Operator):
     op1: Operator
@@ -353,12 +368,17 @@ class AddOperator(Operator):
 
     def __init__(
         self, 
-        domain: AbstractHilbertSpace,
         op1: Operator, 
         op2: Operator, 
         exponentiator: Optional[AbstractExponentiator]=None):
 
-        self.domain = domain
+        if op1.domain != op2.domain:
+            raise IncompatibleDomainError(
+                f"Cannot add operators on different domains: op1={type(self.op1).__name__} acts on {op1.domain}, "
+                f"but op2={type(self.op2).__name__} acts on {op2.domain},"
+            )
+
+        self.domain = op1.domain
         self.op1 = op1 
         self.op2 = op2
 
@@ -368,19 +388,6 @@ class AddOperator(Operator):
             self.exponentiator = TruncatedTaylorExponentiator()
         else:
             self.exponentiator = Strang()
-
-    def __check_init__(self):
-        if self.op1.domain != self.domain:
-            raise IncompatibleDomainError(
-                f"Received incompatible hilbert_space. Operand {type(self.op1).__name__} acts on {self.op1.domain}, "
-                f"but {type(self.op1).__name__} + {type(self.op2).__name__} acts on {self.domain},"
-            )
-
-        if self.op2.domain != self.domain:
-            raise IncompatibleDomainError(
-                f"Received incompatible hilbert_space. Operand {type(self.op2).__name__} acts on {self.op2.domain}, "
-                f"but {type(self.op1).__name__} + {type(self.op2).__name__} acts on {self.domain},"
-            )
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.op1.action(y) + self.op2.action(y)
@@ -398,24 +405,27 @@ class AddOperator(Operator):
     def adjoint(self) -> Operator:
         return self.op1.adjoint() + self.op2.adjoint()
 
+    def draw_tree(self, prefix="") -> str:
+        op1_tree = self.op1.draw_tree(prefix + PAD + PIPE)
+        op2_tree = self.op2.draw_tree(prefix + PAD + " ")
+        return f"{self.to_str()}\n{prefix}{PAD + BRANCH + DASH}{op1_tree}\n{prefix}{PAD + ANGLE + DASH}{op2_tree}"
+
 
 class MatMulOperator(Operator):
     op1: Operator
     op2: Operator
-    exponentiator: AbstractExponentiator = eqx.field(default=TruncatedTaylorExponentiator(), kw_only=True)
 
-    def __check_init__(self):
-        if self.op1.domain != self.domain:
+    def __init__(self, op1, op2, exponentiator=TruncatedTaylorExponentiator()):
+        if op1.domain != op2.domain:
             raise IncompatibleDomainError(
-                f"Received incompatible hilbert_space. Operand {type(self.op1).__name__} acts on {self.op1.domain}, "
-                f"but {type(self.op1).__name__} @ {type(self.op2).__name__} acts on {self.domain},"
+                f"Cannot compose operators on different domains: op1={type(self.op1).__name__} acts on {op1.domain}, "
+                f"but op2={type(self.op2).__name__} acts on {op2.domain},"
             )
-
-        if self.op2.domain != self.domain:
-            raise IncompatibleDomainError(
-                f"Received incompatible hilbert_space. Operand {type(self.op2).__name__} acts on {self.op2.domain}, "
-                f"but {type(self.op1).__name__} @ {type(self.op2).__name__} acts on {self.domain},"
-            )
+        
+        self.domain = op1.domain
+        self.op1 = op1 
+        self.op2 = op2 
+        self.exponentiator = exponentiator
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.op1.action(self.op2.action(y))
@@ -429,30 +439,27 @@ class MatMulOperator(Operator):
     def adjoint(self) -> Operator:
         return self.op2.adjoint() @ self.op1.adjoint()
 
+    def draw_tree(self, prefix="") -> str:
+        op1_tree = self.op1.draw_tree(prefix + PAD + PIPE)
+        op2_tree = self.op2.draw_tree(prefix + PAD + " ")
+        return f"{self.to_str()}\n{prefix}{PAD + BRANCH + DASH}{op1_tree}\n{prefix}{PAD + ANGLE + DASH}{op2_tree}"
+
 
 class AdjOperator(Operator):
     op: Operator
 
     def __init__(
         self, 
-        domain: AbstractHilbertSpace,
         op: Operator, 
         exponentiator: Optional[AbstractExponentiator]=None):
 
-        self.domain = domain
+        self.domain = op.domain
         self.op = op
 
         if exponentiator is not None:
             self.exponentiator = exponentiator
         else:
             self.exponentiator = NoExponentiator()
-
-    def __check_init__(self):
-        if self.op.domain != self.domain:
-            raise IncompatibleDomainError(
-                f"Received Hilbert space {self.domain}, but operand "
-                f"{type(self.op).__name__} acts on {self.op.domain}. "
-            )
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.op.adj_action(y)
@@ -469,6 +476,10 @@ class AdjOperator(Operator):
 
     def adjoint(self) -> Operator:
         return self.op
+
+    def draw_tree(self, prefix="") -> str:
+        op_tree = self.op.draw_tree(prefix + PAD + " ")
+        return f"{self.to_str()}\n{prefix}{PAD + ANGLE + DASH}{op_tree}"
 
 
 class Identity(AbstractHermitianOperator):

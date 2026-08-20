@@ -31,11 +31,7 @@ def _coeff_index(idx: Index) -> tuple[int, ...]:
 
 class AbstractHilbertSpace(eqx.Module):
     state_type: eqx.AbstractClassVar[type[AbstractState]]
-
-    @property
-    @abstractmethod
-    def dim(self) -> int:
-        pass
+    dim: eqx.AbstractVar[int]
 
     def batch_shape(self, shape: Shape) -> Shape:
         return shape + (self.dim,)

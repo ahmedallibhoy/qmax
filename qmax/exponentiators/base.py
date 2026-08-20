@@ -122,7 +122,6 @@ class AbstractExponentiator(eqx.Module):
         from ..operator import Operator
         return Operator
 
-
     def check_exponentiable(self, op: Operator) -> None:
         """
         Validates exponentiability by recursing into a composite operators tree via 
