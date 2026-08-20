@@ -42,9 +42,7 @@ class AbstractPropagator(eqx.Module):
     t0: float = eqx.field(static=True)
     t1: float = eqx.field(static=True)
     num_steps: int = eqx.field(static=True)
-    hbar: float = eqx.field(default=1.0, kw_only=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
-
     hilbert_space: eqx.AbstractVar[AbstractHilbertSpace]
 
     @property
@@ -58,6 +56,10 @@ class AbstractPropagator(eqx.Module):
     @property
     def dt(self) -> Scalar:
         return (self.t1 - self.t0) / self.num_steps
+
+    @property
+    def hbar(self) -> Scalar:
+        return self.hilbert_space.hbar
 
     @abstractmethod
     def propagate_stage(
@@ -109,7 +111,6 @@ class TimeInvariantPropagator(AbstractPropagator):
         op: Operator,
         *,
         dt_max: Optional[ScalarLike]=None,
-        hbar: ScalarLike=1.0,
         timestepper: AbstractTimeStepper = Midpoint()):
 
         self.t0 = t0
@@ -121,11 +122,10 @@ class TimeInvariantPropagator(AbstractPropagator):
             self.num_steps = ceil((t1 - t0) / dt_max)
 
         self.timestepper = timestepper
-        self.hbar = hbar
 
         op.check_exponentiable_tree()
 
-        h = self.dt / self.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
+        h = self.dt / op.hilbert_space.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
         self.op = op.adapt(h)
 
     @property
@@ -165,7 +165,6 @@ class ControlledPropagator(AbstractPropagator):
         u2_max: Scalar,
         *,
         dt_max: Optional[ScalarLike]=None,
-        hbar: ScalarLike=1.0,
         timestepper: AbstractTimeStepper = Midpoint(),
         split_method: AbstractSplitMethod = Strang()):
 
@@ -178,8 +177,6 @@ class ControlledPropagator(AbstractPropagator):
             self.num_steps = ceil((t1 - t0) / dt_max)
 
         self.timestepper = timestepper
-        self.hbar = hbar
-
         self.u1_max = u1_max
         self.u2_max = u2_max
 
@@ -194,8 +191,8 @@ class ControlledPropagator(AbstractPropagator):
 
         w_max = jnp.max(jnp.sum(jnp.abs(self.weights), axis=1))
         h1, h2 = split_method.h_scales
-        dt1 = h1 * w_max * self.u1_max * self.dt / self.hbar
-        dt2 = h2 * w_max * self.u2_max * self.dt / self.hbar
+        dt1 = h1 * w_max * self.u1_max * self.dt / op1.domain.hbar
+        dt2 = h2 * w_max * self.u2_max * self.dt / op1.domain.hbar
 
         self.op1 = op1.adapt(dt1)
         self.op2 = op2.adapt(dt2)
@@ -261,7 +258,7 @@ class QuantumHamiltonianDescent(ControlledPropagator):
         op2 = hilbert_space.potential_energy(objective)
 
         super().__init__(t0, t1, op1, op2, u1_max, u2_max,
-            dt_max=dt_max, hbar=1.0, timestepper=timestepper, split_method=split_method)
+            dt_max=dt_max, timestepper=timestepper, split_method=split_method)
 
     def propagate_stage(
         self,

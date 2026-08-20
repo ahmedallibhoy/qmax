@@ -118,11 +118,22 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
         return (jnp.array(self.xf) - jnp.array(self.x0)) / sizes
 
+    # These factories are not abstract properties since intermediate classes 
+    # like _FiniteDifference1D need to be instantiable without overrides
+
     def laplacian(self) -> Operator:
-        raise NotImplementedError
+        raise NotImplementedError 
 
     def potential_energy(self, potential: Callable[[ArrayLike], ScalarLike]) -> Operator:
-        raise NotImplementedError
+        raise NotImplementedError 
+
+    def position(self, axis: int = 0) -> Operator:
+        if self.spatial_dim == 1:
+            return self.potential_energy(lambda x: x)
+        return self.potential_energy(lambda x, i=axis: x[i])
+
+    def momentum(self, axis: int) -> Operator:
+        raise NotImplementedError 
 
 
 class AbstractPotentialEnergy(AbstractHermitianOperator):

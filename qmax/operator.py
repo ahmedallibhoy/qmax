@@ -502,17 +502,19 @@ class Identity(AbstractHermitianOperator):
         return jnp.eye(self.domain.dim)
 
 
-class AbstractDiagonalOperator(AbstractHermitianOperator):
+class AbstractDiagonalOperator(Operator):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     @property
     @abstractmethod
     def eigvals(self) -> Array:
-        # Assumed that eigvals are real
         pass
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.domain.from_coeffs(self.eigvals * y.coeffs)
+
+    def adj_action(self, y: AbstractState) -> AbstractState:
+        return self.domain.from_coeffs(jnp.conj(self.eigvals) * y.coeffs)
 
     def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         coeffs = jnp.exp(h * self.eigvals) * y.coeffs
@@ -528,7 +530,10 @@ class AbstractDiagonalOperator(AbstractHermitianOperator):
 
     @property
     def spectral_bounds(self) -> Array:
-        return jnp.array([jnp.min(self.eigvals), jnp.max(self.eigvals)])
+        if not jnp.iscomplexobj(self.eigvals):
+            return jnp.array([jnp.min(self.eigvals), jnp.max(self.eigvals)])
+
+        raise NotImplementedError
 
     def to_matrix(self) -> Array:
         return jnp.diag(self.eigvals)

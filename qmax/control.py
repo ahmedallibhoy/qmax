@@ -82,3 +82,35 @@ class InterpolatedControl(AbstractControl):
         u = self.evaluate(t)
         return u_int[idx] + 0.5 * (t - t_prev)  * (u_prev + u)
 
+
+class PiecewiseConstantControl(AbstractControl):
+    u_range: ArrayLike
+    t0: ScalarLike = eqx.field(static=True)
+    t1: ScalarLike = eqx.field(static=True)
+    has_integral: ClassVar[bool] = True 
+
+    @property
+    def num_steps(self) -> int:
+        return self.u_range.shape[0]
+
+    @property
+    def dt(self) -> Scalar:
+        return (self.t1 - self.t0) / (self.num_steps - 1)
+
+    def idx(self, t: ScalarLike) -> int:
+        return jnp.clip(jnp.trunc((t - self.t0) / self.dt).astype(int), 0, self.num_steps - 2)
+
+    def evaluate(self, t: ScalarLike) -> Scalar:
+        idx = self.idx(t)
+        return self.u_range[idx]
+
+    def bound(self, t_range: ArrayLike) -> Scalar:
+        if t_range[0] < self.t0 or t_range[-1] > self.t1:
+            raise ValueError(f"t_range={t_range} out of interpolation range ({self.t0}, {self.t1})")
+
+        idx0, idx1 = self.idx(t_range[0]), self.idx(t_range[-1]) + 1
+        return jnp.max(jnp.abs(self.u_range[idx0:idx1 + 1]))
+
+    def integral(self, t: ScalarLike) -> Scalar:
+        idx = self.idx(t)
+        return jnp.cumsum(self.dt * self.u_range[:idx])

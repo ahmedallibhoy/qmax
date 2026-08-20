@@ -26,7 +26,9 @@ class TwoLevelState(NLevelState):
 
 class TwoLevel(NLevel):
     state_type: ClassVar = TwoLevelState
-    dim: ClassVar[int] = 2
+
+    def __init__(self):
+        self._dim = 2
 
     def pauli(self, axis) -> PauliOperator:
         return PauliOperator(self, axis)

@@ -25,7 +25,11 @@ class NLevelState(AbstractState):
 
 class NLevel(AbstractHilbertSpace):
     state_type: ClassVar = NLevelState
-    dim: int
+    _dim: int
+
+    @property
+    def dim(self) -> int:
+        return self._dim
 
     def fock(self, idx: int) -> NLevelState:
         if idx >= self.dim:

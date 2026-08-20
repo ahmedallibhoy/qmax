@@ -11,7 +11,7 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractHermitianOperator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
-from ..tensor import TensorProduct, TensorState, KroneckerSum
+from ..tensor import TensorProduct, TensorState, KroneckerSum, LiftOperator
 from ..utils import over_batch
 from .spatial_discretization import (
     SpatialDiscretization, 
@@ -96,6 +96,35 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
         return L
 
 
+class _FiniteDifference1DMomentum(Operator):
+
+    def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
+        values_next = jnp.concatenate(
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+
+        values_prev = jnp.concatenate(
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+
+        d_values = (values_next - values_prev) / (2 * self.domain.dx)
+        return self.domain.from_values(-1j * self.domain.hbar * d_values)
+
+    def adj_action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
+        values_next = jnp.concatenate(
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+
+        values_prev = jnp.concatenate(
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+
+        d_values = (values_next - values_prev) / (2 * self.domain.dx)
+        return self.domain.from_values(1j * self.domain.hbar * jnp.conj(d_values))
+
+    def to_matrix(self) -> Array:
+        dim = self.domain.dim
+        dx = self.domain.dx
+        D = (jnp.eye(dim, k=1) - jnp.eye(dim, k=-1)) / (2 * dx)
+        return -1j * self.domain.hbar * D
+
+
 class FiniteDifferenceState(SpatiallyDiscretizedState, TensorState):
 
     @property
@@ -134,6 +163,9 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
 
         return FiniteDifferencePotentialEnergy(self, potential)
 
+    def momentum(self, axis: int=0) -> FiniteDifferenceMomentum:
+        return FiniteDifferenceMomentum(self, axis) 
+
 
 class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
@@ -141,6 +173,18 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
         self.domain = domain
         self.ops = tuple(
             _FiniteDifference1DLaplacian(domain[idx]) for idx in range(domain.num_factors))
+
+
+class FiniteDifferenceMomentum(LiftOperator):
+
+    def __init__(self, domain: FiniteDifference, axis: int):
+        self.domain = domain
+        self.op = _FiniteDifference1DMomentum(domain[axis])
+        self.factor_idx = axis
+
+    @property
+    def idx(self) -> int:
+        return self.factor_idx
 
 
 class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy):

@@ -84,6 +84,9 @@ class PseudoSpectral(SpatialDiscretization):
 
         return PseudoSpectralPotentialEnergy(self, potential)
 
+    def momentum(self, axis: int=0) -> PseudoSpectralMomentum:
+        return PseudoSpectralMomentum(self, axis) 
+
 
 class PseudoSpectralLaplacian(AbstractDiagonalOperator):
 
@@ -147,3 +150,15 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
             
         return Vhat[flat]
 
+
+class PseudoSpectralMomentum(AbstractDiagonalOperator):
+    axis: int = 0
+
+    @property
+    def eigvals(self) -> Array:
+        hilbert_space = self.domain
+        num_modes = hilbert_space.num_modes
+        ds = [(hilbert_space.xf[i] - hilbert_space.x0[i]) / n for i, n in enumerate(num_modes)]
+        k_per_axis = [2 * jnp.pi * jnp.fft.fftfreq(n, d=d) for (n, d) in zip(num_modes, ds)]
+        ks = hilbert_space.grid_vectors(k_per_axis)
+        return ks[:, self.axis]
