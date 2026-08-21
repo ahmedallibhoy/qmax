@@ -125,7 +125,7 @@ class TimeInvariantPropagator(AbstractPropagator):
 
         op.check_exponentiable_tree()
 
-        h = self.dt / op.hilbert_space.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
+        h = self.dt / op.domain.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
         self.op = op.adapt(h)
 
     @property

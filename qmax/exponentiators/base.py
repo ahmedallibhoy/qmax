@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from typing import Optional, TYPE_CHECKING
+from dataclasses import dataclass
+
 from abc import abstractmethod
 
 import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import ScalarLike
 
+from .._introspect import CountDict, Path
 from .._internal import _update_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 
@@ -24,7 +27,7 @@ def min_order(*orders: Order) -> Order:
 class NotExponentiableError(Exception):
     def __init__(self, reason: str, path: tuple[str, ...]=()):
         self.reason, self.path = reason, path
-        super().__init__(reason if not path else f"{reason}\n  in {' -> '.join(path)}")
+        super().__init__(reason if not path else f"{reason}\n  path: {' -> '.join(path)}")
 
     def under(self, op) -> NotExponentiableError:
         return type(self)(self.reason, (type(op).__name__,) + self.path)
@@ -79,6 +82,16 @@ class AbstractExponentiator(eqx.Module):
         """
         self.check_exponentiable_tree(op)
         return self.effective_order(op)
+
+    def tree_count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        self.check_exponentiable_tree(op)
+        return self.count(op, h, parent_path, field)
 
     # --------------------------------------------------------------------------------------------
     # Should be overriden by subclasses if necessary
@@ -144,6 +157,15 @@ class AbstractExponentiator(eqx.Module):
         """
         return self.order
 
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+        
+        return CountDict()
+
 
 class ExactExponentiator(AbstractExponentiator):
 
@@ -158,6 +180,15 @@ class ExactExponentiator(AbstractExponentiator):
     @property
     def order(self) -> Order:
         return None
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        return op.interface_count(parent_path, field).exp_action
 
 
 class ShiftScaleExponentiator(AbstractExponentiator):
@@ -184,8 +215,18 @@ class ShiftScaleExponentiator(AbstractExponentiator):
     def order(self) -> Order:
         return None
 
-    def effective_order(self, op):
+    def effective_order(self, op: Operator):
         return op.op.tree_order
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        path = op.path(parent_path, field)
+        return op.op.exp_count(h * op.scale, path, "op")
 
 
 class NoExponentiator(AbstractExponentiator):

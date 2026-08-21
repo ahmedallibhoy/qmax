@@ -1,5 +1,6 @@
+from .._introspect import Count, CountDict, Path
 from .base import (
-    Order, min_order, 
+    Order, min_order,
     AbstractExponentiator, ExactExponentiator, ShiftScaleExponentiator,
     NoExponentiator, NotExponentiableError
 )
@@ -14,6 +15,7 @@ from .split import (
 
 __all__ = [
     "Order",
+    "Count",
     "min_order",
     "ShiftScaleExponentiator",
     "NoExponentiator",

@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Union, Optional
 
 import equinox as eqx
@@ -9,21 +10,23 @@ import lineax as lx
 from jaxtyping import ScalarLike, Array
 
 from ._internal import _update_field, _overrides
-
+from ._introspect import (
+    Count, CountDict, CountType, InterfaceCount, Path, RenderTree
+)
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import (
-    Order, AbstractExponentiator, ExactExponentiator, NoExponentiator,
-    ShiftScaleExponentiator, TruncatedTaylorExponentiator, NotExponentiableError,
+    Order, 
+    AbstractExponentiator, 
+    ExactExponentiator, 
+    NoExponentiator,
+    ShiftScaleExponentiator, 
+    NotExponentiableError,
     Strang
 )
 from .utils import over_batch
 
 
-BRANCH = "├"
-PIPE = "|"
-ANGLE = "└"
-DASH = "─"
-PAD = "    "
+type Children = tuple[tuple[str, Operator], ...]
 
 
 class IncompatibleDomainError(TypeError):
@@ -69,8 +72,15 @@ class Operator(eqx.Module):
             )
 
     def with_exponentiator(self, exponentiator: AbstractExponentiator):
-        # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
-        return _update_field(self, "exponentiator", exponentiator)
+        try:
+            if not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
+                exponentiator.check_exponentiable_tree(self)    
+
+            # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
+            return _update_field(self, "exponentiator", exponentiator)
+        except NotExponentiableError as e:
+            print(f"Cannot assign exponentiator {exponentiator} to {type(self).__name__} due to the following error.")
+            raise e from None
 
     @property
     def has_exact_exponential(self) -> bool:
@@ -90,6 +100,9 @@ class Operator(eqx.Module):
     @property
     def tree_order(self) -> Order:
         return self.exponentiator.tree_order(self)
+
+    def exp_count(self, h: ScalarLike, parent_path: Path = Path(), field: str = "") -> CountDict:
+        return self.exponentiator.tree_count(self, h, parent_path, field)
 
     def adapt(self, dt_max: ScalarLike) -> Operator:
         return self.exponentiator.adapt_tree(self, dt_max)
@@ -277,14 +290,48 @@ class Operator(eqx.Module):
     def __neg__(self) -> Operator:
         return ShiftScaleOperator(self, scale=-1.0)
 
-    def to_str(self) -> str:
-        return f"{type(self).__name__}"
+    # --------------------------------------------------------------------------------------------
+    # Introspection
+    # --------------------------------------------------------------------------------------------
 
-    def draw_tree(self, prefix="") -> str:
-        return f"{self.to_str()}"
+    #------------------- Do not override -------------------
+    
+    def to_tree(self, field: str="") -> RenderTree:
+        return RenderTree(
+            label=self.label(),
+            field=field,
+            children=[child.to_tree(name) for name, child in self.children],
+        )
 
-    def __str__(self) -> str:
-        return self.draw_tree()
+    def __repr__(self) -> str:
+        return str(self.to_tree())
+
+    def path(self, parent_path: Path = Path(), field: str="") -> Path:
+        return parent_path.append(field, self.label())
+
+    def _exp_action_count(self, path: Path) -> CountType:
+        return {path: Count(exp_actions=1)} if self.has_exact_exponential else NotImplemented
+
+    #------------- Should override if necessary -------------
+    def label(self) -> str:
+        return type(self).__name__
+
+    @property
+    def children(self) -> Children:
+        # tuple of (label, op) for child operators of this operator
+        return ()
+
+    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+        # for each interface (i.e. action, adj_action, solve, exp_action), 
+        # recursively counts number of calls to each interface of a leaves of expression tree
+        path = self.path(parent_path, field)
+
+        return InterfaceCount(
+            action={path: Count(actions=1)},
+            adj_action={path: Count(adj_actions=1)},
+            solve={path: Count(solves=1)},
+            exp_action=self._exp_action_count(path),
+        )
 
 
 class AbstractHermitianOperator(Operator):
@@ -309,7 +356,7 @@ class ShiftScaleOperator(Operator):
         op: Operator, 
         shift: ScalarLike=0.0,
         scale: ScalarLike=1.0, 
-        exponentiator: Optional[AbstractExponentiator]=None):
+        exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator()):
 
         self.domain = op.domain
 
@@ -324,10 +371,7 @@ class ShiftScaleOperator(Operator):
             self.shift = shift 
             self.scale = scale 
 
-        if exponentiator is not None:
-            self.exponentiator = exponentiator
-        else:
-            self.exponentiator = ShiftScaleExponentiator()
+        self.exponentiator = exponentiator
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.scale * self.op.action(y) + self.shift * y
@@ -354,12 +398,23 @@ class ShiftScaleOperator(Operator):
     def adjoint(self) -> Operator:
         return jnp.conj(self.shift) + jnp.conj(self.scale) * self.op.adjoint()
 
-    def to_str(self) -> str:
+    def label(self) -> str:
         return f"{type(self).__name__}(shift={self.shift}, scale={self.scale})"
 
-    def draw_tree(self, prefix="") -> str:
-        op_tree = self.op.draw_tree(prefix + PAD + " ")
-        return f"{self.to_str()}\n{prefix}{PAD + ANGLE + DASH}{op_tree}"
+    @property
+    def children(self) -> Children:
+        return (("op", self.op),)
+
+    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+        path = self.path(parent_path, field)
+        c = self.op.interface_count(path, "op")
+
+        return InterfaceCount(
+            action     = c.action,
+            adj_action = c.adj_action,
+            solve      = c.solve,
+            exp_action = self._exp_action_count(path),
+        )
 
 
 class AddOperator(Operator):
@@ -374,8 +429,8 @@ class AddOperator(Operator):
 
         if op1.domain != op2.domain:
             raise IncompatibleDomainError(
-                f"Cannot add operators on different domains: op1={type(self.op1).__name__} acts on {op1.domain}, "
-                f"but op2={type(self.op2).__name__} acts on {op2.domain},"
+                f"Cannot add operators on different domains: op1={type(op1).__name__} acts on {op1.domain}, "
+                f"but op2={type(op2).__name__} acts on {op2.domain},"
             )
 
         self.domain = op1.domain
@@ -385,7 +440,7 @@ class AddOperator(Operator):
         if exponentiator is not None:
             self.exponentiator = exponentiator
         elif not op1.can_exponentiate or not op2.can_exponentiate:
-            self.exponentiator = TruncatedTaylorExponentiator()
+            self.exponentiator = NoExponentiator()
         else:
             self.exponentiator = Strang()
 
@@ -405,21 +460,31 @@ class AddOperator(Operator):
     def adjoint(self) -> Operator:
         return self.op1.adjoint() + self.op2.adjoint()
 
-    def draw_tree(self, prefix="") -> str:
-        op1_tree = self.op1.draw_tree(prefix + PAD + PIPE)
-        op2_tree = self.op2.draw_tree(prefix + PAD + " ")
-        return f"{self.to_str()}\n{prefix}{PAD + BRANCH + DASH}{op1_tree}\n{prefix}{PAD + ANGLE + DASH}{op2_tree}"
+    @property
+    def children(self) -> Children:
+        return (("op1", self.op1), ("op2", self.op2))
+
+    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+        path = self.path(parent_path, field)
+        c1, c2 = (op.interface_count(path, name) for name, op in self.children)
+
+        return InterfaceCount(
+            action     = c1.action + c2.action,
+            adj_action = c1.adj_action + c2.adj_action,
+            solve      = {path: Count(solves=1)},
+            exp_action = self._exp_action_count(path),
+        )
 
 
 class MatMulOperator(Operator):
     op1: Operator
     op2: Operator
 
-    def __init__(self, op1, op2, exponentiator=TruncatedTaylorExponentiator()):
+    def __init__(self, op1, op2, exponentiator=NoExponentiator()):
         if op1.domain != op2.domain:
             raise IncompatibleDomainError(
-                f"Cannot compose operators on different domains: op1={type(self.op1).__name__} acts on {op1.domain}, "
-                f"but op2={type(self.op2).__name__} acts on {op2.domain},"
+                f"Cannot compose operators on different domains: op1={type(op1).__name__} acts on {op1.domain}, "
+                f"but op2={type(op2).__name__} acts on {op2.domain},"
             )
         
         self.domain = op1.domain
@@ -439,10 +504,20 @@ class MatMulOperator(Operator):
     def adjoint(self) -> Operator:
         return self.op2.adjoint() @ self.op1.adjoint()
 
-    def draw_tree(self, prefix="") -> str:
-        op1_tree = self.op1.draw_tree(prefix + PAD + PIPE)
-        op2_tree = self.op2.draw_tree(prefix + PAD + " ")
-        return f"{self.to_str()}\n{prefix}{PAD + BRANCH + DASH}{op1_tree}\n{prefix}{PAD + ANGLE + DASH}{op2_tree}"
+    @property
+    def children(self) -> Children:
+        return (("op1", self.op1), ("op2", self.op2))
+
+    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+        path = self.path(parent_path, field)
+        c1, c2 = (op.interface_count(path, name) for name, op in self.children)
+
+        return InterfaceCount(
+            action     = c1.action + c2.action,
+            adj_action = c1.adj_action + c2.adj_action,
+            solve      = {path: Count(solves=1)},
+            exp_action = self._exp_action_count(path),
+        )
 
 
 class AdjOperator(Operator):
@@ -451,15 +526,12 @@ class AdjOperator(Operator):
     def __init__(
         self, 
         op: Operator, 
-        exponentiator: Optional[AbstractExponentiator]=None):
+        exponentiator: Optional[AbstractExponentiator]=NoExponentiator()):
 
         self.domain = op.domain
         self.op = op
+        self.exponentiator = exponentiator
 
-        if exponentiator is not None:
-            self.exponentiator = exponentiator
-        else:
-            self.exponentiator = NoExponentiator()
 
     def action(self, y: AbstractState) -> AbstractState:
         return self.op.adj_action(y)
@@ -477,9 +549,20 @@ class AdjOperator(Operator):
     def adjoint(self) -> Operator:
         return self.op
 
-    def draw_tree(self, prefix="") -> str:
-        op_tree = self.op.draw_tree(prefix + PAD + " ")
-        return f"{self.to_str()}\n{prefix}{PAD + ANGLE + DASH}{op_tree}"
+    @property
+    def children(self) -> Children:
+        return (("op", self.op),)
+
+    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+        path = self.path(parent_path, field)
+        c = self.op.interface_count(path, "op")
+
+        return InterfaceCount(
+            action     = c.adj_action,
+            adj_action = c.action,
+            solve      = {path: Count(solves=1)},
+            exp_action = self._exp_action_count(path),
+        )
 
 
 class Identity(AbstractHermitianOperator):

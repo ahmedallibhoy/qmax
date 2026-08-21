@@ -7,6 +7,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import ArrayLike, ScalarLike
 
+from .._introspect import CountDict, Path, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
 from ..eig import op_spectral_bounds_lanczos
@@ -144,6 +145,15 @@ class ChebyshevExponentiator(AbstractExponentiator):
     def order(self) -> Order:
         return None
 
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        return self.num_iterations * op.interface_count(parent_path, field).action
+
 
 class LaguerreExponentiator(AbstractExponentiator):
     """
@@ -174,3 +184,12 @@ class LaguerreExponentiator(AbstractExponentiator):
     @property
     def order(self) -> Order:
         return None
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        return self.num_iterations * op.interface_count(parent_path, field).action

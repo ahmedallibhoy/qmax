@@ -10,6 +10,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike, Array
 
 from .._internal import _update_fields
+from .._introspect import CountDict, Path, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import Order, min_order, AbstractExponentiator
 
@@ -55,6 +56,19 @@ class Strang(AbstractSplitMethod):
     def order(self) -> Order:
         return 2
 
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        path = op.path(parent_path, field)
+        h1, h2 = self.h_scales
+        c1 = 2 * op.op1.exp_count(h1 * h, path, "op1")
+        c2 = op.op2.exp_count(h2 * h, path, "op2")
+        return c1 + c2
+
     @property
     def h_scales(self):
         return 0.5, 1.0
@@ -88,6 +102,28 @@ class Yoshida(AbstractSplitMethod):
     @property
     def order(self) -> Order:
         return 2 * (self.level + 1)
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        c = CountDict()
+        path = op.path(parent_path, field)
+
+        def iterate(k, h, c):
+            if k == 0:
+                c1 = 2 * op.op1.exp_count(h / 2, path, "op1")
+                c2 = op.op2.exp_count(h, path, "op2")
+                return c + c1 + c2
+
+            w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
+            w2 = 1 - 2 * w1
+            return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, c)))
+
+        return iterate(self.level, h, c)
 
     @property
     def h_scales(self):
@@ -127,6 +163,20 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
         y_init = add_op.op1.exp(a[0] * h, y)
         y_exp, _ = jax.lax.scan(do_step, y_init, (a[1:], b))
         return y_exp
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        path = op.path(parent_path, field)
+        a, b = self._coeffs
+        c = op.op1.exp_count(a[0] * h, path, "op1")
+        for (ai, bi) in zip(a[1:], b):
+            c += op.op1.exp_count(ai * h, path, "op1") + op.op2.exp_count(bi * h, path, "op2")
+        return c
 
     @property
     def h_scales(self):

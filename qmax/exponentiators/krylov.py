@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
+from .._introspect import CountDict, Path, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
 from ..utils import over_batch
@@ -84,3 +85,12 @@ class KrylovExponentiator(AbstractExponentiator):
     @property
     def order(self) -> Order:
         return None
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: str="") -> CountDict:
+
+        return self.num_iterations * op.interface_count(parent_path, field).action
