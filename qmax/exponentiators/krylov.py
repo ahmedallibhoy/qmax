@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
-from .._introspect import CountDict, Path, Path
+from .._introspect import CountDict, Path, Path, Field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
 from ..utils import over_batch
@@ -91,6 +91,6 @@ class KrylovExponentiator(AbstractExponentiator):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         return self.num_iterations * op.interface_count(parent_path, field).action

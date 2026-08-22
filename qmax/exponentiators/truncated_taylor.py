@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import Array, Scalar, ScalarLike, PRNGKeyArray
 
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, Path, Field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, NotExponentiableError, Order
 from ..eig import op_spectral_bounds_lanczos
@@ -409,7 +409,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field("")) -> CountDict:
         
         i_count = op.interface_count(parent_path, field)
 

@@ -6,7 +6,7 @@ import jax.numpy as jnp
 
 from jaxtyping import ScalarLike
 
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, Path, Field
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
 
@@ -28,7 +28,7 @@ class ForwardEuler(AbstractExponentiator):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         return op.interface_count(parent_path, field).action
 
@@ -47,7 +47,7 @@ class ImplicitEuler(AbstractExponentiator):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         return op.interface_count(parent_path, field).solve
 
@@ -66,7 +66,7 @@ class CrankNicolson(AbstractExponentiator):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         i_count = op.interface_count(parent_path, field)
         return i_count.action + i_count.solve

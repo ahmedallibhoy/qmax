@@ -11,7 +11,7 @@ from jaxtyping import ScalarLike, Array
 
 from ._internal import _update_field, _overrides
 from ._introspect import (
-    Count, CountDict, CountType, InterfaceCount, Path, RenderTree
+    Count, CountDict, CountType, InterfaceCount, Path, RenderTree, Field
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import (
@@ -26,7 +26,7 @@ from .exponentiators import (
 from .utils import over_batch
 
 
-type Children = tuple[tuple[str, Operator], ...]
+type Children = tuple[tuple[Field, Operator], ...]
 
 
 class IncompatibleDomainError(TypeError):
@@ -71,16 +71,31 @@ class Operator(eqx.Module):
                 f"but {type(other).__name__} acts on {other.domain}"
             )
 
-    def with_exponentiator(self, exponentiator: AbstractExponentiator):
+    def with_exponentiator(
+        self, 
+        exponentiator: AbstractExponentiator, 
+        path: Path=Path()) -> Operator:
+
         try:
+            if len(path.steps) > 1:
+                field, _ = path.steps[1]
+                if field.index is not None:
+                    fn = lambda o: getattr(o, field.name)[field.index]
+                else:
+                    fn = lambda o: getattr(o, field.name)
+
+                child = fn(self)
+                new_child = child.with_exponentiator(exponentiator, Path(path.steps[1:]))
+                new_self = eqx.tree_at(fn, self, new_child)
+                return new_self
+
             if not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
                 exponentiator.check_exponentiable_tree(self)    
 
             # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
             return _update_field(self, "exponentiator", exponentiator)
         except NotExponentiableError as e:
-            print(f"Cannot assign exponentiator {exponentiator} to {type(self).__name__} due to the following error.")
-            raise e from None
+            raise e.from_path(path) from None
 
     @property
     def has_exact_exponential(self) -> bool:
@@ -90,18 +105,17 @@ class Operator(eqx.Module):
     # Exponentiator delegators
     # --------------------------------------------------------------------------------------------
 
-    @property
-    def can_exponentiate(self) -> bool:
-        return self.exponentiator.can_exponentiate(self)
+    def can_exponentiate(self, parent_path: Path=Path(), field: Field=Field()) -> bool:
+        return self.exponentiator.can_exponentiate(self, parent_path, field)
 
-    def check_exponentiable_tree(self) -> None:
-        self.exponentiator.check_exponentiable_tree(self)
+    def check_exponentiable_tree(self, parent_path: Path=Path(), field: Field=Field()):
+        self.exponentiator.check_exponentiable_tree(self, parent_path, field)
 
     @property
     def tree_order(self) -> Order:
         return self.exponentiator.tree_order(self)
 
-    def exp_count(self, h: ScalarLike, parent_path: Path = Path(), field: str = "") -> CountDict:
+    def exp_count(self, h: ScalarLike, parent_path: Path=Path(), field: Field=Field()) -> CountDict:
         return self.exponentiator.tree_count(self, h, parent_path, field)
 
     def adapt(self, dt_max: ScalarLike) -> Operator:
@@ -296,21 +310,40 @@ class Operator(eqx.Module):
 
     #------------------- Do not override -------------------
     
-    def to_tree(self, field: str="") -> RenderTree:
+    def to_tree(self) -> RenderTree:
         return RenderTree(
             label=self.label(),
-            field=field,
-            children=[child.to_tree(name) for name, child in self.children],
+            #field=field,
+            children=[child.to_tree() for _, child in self.children],
         )
 
     def __repr__(self) -> str:
         return str(self.to_tree())
 
-    def path(self, parent_path: Path = Path(), field: str="") -> Path:
-        return parent_path.append(field, self.label())
+    def path(self, parent_path: Path=Path(), field: Field=Field()) -> Path:
+        return parent_path.append(field, self)
 
     def _exp_action_count(self, path: Path) -> CountType:
         return {path: Count(exp_actions=1)} if self.has_exact_exponential else NotImplemented
+
+    def leaves(self, parent_path: Path=Path(), field: Field=Field()) -> list[Path]:
+        path = self.path(parent_path, field)
+
+        if self.children == ():
+            return [path]
+
+        leaves = [op.leaves(path, c_field) for (c_field, op) in self.children]
+        return [leaf for leaf_list in leaves for leaf in leaf_list]
+
+    def child_at(self, path: Path()) -> Operator:
+        if len(path.steps) > 1:
+            field, _ = path.steps[1]
+            if field.index is not None:
+                child = getattr(self, field.name)[field.index]
+            else:
+                child = getattr(self, field.name)
+            return child.child_at(Path(path.steps[1:]))
+        return self
 
     #------------- Should override if necessary -------------
     def label(self) -> str:
@@ -318,10 +351,10 @@ class Operator(eqx.Module):
 
     @property
     def children(self) -> Children:
-        # tuple of (label, op) for child operators of this operator
+        # tuple of (field, op) for child operators of this operator
         return ()
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         # for each interface (i.e. action, adj_action, solve, exp_action), 
         # recursively counts number of calls to each interface of a leaves of expression tree
         path = self.path(parent_path, field)
@@ -403,11 +436,11 @@ class ShiftScaleOperator(Operator):
 
     @property
     def children(self) -> Children:
-        return (("op", self.op),)
+        return ((Field("op"), self.op),)
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, "op")
+        c = self.op.interface_count(path, Field("op"))
 
         return InterfaceCount(
             action     = c.action,
@@ -439,7 +472,7 @@ class AddOperator(Operator):
 
         if exponentiator is not None:
             self.exponentiator = exponentiator
-        elif not op1.can_exponentiate or not op2.can_exponentiate:
+        elif not op1.can_exponentiate() or not op2.can_exponentiate():
             self.exponentiator = NoExponentiator()
         else:
             self.exponentiator = Strang()
@@ -462,9 +495,9 @@ class AddOperator(Operator):
 
     @property
     def children(self) -> Children:
-        return (("op1", self.op1), ("op2", self.op2))
+        return ((Field("op1"), self.op1), (Field("op2"), self.op2))
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
         c1, c2 = (op.interface_count(path, name) for name, op in self.children)
 
@@ -506,9 +539,9 @@ class MatMulOperator(Operator):
 
     @property
     def children(self) -> Children:
-        return (("op1", self.op1), ("op2", self.op2))
+        return ((Field("op1"), self.op1), (Field("op2"), self.op2))
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
         c1, c2 = (op.interface_count(path, name) for name, op in self.children)
 
@@ -551,11 +584,11 @@ class AdjOperator(Operator):
 
     @property
     def children(self) -> Children:
-        return (("op", self.op),)
+        return ((Field("op"), self.op),)
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, "op")
+        c = self.op.interface_count(path, Field("op"))
 
         return InterfaceCount(
             action     = c.adj_action,

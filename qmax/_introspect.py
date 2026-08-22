@@ -1,8 +1,14 @@
 from __future__ import annotations
-from typing import Any, Union, Optional
+
+from typing import Any, Union, Optional, TYPE_CHECKING
 
 import dataclasses
 from functools import reduce
+
+from ._internal import _update_field
+
+if TYPE_CHECKING:
+    from .operator import Operator
 
 
 BRANCH = "├"
@@ -13,13 +19,31 @@ PAD = "    "
 
 
 @dataclasses.dataclass
+class Field:
+    name: str 
+    index: Optional[int]
+
+    def __init__(self, name: str="", index: Optional[int]=None):
+        self.name = name 
+        self.index = index
+
+    def __repr__(self) -> str:
+        if self.index is None:
+            return self.name 
+        else:
+            return f"{self.name}[{self.index}]"
+
+    def __hash__(self) -> int:
+        return hash((self.name, self.index))
+
+
+@dataclasses.dataclass
 class RenderTree:
     """
-    A labelled tree built for display. Both Operator and CountDict project into
-    this, so a single renderer serves the expression tree and the count tree.
+    Simplified representation of an operator expression tree for the purposes 
+    of rendering. 
     """
     label: str
-    field: str = ""
     count: Optional[Count] = None                
     children: list[RenderTree] = dataclasses.field(default_factory=list)
 
@@ -36,8 +60,6 @@ def _rows(
     is_last: bool=True, 
     is_root: bool=True) -> list[tuple[str, Optional[Count]]]:
 
-    """Depth-first list of (rendered_line, count)."""
-
     if is_root:
         line, child_prefix = node.label, ""
     elif is_last:
@@ -53,24 +75,28 @@ def _rows(
     return rows
 
 
+
 @dataclasses.dataclass(frozen=True)
 class Path:
     # tuple of (field, op_label)
-    steps: tuple[tuple[str, str], ...] = ()
+    steps: tuple[tuple[Field, Operator], ...] = ()
 
-    def append(self, field: str, label: str) -> Path:
-        return Path(self.steps + ((field, label),))
+    def append(self, field: Field, op: Operator) -> Path:
+        return Path(self.steps + ((field, op),))
 
-    #def __repr__(self) -> str:
-    #    if not self.steps:
-    #        return "<empty>"
-    #
-    #    _, root_name = self.steps[0]
-    #    path_str = root_name 
-    #
-    #    for field, name in self.steps[1:]:
-    #        path_str += f".{field} → {name}"
-    #    return path_str
+    def __repr__(self) -> str:
+        if not self.steps:
+            return "<empty>"
+    
+        _, op = self.steps[0]
+        path_str = op.label() 
+    
+        for field, op in self.steps[1:]:
+            path_str += f".{field} → {op.label()}"
+        return path_str
+
+    def __hash__(self) -> int:
+        return hash(tuple((field, id(op)) for (field, op) in self.steps))
 
 
 @dataclasses.dataclass
@@ -112,6 +138,11 @@ class Count:
 
 @dataclasses.dataclass
 class CountDict:
+    """
+    Wrapped dictionary of counts corresponding to each leaf in an operator 
+    expression tree, keyed by the paths to the leaves. 
+    """
+
     ct_dict: dict[Path, Count] = dataclasses.field(default_factory=dict)
 
     def __getitem__(self, key: Path) -> Count:          
@@ -168,8 +199,8 @@ class CountDict:
             for idx in range(1, len(path.steps) + 1):
                 prefix = path.steps[:idx]
                 if prefix not in index:
-                    field, label = prefix[-1]
-                    tree = RenderTree(label=label, field=field)
+                    field, op = prefix[-1]
+                    tree = RenderTree(label=op.label())
                     index[prefix[:-1]].children.append(tree)
                     index[prefix] = tree
             index[path.steps].count = count

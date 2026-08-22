@@ -10,7 +10,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike, Array
 
 from .._internal import _update_fields
-from .._introspect import CountDict, Path, Path
+from .._introspect import CountDict, Path, Field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import Order, min_order, AbstractExponentiator
 
@@ -37,9 +37,15 @@ class AbstractSplitMethod(AbstractExponentiator):
         from ..operator import AddOperator
         return AddOperator
 
-    def check_exponentiable(self, op: Operator):
-        op.op1.check_exponentiable_tree()
-        op.op2.check_exponentiable_tree()
+    def check_exponentiable(
+        self, 
+        op: Operator, 
+        parent_path: Path=Path(), 
+        field: Field=Field()):
+
+        path = op.path(parent_path, field)
+        op.op1.check_exponentiable_tree(path, Field("op1"))
+        op.op2.check_exponentiable_tree(path, Field("op2"))
 
     @property
     @abstractmethod
@@ -61,12 +67,12 @@ class Strang(AbstractSplitMethod):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         path = op.path(parent_path, field)
         h1, h2 = self.h_scales
-        c1 = 2 * op.op1.exp_count(h1 * h, path, "op1")
-        c2 = op.op2.exp_count(h2 * h, path, "op2")
+        c1 = 2 * op.op1.exp_count(h1 * h, path, Field("op1"))
+        c2 = op.op2.exp_count(h2 * h, path, Field("op2"))
         return c1 + c2
 
     @property
@@ -108,15 +114,15 @@ class Yoshida(AbstractSplitMethod):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         c = CountDict()
         path = op.path(parent_path, field)
 
         def iterate(k, h, c):
             if k == 0:
-                c1 = 2 * op.op1.exp_count(h / 2, path, "op1")
-                c2 = op.op2.exp_count(h, path, "op2")
+                c1 = 2 * op.op1.exp_count(h / 2, path, Field("op1"))
+                c2 = op.op2.exp_count(h, path, Field("op2"))
                 return c + c1 + c2
 
             w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
@@ -169,13 +175,13 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
         op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         path = op.path(parent_path, field)
         a, b = self._coeffs
-        c = op.op1.exp_count(a[0] * h, path, "op1")
+        c = op.op1.exp_count(a[0] * h, path, Field("op1"))
         for (ai, bi) in zip(a[1:], b):
-            c += op.op1.exp_count(ai * h, path, "op1") + op.op2.exp_count(bi * h, path, "op2")
+            c += op.op1.exp_count(ai * h, path, Field("op1")) + op.op2.exp_count(bi * h, path, Field("op2"))
         return c
 
     @property

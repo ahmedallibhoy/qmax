@@ -9,3 +9,50 @@ from . import tensor
 
 from .propagator import *
 from .utils import *
+
+
+# TODO: ROADMAP -- short / medium term
+#   1. Time Propagation
+#       a. ControlledPropagator should take proper drift + control form 
+#       b. ControlledPropagator should compute cost functions 
+#       c. explicit adjoints + checkpointing
+#       d. utilities / helpers for optimal control 
+#
+#   2. Introspection
+#       a. exponentiators should report backward error estimates?
+#       b. adapt() should accept tunable tolerances
+#       c. validating interface and exp counts (see 6)
+#       d. fix path / field semantics
+#       e. extending count functionality to propagators
+#
+#   3. Eigensolvers
+#       a. Davidson's method 
+#       b. Chebyshev filtering
+#       c. eigensolvers should be modular like time propagators?
+#
+#   4. Spaces and Spatial Discretizations
+#       a. extending current spaces
+#           i. operators and state constructors
+#       b. new spaces
+#           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
+#           ii. Arbitrary meshes
+#
+#   5. Misc Utilities 
+#       a. Wigner functions
+#       b. better plotting / visualization?
+#
+#   6. Testing / Validation
+#       a. Rewrite test suite, benchmarking and diagnostic scripts
+#
+#   7. Documentation :/
+#       a. docstrings / makedocs    
+#       b. worked examples
+#       c. website
+#
+
+# TODO: ROADMAP -- long term
+#   1. Nonlinearities + exponential integrators
+#   2. Density matrices
+#   3. Open quantum systems / dissipation / Lindbladians       
+#   4. Dynamic low-rank approximations / tensor trains
+#

@@ -14,7 +14,7 @@ from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from ._introspect import (
-    Count, CountDict, InterfaceCount, Path
+    Count, CountDict, InterfaceCount, Path, Field
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Children, Operator, Identity, IncompatibleDomainError
@@ -176,8 +176,14 @@ class LiftExp(AbstractExponentiator):
     def operator_type(self) -> type:
         return LiftOperator
 
-    def check_exponentiable(self, op: Operator):
-        op.op.check_exponentiable_tree()
+    def check_exponentiable(
+        self, 
+        op: Operator, 
+        parent_path: Path=Path(), 
+        field: Field=Field()):
+
+        path = op.path(parent_path, field)
+        op.op.check_exponentiable_tree(path, Field("op"))
 
     @property
     def order(self) -> Order:
@@ -191,11 +197,11 @@ class LiftExp(AbstractExponentiator):
         lift_op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         num = lift_op.domain.dim // lift_op.op.domain.dim
         path = lift_op.path(parent_path, field)
-        return num * lift_op.op.exp_count(h, path, "op")
+        return num * lift_op.op.exp_count(h, path, Field("op"))
 
 
 class LiftOperator(AbstractTensorOperator):
@@ -244,11 +250,11 @@ class LiftOperator(AbstractTensorOperator):
 
     @property
     def children(self) -> Children:
-        return (("op", self.op),)
+        return ((Field("op"), self.op),)
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, "op")
+        c = self.op.interface_count(path, Field("op"))
         num = self.domain.dim // self.op.domain.dim
 
         return InterfaceCount(
@@ -280,9 +286,9 @@ class KroneckerProductMixin(AbstractTensorOperator):
 
     @property
     def children(self) -> Children:
-        return tuple((f"op{idx}", op) for idx, op in enumerate(self.ops))
+        return tuple((Field("ops", idx), op) for idx, op in enumerate(self.ops))
 
-    def interface_count(self, parent_path: Path=Path(), field: str="") -> InterfaceCount:
+    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
         dim = self.domain.dim
         scaled = [
@@ -326,9 +332,15 @@ class KroneckerSumExp(AbstractExponentiator):
     def operator_type(self) -> type:
         return KroneckerSum
 
-    def check_exponentiable(self, op: Operator):
-        for factor in op.ops:
-            factor.check_exponentiable_tree()
+    def check_exponentiable(
+        self, 
+        op: Operator, 
+        parent_path: Path=Path(), 
+        field: Field=Field()):
+
+        path = op.path(parent_path, field)
+        for idx, factor in enumerate(op.ops):
+            factor.check_exponentiable_tree(path, Field("ops", idx))
 
     @property
     def order(self) -> Order:
@@ -342,7 +354,7 @@ class KroneckerSumExp(AbstractExponentiator):
         kron_op: Operator, 
         h: ScalarLike, 
         parent_path: Path=Path(), 
-        field: str="") -> CountDict:
+        field: Field=Field()) -> CountDict:
 
         path = kron_op.path(parent_path, field)
         c = CountDict()
