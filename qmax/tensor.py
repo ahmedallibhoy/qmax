@@ -14,10 +14,10 @@ from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from ._introspect import (
-    Count, CountDict, InterfaceCount, Path, Field
+    Count, CountDict, InterfaceCount, Path, Field, child_field
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Children, Operator, Identity, IncompatibleDomainError
+from .operator import Operator, Identity, IncompatibleDomainError
 from .exponentiators import Order, min_order, AbstractExponentiator, Count
 
 
@@ -107,7 +107,7 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
 
     def lift(self, op: Operator, factor_idx: int) -> LiftOperator:
-        return LiftOperator(self, op, factor_idx)
+        return LiftOperator(self, factor_idx, children=(op,))
 
 
 class TensorProduct(AbstractTensorSpace):
@@ -163,59 +163,64 @@ class LiftExp(AbstractExponentiator):
         h: ScalarLike, 
         y: TensorState) -> TensorState:
         
-        return apply_along_state(lambda s: lift_op.op.exp(h, s), y, lift_op.factor_idx)
+        (A,) = lift_op.children
+        return apply_along_state(lambda s: A.exp(h, s), y, lift_op.factor_idx)
 
     def adapt_children(
         self,
         op: LiftOperator,
         dt_max: ScalarLike) -> Operator:
 
-        return _update_field(op, "op", op.op.adapt(dt_max))
+        (A,) = op.children
+        return _update_field(op, "children", (A.adapt(dt_max),))
 
     @property
     def operator_type(self) -> type:
         return LiftOperator
 
     def check_exponentiable(
-        self, 
-        op: Operator, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        parent_path: Path=Path(),
         field: Field=Field()):
 
+        (A,) = op.children
         path = op.path(parent_path, field)
-        op.op.check_exponentiable_tree(path, Field("op"))
+        A.check_exponentiable_tree(path, child_field(0))
 
     @property
     def order(self) -> Order:
         return None
 
     def effective_order(self, lift_op: LiftOperator) -> Order:
-        return lift_op.op.tree_order
+        (A,) = lift_op.children
+        return A.tree_order
 
     def count(
-        self, 
-        lift_op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
+        self,
+        lift_op: Operator,
+        h: ScalarLike,
+        parent_path: Path=Path(),
         field: Field=Field()) -> CountDict:
 
-        num = lift_op.domain.dim // lift_op.op.domain.dim
+        (A,) = lift_op.children
+        num = lift_op.domain.dim // A.domain.dim
         path = lift_op.path(parent_path, field)
-        return num * lift_op.op.exp_count(h, path, Field("op"))
+        return num * A.exp_count(h, path, child_field(0))
 
 
 class LiftOperator(AbstractTensorOperator):
-    op: Operator
     factor_idx: int
     exponentiator: AbstractExponentiator = eqx.field(default=LiftExp(), kw_only=True)
 
     def __check_init__(self):
         self._check_tensor_domain()
 
-        if self.op.domain != self.domain[self.factor_idx]:
+        (A,) = self.children
+        if A.domain != self.domain[self.factor_idx]:
             raise IncompatibleDomainError(
                 f"Domain at index {self.factor_idx} is {self.domain[self.factor_idx]} but "
-                f"operand acts on {self.op.domain}"
+                f"operand acts on {A.domain}"
             )
 
     @property
@@ -223,39 +228,42 @@ class LiftOperator(AbstractTensorOperator):
         return self.domain.num_factors
 
     def action(self, y: TensorState) -> TensorState:
-        return apply_along_state(lambda s: self.op.action(s), y, self.factor_idx)
+        (A,) = self.children
+        return apply_along_state(lambda s: A.action(s), y, self.factor_idx)
 
     def adj_action(self, y):
-        return apply_along_state(lambda s: self.op.adj_action(s), y, self.factor_idx)
+        (A,) = self.children
+        return apply_along_state(lambda s: A.adj_action(s), y, self.factor_idx)
 
     @property
     def spectral_bounds(self) -> Array:
-        return self.op.spectral_bounds
+        (A,) = self.children
+        return A.spectral_bounds
 
     def _solve(self, b: TensorState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> TensorState:
-        return apply_along_state(lambda s: self.op._solve(s, scale, shift), b, self.factor_idx)
+        (A,) = self.children
+        return apply_along_state(lambda s: A._solve(s, scale, shift), b, self.factor_idx)
 
     def to_matrix(self) -> Array:
+        (A,) = self.children
         mat_list = [
-            jnp.eye(self.domain[idx].dim) if idx != self.factor_idx else self.op.to_matrix()
+            jnp.eye(self.domain[idx].dim) if idx != self.factor_idx else A.to_matrix()
             for idx in range(self.num_factors)
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
     def adjoint(self) -> Operator:
-        return LiftOperator(self.domain, self.op.adjoint(), self.factor_idx)
+        (A,) = self.children
+        return LiftOperator(self.domain, self.factor_idx, children=(A.adjoint(),))
 
     def label(self) -> str:
         return f"{type(self).__name__}(idx={self.factor_idx})"
 
-    @property
-    def children(self) -> Children:
-        return ((Field("op"), self.op),)
-
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
+        (A,) = self.children
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, Field("op"))
-        num = self.domain.dim // self.op.domain.dim
+        c = A.interface_count(path, child_field(0))
+        num = self.domain.dim // A.domain.dim
 
         return InterfaceCount(
             action     = num * c.action,
@@ -266,34 +274,29 @@ class LiftOperator(AbstractTensorOperator):
 
 
 class KroneckerProductMixin(AbstractTensorOperator):
-    ops: tuple[Operator, ...]
 
     def __check_init__(self):
         self._check_tensor_domain()
 
-        if len(self.ops) != self.domain.num_factors:
+        if len(self.children) != self.domain.num_factors:
             raise ValueError(
-                f"Received {len(self.ops)} operators but "
+                f"Received {len(self.children)} operators but "
                 f"{self.domain} has {self.domain.num_factors} factors"
             )
 
         for idx in range(self.domain.num_factors):
-            if self.ops[idx].domain != self.domain[idx]:
+            if self.children[idx].domain != self.domain[idx]:
                 raise IncompatibleDomainError(
                     f"Domain at index {idx} is {self.domain[idx]} but "
-                    f"operand at index {idx} acts on {self.ops[idx].domain}"
+                    f"operand at index {idx} acts on {self.children[idx].domain}"
                 )
-
-    @property
-    def children(self) -> Children:
-        return tuple((Field("ops", idx), op) for idx, op in enumerate(self.ops))
 
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
         dim = self.domain.dim
         scaled = [
-            (dim // self.domain[idx].dim, op.interface_count(path, name))
-            for idx, (name, op) in enumerate(self.children)
+            (dim // self.domain[idx].dim, op.interface_count(path, child_field(idx)))
+            for idx, op in enumerate(self.children)
         ]
 
         return InterfaceCount(
@@ -304,8 +307,8 @@ class KroneckerProductMixin(AbstractTensorOperator):
         )
 
     def adjoint(self) -> Operator:
-        return type(self)(self.domain, tuple(op.adjoint() for op in self.ops))
-    
+        return type(self)(self.domain, children=tuple(op.adjoint() for op in self.children))
+
 
 class KroneckerSumExp(AbstractExponentiator):
 
@@ -315,7 +318,7 @@ class KroneckerSumExp(AbstractExponentiator):
         h: ScalarLike, 
         y: TensorState) -> TensorState:
         
-        for factor_idx, op in enumerate(kron_op.ops):
+        for factor_idx, op in enumerate(kron_op.children):
             y = apply_along_state(lambda s, op=op: op.exp(h, s), y, factor_idx)
 
         return y
@@ -325,29 +328,29 @@ class KroneckerSumExp(AbstractExponentiator):
         op: KroneckerSum,
         dt_max: ScalarLike) -> Operator:
 
-        return _update_field(op, "ops", tuple(
-            factor.adapt(dt_max) for idx, factor in enumerate(op.ops)))
+        return _update_field(op, "children", tuple(
+            factor.adapt(dt_max) for factor in op.children))
 
     @property
     def operator_type(self) -> type:
         return KroneckerSum
 
     def check_exponentiable(
-        self, 
-        op: Operator, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        parent_path: Path=Path(),
         field: Field=Field()):
 
         path = op.path(parent_path, field)
-        for idx, factor in enumerate(op.ops):
-            factor.check_exponentiable_tree(path, Field("ops", idx))
+        for idx, factor in enumerate(op.children):
+            factor.check_exponentiable_tree(path, child_field(idx))
 
     @property
     def order(self) -> Order:
         return None
 
     def effective_order(self, kron_op: KroneckerSum) -> Order:
-        return min_order(*[op.tree_order for op in kron_op.ops])
+        return min_order(*[op.tree_order for op in kron_op.children])
 
     def count(
         self, 
@@ -358,9 +361,9 @@ class KroneckerSumExp(AbstractExponentiator):
 
         path = kron_op.path(parent_path, field)
         c = CountDict()
-        for idx, (name, op) in enumerate(kron_op.children):
+        for idx, op in enumerate(kron_op.children):
             num = kron_op.domain.dim // kron_op.domain[idx].dim
-            c += num * op.exp_count(h, path, name)
+            c += num * op.exp_count(h, path, child_field(idx))
         return c
 
 
@@ -370,23 +373,23 @@ class KroneckerSum(KroneckerProductMixin):
     def action(self, y: TensorState) -> TensorState:
         return reduce(lambda a, b: a + b, [
             apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
-            for factor_idx, op in enumerate(self.ops)
+            for factor_idx, op in enumerate(self.children)
         ])
 
     def adj_action(self, y):
         return reduce(lambda a, b: a + b, [
             apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
-            for factor_idx, op in enumerate(self.ops)
+            for factor_idx, op in enumerate(self.children)
         ])
 
     @property
     def spectral_bounds(self) -> Array:
-        bounds = [op.spectral_bounds for idx, op in enumerate(self.ops)]
+        bounds = [op.spectral_bounds for idx, op in enumerate(self.children)]
         return jnp.sum(jnp.array(bounds), axis=0)
 
     def to_matrix(self) -> Array:
         mat = jnp.zeros((self.domain.dim, self.domain.dim), dtype=complex)
-        for factor_idx, op in enumerate(self.ops):
+        for factor_idx, op in enumerate(self.children):
             mat_list = [
                 jnp.eye(self.domain[idx].dim) if idx != factor_idx else op.to_matrix()
                 for idx in range(self.domain.num_factors)
@@ -398,7 +401,7 @@ class KroneckerSum(KroneckerProductMixin):
 class KroneckerProduct(KroneckerProductMixin):
 
     def action(self, y: TensorState) -> TensorState:
-        for factor_idx, op in enumerate(self.ops):
+        for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
                 continue
             y = apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
@@ -406,7 +409,7 @@ class KroneckerProduct(KroneckerProductMixin):
         return y
 
     def adj_action(self, y):
-        for factor_idx, op in enumerate(self.ops):
+        for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
                 continue
             y = apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
@@ -415,7 +418,7 @@ class KroneckerProduct(KroneckerProductMixin):
     @property
     def spectral_bounds(self) -> Array:
         lo, hi = 1.0, 1.0
-        for idx, op in enumerate(self.ops):
+        for idx, op in enumerate(self.children):
             a, b = op.spectral_bounds
             corners = jnp.array([lo * a, lo * b, hi * a, hi * b])
             lo, hi = jnp.min(corners), jnp.max(corners)
@@ -423,9 +426,9 @@ class KroneckerProduct(KroneckerProductMixin):
 
     def to_matrix(self) -> Array:
         mat_list = [
-            op.to_matrix() for idx, op in enumerate(self.ops)
+            op.to_matrix() for idx, op in enumerate(self.children)
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
     def adjoint(self) -> Operator:
-        return KroneckerProduct(self.domain, tuple(op.adjoint() for op in self.ops))
+        return KroneckerProduct(self.domain, tuple(op.adjoint() for op in self.children))

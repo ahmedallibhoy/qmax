@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import ScalarLike
 
-from .._introspect import CountDict, Path, Field
+from .._introspect import CountDict, Path, Field, child_field
 from .._internal import _update_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 
@@ -224,11 +224,13 @@ class ShiftScaleExponentiator(AbstractExponentiator):
     """
 
     def exp(self, op, h, y):
-        return jnp.exp(h * op.shift) * op.op.exp(h * op.scale, y)
+        (A,) = op.children
+        return jnp.exp(h * op.shift) * A.exp(h * op.scale, y)
 
     def adapt_children(self, op: Operator, dt_max: ScalarLike) -> Operator:
         # only the scale stretches the step; the shift contributes a phase
-        return _update_field(op, "op", op.op.adapt(jnp.abs(op.scale) * dt_max))
+        (A,) = op.children
+        return _update_field(op, "children", (A.adapt(jnp.abs(op.scale) * dt_max),))
 
     @property
     def operator_type(self) -> type:
@@ -236,30 +238,33 @@ class ShiftScaleExponentiator(AbstractExponentiator):
         return ShiftScaleOperator
 
     def check_exponentiable(
-        self, 
-        op: Operator, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        parent_path: Path=Path(),
         field: Field=Field()):
-        
+
+        (A,) = op.children
         path = op.path(parent_path, field)
-        op.op.check_exponentiable_tree(path, Field("op"))
+        A.check_exponentiable_tree(path, child_field(0))
 
     @property
     def order(self) -> Order:
         return None
 
     def effective_order(self, op: Operator):
-        return op.op.tree_order
+        (A,) = op.children
+        return A.tree_order
 
     def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        h: ScalarLike,
+        parent_path: Path=Path(),
         field: Field=Field()) -> CountDict:
 
+        (A,) = op.children
         path = op.path(parent_path, field)
-        return op.op.exp_count(h * op.scale, path, Field("op"))
+        return A.exp_count(h * op.scale, path, child_field(0))
 
 
 class NoExponentiator(AbstractExponentiator):

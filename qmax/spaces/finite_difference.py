@@ -171,7 +171,7 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
     def __init__(self, domain: FiniteDifference):
         self.domain = domain
-        self.ops = tuple(
+        self.children = tuple(
             _FiniteDifference1DLaplacian(domain[idx]) for idx in range(domain.num_factors))
 
 
@@ -179,7 +179,7 @@ class FiniteDifferenceMomentum(LiftOperator):
 
     def __init__(self, domain: FiniteDifference, axis: int):
         self.domain = domain
-        self.op = _FiniteDifference1DMomentum(domain[axis])
+        self.children = (_FiniteDifference1DMomentum(domain[axis]),)
         self.factor_idx = axis
 
     @property

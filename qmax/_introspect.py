@@ -37,6 +37,11 @@ class Field:
         return hash((self.name, self.index))
 
 
+def child_field(index: int) -> Field:
+    """The Field addressing the child of an operator at the given index."""
+    return Field("children", index)
+
+
 @dataclasses.dataclass
 class RenderTree:
     """

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Union, Optional
@@ -11,7 +13,7 @@ from jaxtyping import ScalarLike, Array
 
 from ._internal import _update_field, _overrides
 from ._introspect import (
-    Count, CountDict, CountType, InterfaceCount, Path, RenderTree, Field
+    Count, CountDict, CountType, InterfaceCount, Path, RenderTree, Field, child_field
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import (
@@ -24,9 +26,6 @@ from .exponentiators import (
     Strang
 )
 from .utils import over_batch
-
-
-type Children = tuple[tuple[Field, Operator], ...]
 
 
 class IncompatibleDomainError(TypeError):
@@ -48,13 +47,14 @@ def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
         return x
     if isinstance(x, Identity):
         return 1.0
-    if isinstance(x, ShiftScaleOperator) and isinstance(x.op, Identity):
+    if isinstance(x, ShiftScaleOperator) and isinstance(x.children[0], Identity):
         return x.shift + x.scale
     return None
 
 
 class Operator(eqx.Module):
     domain: AbstractHilbertSpace = eqx.field(static=True)
+    children: tuple[Operator, ...] = eqx.field(default=(), kw_only=True)
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
 
     def _check_domain(self, y: AbstractState):
@@ -313,8 +313,7 @@ class Operator(eqx.Module):
     def to_tree(self) -> RenderTree:
         return RenderTree(
             label=self.label(),
-            #field=field,
-            children=[child.to_tree() for _, child in self.children],
+            children=[child.to_tree() for child in self.children],
         )
 
     def __repr__(self) -> str:
@@ -329,10 +328,10 @@ class Operator(eqx.Module):
     def leaves(self, parent_path: Path=Path(), field: Field=Field()) -> list[Path]:
         path = self.path(parent_path, field)
 
-        if self.children == ():
+        if not self.children:
             return [path]
 
-        leaves = [op.leaves(path, c_field) for (c_field, op) in self.children]
+        leaves = [op.leaves(path, child_field(idx)) for idx, op in enumerate(self.children)]
         return [leaf for leaf_list in leaves for leaf in leaf_list]
 
     def child_at(self, path: Path()) -> Operator:
@@ -348,11 +347,6 @@ class Operator(eqx.Module):
     #------------- Should override if necessary -------------
     def label(self) -> str:
         return type(self).__name__
-
-    @property
-    def children(self) -> Children:
-        # tuple of (field, op) for child operators of this operator
-        return ()
 
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         # for each interface (i.e. action, adj_action, solve, exp_action), 
@@ -380,67 +374,69 @@ class ShiftScaleOperator(Operator):
     """
     Implements shift * Identity() + scale * op
     """
-    op: Operator
     shift: ScalarLike = 0.0
     scale: ScalarLike = 1.0
 
     def __init__(
-        self, 
-        op: Operator, 
+        self,
+        op: Operator,
         shift: ScalarLike=0.0,
-        scale: ScalarLike=1.0, 
+        scale: ScalarLike=1.0,
         exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator()):
 
         self.domain = op.domain
 
         if isinstance(op, ShiftScaleOperator):
-            # If op = s0 * I + c0 * A then 
-            # s1 * I + c1 * op can be collapsed to (s1 + c1 * s0) * I + c0 * c1 * A 
-            self.op = op.op
+            # If op = s0 * I + c0 * A then
+            # s1 * I + c1 * op can be collapsed to (s1 + c1 * s0) * I + c0 * c1 * A
+            self.children = op.children
             self.shift = shift + scale * op.shift
             self.scale = scale * op.scale
         else:
-            self.op = op 
-            self.shift = shift 
-            self.scale = scale 
+            self.children = (op,)
+            self.shift = shift
+            self.scale = scale
 
         self.exponentiator = exponentiator
 
     def action(self, y: AbstractState) -> AbstractState:
-        return self.scale * self.op.action(y) + self.shift * y
+        (A,) = self.children
+        return self.scale * A.action(y) + self.shift * y
 
     def adj_action(self, y: AbstractState) -> AbstractState:
-        return jnp.conj(self.scale) * self.op.adj_action(y) + jnp.conj(self.shift) * y
+        (A,) = self.children
+        return jnp.conj(self.scale) * A.adj_action(y) + jnp.conj(self.shift) * y
 
     def _solve(self, b, scale=-1.0, shift=0.0):
-        return self.op._solve(b, scale * self.scale, shift + scale * self.shift)
+        (A,) = self.children
+        return A._solve(b, scale * self.scale, shift + scale * self.shift)
 
     @property
     def spectral_bounds(self):
+        (A,) = self.children
         if jnp.iscomplexobj(self.shift) or jnp.iscomplexobj(self.scale):
             raise NoRealSpectrumError(
-                f"scale * {type(self.op).__name__} + shift * Identity() does not have a real spectrum "
+                f"scale * {type(A).__name__} + shift * Identity() does not have a real spectrum "
                 f"since shift={self.shift} or scale={self.scale} is complex"
             )
 
-        return jnp.sort(self.scale * self.op.spectral_bounds + self.shift)
+        return jnp.sort(self.scale * A.spectral_bounds + self.shift)
 
     def to_matrix(self):
-        return self.scale * self.op.to_matrix() + self.shift * jnp.eye(self.domain.dim)
+        (A,) = self.children
+        return self.scale * A.to_matrix() + self.shift * jnp.eye(self.domain.dim)
 
     def adjoint(self) -> Operator:
-        return jnp.conj(self.shift) + jnp.conj(self.scale) * self.op.adjoint()
+        (A,) = self.children
+        return jnp.conj(self.shift) + jnp.conj(self.scale) * A.adjoint()
 
     def label(self) -> str:
         return f"{type(self).__name__}(shift={self.shift}, scale={self.scale})"
 
-    @property
-    def children(self) -> Children:
-        return ((Field("op"), self.op),)
-
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
+        (A,) = self.children
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, Field("op"))
+        c = A.interface_count(path, child_field(0))
 
         return InterfaceCount(
             action     = c.action,
@@ -451,13 +447,11 @@ class ShiftScaleOperator(Operator):
 
 
 class AddOperator(Operator):
-    op1: Operator
-    op2: Operator
 
     def __init__(
-        self, 
-        op1: Operator, 
-        op2: Operator, 
+        self,
+        op1: Operator,
+        op2: Operator,
         exponentiator: Optional[AbstractExponentiator]=None):
 
         if op1.domain != op2.domain:
@@ -467,8 +461,7 @@ class AddOperator(Operator):
             )
 
         self.domain = op1.domain
-        self.op1 = op1 
-        self.op2 = op2
+        self.children = (op1, op2)
 
         if exponentiator is not None:
             self.exponentiator = exponentiator
@@ -478,28 +471,29 @@ class AddOperator(Operator):
             self.exponentiator = Strang()
 
     def action(self, y: AbstractState) -> AbstractState:
-        return self.op1.action(y) + self.op2.action(y)
+        A, B = self.children
+        return A.action(y) + B.action(y)
 
     def adj_action(self, y: AbstractState) -> AbstractState:
-        return self.op1.adj_action(y) + self.op2.adj_action(y)
+        A, B = self.children
+        return A.adj_action(y) + B.adj_action(y)
 
     @property
     def spectral_bounds(self) -> Array:
-        return self.op1.spectral_bounds + self.op2.spectral_bounds
+        A, B = self.children
+        return A.spectral_bounds + B.spectral_bounds
 
     def to_matrix(self) -> Array:
-        return self.op1.to_matrix() + self.op2.to_matrix()
+        A, B = self.children
+        return A.to_matrix() + B.to_matrix()
 
     def adjoint(self) -> Operator:
-        return self.op1.adjoint() + self.op2.adjoint()
-
-    @property
-    def children(self) -> Children:
-        return ((Field("op1"), self.op1), (Field("op2"), self.op2))
+        A, B = self.children
+        return A.adjoint() + B.adjoint()
 
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
-        c1, c2 = (op.interface_count(path, name) for name, op in self.children)
+        c1, c2 = (op.interface_count(path, child_field(idx)) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
             action     = c1.action + c2.action,
@@ -510,8 +504,6 @@ class AddOperator(Operator):
 
 
 class MatMulOperator(Operator):
-    op1: Operator
-    op2: Operator
 
     def __init__(self, op1, op2, exponentiator=NoExponentiator()):
         if op1.domain != op2.domain:
@@ -519,31 +511,30 @@ class MatMulOperator(Operator):
                 f"Cannot compose operators on different domains: op1={type(op1).__name__} acts on {op1.domain}, "
                 f"but op2={type(op2).__name__} acts on {op2.domain},"
             )
-        
+
         self.domain = op1.domain
-        self.op1 = op1 
-        self.op2 = op2 
+        self.children = (op1, op2)
         self.exponentiator = exponentiator
 
     def action(self, y: AbstractState) -> AbstractState:
-        return self.op1.action(self.op2.action(y))
+        A, B = self.children
+        return A.action(B.action(y))
 
     def adj_action(self, y: AbstractState) -> AbstractState:
-        return self.op2.adj_action(self.op1.adj_action(y))
+        A, B = self.children
+        return B.adj_action(A.adj_action(y))
 
     def to_matrix(self) -> Array:
-        return self.op1.to_matrix() @ self.op2.to_matrix()
+        A, B = self.children
+        return A.to_matrix() @ B.to_matrix()
 
     def adjoint(self) -> Operator:
-        return self.op2.adjoint() @ self.op1.adjoint()
-
-    @property
-    def children(self) -> Children:
-        return ((Field("op1"), self.op1), (Field("op2"), self.op2))
+        A, B = self.children
+        return B.adjoint() @ A.adjoint()
 
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
         path = self.path(parent_path, field)
-        c1, c2 = (op.interface_count(path, name) for name, op in self.children)
+        c1, c2 = (op.interface_count(path, child_field(idx)) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
             action     = c1.action + c2.action,
@@ -554,41 +545,41 @@ class MatMulOperator(Operator):
 
 
 class AdjOperator(Operator):
-    op: Operator
 
     def __init__(
-        self, 
-        op: Operator, 
+        self,
+        op: Operator,
         exponentiator: Optional[AbstractExponentiator]=NoExponentiator()):
 
         self.domain = op.domain
-        self.op = op
+        self.children = (op,)
         self.exponentiator = exponentiator
 
-
     def action(self, y: AbstractState) -> AbstractState:
-        return self.op.adj_action(y)
+        (A,) = self.children
+        return A.adj_action(y)
 
     def adj_action(self, y: AbstractState) -> AbstractState:
-        return self.op.action(y)
+        (A,) = self.children
+        return A.action(y)
 
     @property
     def spectral_bounds(self) -> Array:
-        return self.op.spectral_bounds
+        (A,) = self.children
+        return A.spectral_bounds
 
     def to_matrix(self) -> Array:
-        return jnp.conj(self.op.to_matrix().T)
+        (A,) = self.children
+        return jnp.conj(A.to_matrix().T)
 
     def adjoint(self) -> Operator:
-        return self.op
-
-    @property
-    def children(self) -> Children:
-        return ((Field("op"), self.op),)
+        (A,) = self.children
+        return A
 
     def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
+        (A,) = self.children
         path = self.path(parent_path, field)
-        c = self.op.interface_count(path, Field("op"))
+        c = A.interface_count(path, child_field(0))
 
         return InterfaceCount(
             action     = c.adj_action,

@@ -91,7 +91,7 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
 
     def __init__(self, domain: Qubits, ax_list: list[str]):
         self.domain = domain
-        self.ops = tuple(
+        self.children = tuple(
             domain[idx].identity() if ax.lower() == "i" else PauliOperator(domain[idx], ax.lower())
             for idx, ax in enumerate(ax_list)
         )

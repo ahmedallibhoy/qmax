@@ -9,8 +9,8 @@ import jax.numpy as jnp
 
 from jaxtyping import ScalarLike, Array
 
-from .._internal import _update_fields
-from .._introspect import CountDict, Path, Field
+from .._internal import _update_field
+from .._introspect import CountDict, Path, Field, child_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import Order, min_order, AbstractExponentiator
 
@@ -21,16 +21,14 @@ if TYPE_CHECKING:
 class AbstractSplitMethod(AbstractExponentiator):
 
     def adapt_children(self, op: AddOperator, dt_max: ScalarLike) -> Operator:
+        A, B = op.children
         h1, h2 = self.h_scales
-        return _update_fields(
-            op,
-            op1=op.op1.adapt(h1 * dt_max),
-            op2=op.op2.adapt(h2 * dt_max),
-        )
+        return _update_field(
+            op, "children", (A.adapt(h1 * dt_max), B.adapt(h2 * dt_max)))
 
     def effective_order(self, add_op: AddOperator) -> Order:
-        return min_order(
-            self.order, add_op.op1.tree_order, add_op.op2.tree_order)
+        A, B = add_op.children
+        return min_order(self.order, A.tree_order, B.tree_order)
 
     @property
     def operator_type(self) -> type:
@@ -38,14 +36,15 @@ class AbstractSplitMethod(AbstractExponentiator):
         return AddOperator
 
     def check_exponentiable(
-        self, 
-        op: Operator, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        parent_path: Path=Path(),
         field: Field=Field()):
 
+        A, B = op.children
         path = op.path(parent_path, field)
-        op.op1.check_exponentiable_tree(path, Field("op1"))
-        op.op2.check_exponentiable_tree(path, Field("op2"))
+        A.check_exponentiable_tree(path, child_field(0))
+        B.check_exponentiable_tree(path, child_field(1))
 
     @property
     @abstractmethod
@@ -56,23 +55,25 @@ class AbstractSplitMethod(AbstractExponentiator):
 class Strang(AbstractSplitMethod):
 
     def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return add_op.op1.exp(h / 2, add_op.op2.exp(h, add_op.op1.exp(h / 2, y)))
+        A, B = add_op.children
+        return A.exp(h / 2, B.exp(h, A.exp(h / 2, y)))
 
     @property
     def order(self) -> Order:
         return 2
 
     def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
+        self,
+        op: Operator,
+        h: ScalarLike,
+        parent_path: Path=Path(),
         field: Field=Field()) -> CountDict:
 
+        A, B = op.children
         path = op.path(parent_path, field)
         h1, h2 = self.h_scales
-        c1 = 2 * op.op1.exp_count(h1 * h, path, Field("op1"))
-        c2 = op.op2.exp_count(h2 * h, path, Field("op2"))
+        c1 = 2 * A.exp_count(h1 * h, path, child_field(0))
+        c2 = B.exp_count(h2 * h, path, child_field(1))
         return c1 + c2
 
     @property
@@ -94,10 +95,11 @@ class Yoshida(AbstractSplitMethod):
     level: int = eqx.field(static=True)
 
     def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        A, B = add_op.children
 
         def iterate(k, h, y):
             if k == 0:
-                return add_op.op1.exp(h / 2, add_op.op2.exp(h, add_op.op1.exp(h / 2, y)))
+                return A.exp(h / 2, B.exp(h, A.exp(h / 2, y)))
 
             w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
             w2 = 1 - 2 * w1
@@ -116,13 +118,14 @@ class Yoshida(AbstractSplitMethod):
         parent_path: Path=Path(), 
         field: Field=Field()) -> CountDict:
 
+        A, B = op.children
         c = CountDict()
         path = op.path(parent_path, field)
 
         def iterate(k, h, c):
             if k == 0:
-                c1 = 2 * op.op1.exp_count(h / 2, path, Field("op1"))
-                c2 = op.op2.exp_count(h, path, Field("op2"))
+                c1 = 2 * A.exp_count(h / 2, path, child_field(0))
+                c2 = B.exp_count(h, path, child_field(1))
                 return c + c1 + c2
 
             w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
@@ -159,14 +162,15 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
         return a, jnp.concatenate([b_half, b_half[::-1]])
 
     def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
+        A, B = add_op.children
         a, b = self._coeffs
 
         def do_step(y, coeffs):
             ai, bi = coeffs
-            y_next = add_op.op1.exp(ai * h, add_op.op2.exp(bi * h, y))
+            y_next = A.exp(ai * h, B.exp(bi * h, y))
             return y_next, None
 
-        y_init = add_op.op1.exp(a[0] * h, y)
+        y_init = A.exp(a[0] * h, y)
         y_exp, _ = jax.lax.scan(do_step, y_init, (a[1:], b))
         return y_exp
 
@@ -177,11 +181,12 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
         parent_path: Path=Path(), 
         field: Field=Field()) -> CountDict:
 
+        A, B = op.children
         path = op.path(parent_path, field)
         a, b = self._coeffs
-        c = op.op1.exp_count(a[0] * h, path, Field("op1"))
+        c = A.exp_count(a[0] * h, path, child_field(0))
         for (ai, bi) in zip(a[1:], b):
-            c += op.op1.exp_count(ai * h, path, Field("op1")) + op.op2.exp_count(bi * h, path, Field("op2"))
+            c += A.exp_count(ai * h, path, child_field(0)) + B.exp_count(bi * h, path, child_field(1))
         return c
 
     @property
