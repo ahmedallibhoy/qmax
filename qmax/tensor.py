@@ -10,15 +10,16 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
-from ._internal import _update_field
 from ._introspect import (
-    Count, CountDict, InterfaceCount, Path, Field, child_field
+    Count, InterfaceCount, Path, Field, child_field
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator, Identity, IncompatibleDomainError
-from .exponentiators import Order, min_order, AbstractExponentiator, Count
+from .exponentiators import (
+    Order, AbstractExponentiator, DelegatingExponentiator, Count
+)
 
 
 def apply_along_tensor(
@@ -155,58 +156,29 @@ class AbstractTensorOperator(Operator):
             )
 
 
-class LiftExp(AbstractExponentiator):
+class LiftExp(DelegatingExponentiator):
+
+    def schedule(self, lift_op: LiftOperator) -> list[tuple[int, Scalar, int]]:
+        # the lifted operator acts on each of the remaining subspaces in turn
+        (A,) = lift_op.children
+        return [(0, 1.0, lift_op.domain.dim // A.domain.dim)]
 
     def exp(
-        self, 
-        lift_op: LiftOperator, 
-        h: ScalarLike, 
+        self,
+        lift_op: LiftOperator,
+        h: ScalarLike,
         y: TensorState) -> TensorState:
-        
+
         (A,) = lift_op.children
         return apply_along_state(lambda s: A.exp(h, s), y, lift_op.factor_idx)
-
-    def adapt_children(
-        self,
-        op: LiftOperator,
-        dt_max: ScalarLike) -> Operator:
-
-        (A,) = op.children
-        return _update_field(op, "children", (A.adapt(dt_max),))
 
     @property
     def operator_type(self) -> type:
         return LiftOperator
 
-    def check_exponentiable(
-        self,
-        op: Operator,
-        parent_path: Path=Path(),
-        field: Field=Field()):
-
-        (A,) = op.children
-        path = op.path(parent_path, field)
-        A.check_exponentiable_tree(path, child_field(0))
-
     @property
     def order(self) -> Order:
         return None
-
-    def effective_order(self, lift_op: LiftOperator) -> Order:
-        (A,) = lift_op.children
-        return A.tree_order
-
-    def count(
-        self,
-        lift_op: Operator,
-        h: ScalarLike,
-        parent_path: Path=Path(),
-        field: Field=Field()) -> CountDict:
-
-        (A,) = lift_op.children
-        num = lift_op.domain.dim // A.domain.dim
-        path = lift_op.path(parent_path, field)
-        return num * A.exp_count(h, path, child_field(0))
 
 
 class LiftOperator(AbstractTensorOperator):
@@ -310,60 +282,33 @@ class KroneckerProductMixin(AbstractTensorOperator):
         return type(self)(self.domain, children=tuple(op.adjoint() for op in self.children))
 
 
-class KroneckerSumExp(AbstractExponentiator):
+class KroneckerSumExp(DelegatingExponentiator):
+
+    def schedule(self, kron_op: KroneckerSum) -> list[tuple[int, Scalar, int]]:
+        # each factor acts on every slice along its own axis
+        return [
+            (idx, 1.0, kron_op.domain.dim // kron_op.domain[idx].dim)
+            for idx in range(len(kron_op.children))
+        ]
 
     def exp(
-        self, 
-        kron_op: KroneckerSum, 
-        h: ScalarLike, 
+        self,
+        kron_op: KroneckerSum,
+        h: ScalarLike,
         y: TensorState) -> TensorState:
-        
+
         for factor_idx, op in enumerate(kron_op.children):
             y = apply_along_state(lambda s, op=op: op.exp(h, s), y, factor_idx)
 
         return y
 
-    def adapt_children(
-        self,
-        op: KroneckerSum,
-        dt_max: ScalarLike) -> Operator:
-
-        return _update_field(op, "children", tuple(
-            factor.adapt(dt_max) for factor in op.children))
-
     @property
     def operator_type(self) -> type:
         return KroneckerSum
 
-    def check_exponentiable(
-        self,
-        op: Operator,
-        parent_path: Path=Path(),
-        field: Field=Field()):
-
-        path = op.path(parent_path, field)
-        for idx, factor in enumerate(op.children):
-            factor.check_exponentiable_tree(path, child_field(idx))
-
     @property
     def order(self) -> Order:
         return None
-
-    def effective_order(self, kron_op: KroneckerSum) -> Order:
-        return min_order(*[op.tree_order for op in kron_op.children])
-
-    def count(
-        self, 
-        kron_op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
-
-        path = kron_op.path(parent_path, field)
-        c = CountDict()
-        for idx, op in enumerate(kron_op.children):
-            num = kron_op.domain.dim // kron_op.domain[idx].dim
-            c += num * op.exp_count(h, path, child_field(idx))
         return c
 
 

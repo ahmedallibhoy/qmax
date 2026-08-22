@@ -7,78 +7,65 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 
-from jaxtyping import ScalarLike, Array
+from jaxtyping import Array, Scalar, ScalarLike
 
-from .._internal import _update_field
-from .._introspect import CountDict, Path, Field, child_field
-from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from .base import Order, min_order, AbstractExponentiator
+from ..hilbert_space import AbstractState
+from .base import Order, DelegatingExponentiator
 
 if TYPE_CHECKING:
-    from ..operator import Operator, AddOperator
+    from ..operator import AddOperator
 
 
-class AbstractSplitMethod(AbstractExponentiator):
+class AbstractSplitMethod(DelegatingExponentiator):
+    """
+    Exponential splitting of op = A + B into an alternating sequence of exponentials:
 
-    def adapt_children(self, op: AddOperator, dt_max: ScalarLike) -> Operator:
-        A, B = op.children
-        h1, h2 = self.h_scales
-        return _update_field(
-            op, "children", (A.adapt(h1 * dt_max), B.adapt(h2 * dt_max)))
+        exp(h(A + B)) ~ exp(a_0 hA) exp(b_0 hB)  ... exp(a_{n -1} hA) exp(b_{n-1} hB) exp(a_n hA)
 
-    def effective_order(self, add_op: AddOperator) -> Order:
+    where a, b = self._coeffs
+    """
+
+    @property
+    @abstractmethod
+    def _coeffs(self) -> tuple[Array, Array]:
+        pass
+
+    def schedule(self, op: AddOperator) -> list[tuple[int, Scalar, int]]:
+        a, b = self._coeffs
+        sched = [(0, a[0], 1)]
+        for (ai, bi) in zip(a[1:], b):
+            sched += [(1, bi, 1), (0, ai, 1)]
+        return sched
+
+    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
         A, B = add_op.children
-        return min_order(self.order, A.tree_order, B.tree_order)
+        a, b = self._coeffs
+
+        def do_step(y, coeffs):
+            ai, bi = coeffs
+            return A.exp(ai * h, B.exp(bi * h, y)), None
+
+        y_exp, _ = jax.lax.scan(do_step, A.exp(a[0] * h, y), (a[1:], b))
+        return y_exp
 
     @property
     def operator_type(self) -> type:
         from ..operator import AddOperator
         return AddOperator
 
-    def check_exponentiable(
-        self,
-        op: Operator,
-        parent_path: Path=Path(),
-        field: Field=Field()):
-
-        A, B = op.children
-        path = op.path(parent_path, field)
-        A.check_exponentiable_tree(path, child_field(0))
-        B.check_exponentiable_tree(path, child_field(1))
-
-    @property
-    @abstractmethod
-    def h_scales(self):
-        pass
-
 
 class Strang(AbstractSplitMethod):
+    """
+    Strang splitting: A(h/2) B(h) A(h/2)
+    """
 
-    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        A, B = add_op.children
-        return A.exp(h / 2, B.exp(h, A.exp(h / 2, y)))
+    @property
+    def _coeffs(self) -> tuple[Array, Array]:
+        return jnp.array([0.5, 0.5]), jnp.array([1.0])
 
     @property
     def order(self) -> Order:
         return 2
-
-    def count(
-        self,
-        op: Operator,
-        h: ScalarLike,
-        parent_path: Path=Path(),
-        field: Field=Field()) -> CountDict:
-
-        A, B = op.children
-        path = op.path(parent_path, field)
-        h1, h2 = self.h_scales
-        c1 = 2 * A.exp_count(h1 * h, path, child_field(0))
-        c2 = B.exp_count(h2 * h, path, child_field(1))
-        return c1 + c2
-
-    @property
-    def h_scales(self):
-        return 0.5, 1.0
 
 
 class Yoshida(AbstractSplitMethod):
@@ -94,53 +81,30 @@ class Yoshida(AbstractSplitMethod):
 
     level: int = eqx.field(static=True)
 
-    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        A, B = add_op.children
+    @property
+    def _coeffs(self) -> tuple[Array, Array]:
 
-        def iterate(k, h, y):
+        def iterate(k, h, seq):
             if k == 0:
-                return A.exp(h / 2, B.exp(h, A.exp(h / 2, y)))
+                return seq + [(0, 0.5 * h), (1, h), (0, 0.5 * h)]
 
             w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
             w2 = 1 - 2 * w1
-            return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, y)))
+            return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, seq)))
 
-        return iterate(self.level, h, y)
+        fused = []
+        for idx, c in iterate(self.level, 1.0, []):
+            if fused and fused[-1][0] == idx:
+                fused[-1] = (idx, fused[-1][1] + c)
+            else:
+                fused.append((idx, c))
+
+        return (jnp.array([c for idx, c in fused if idx == 0]),
+                jnp.array([c for idx, c in fused if idx == 1]))
 
     @property
     def order(self) -> Order:
         return 2 * (self.level + 1)
-
-    def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
-
-        A, B = op.children
-        c = CountDict()
-        path = op.path(parent_path, field)
-
-        def iterate(k, h, c):
-            if k == 0:
-                c1 = 2 * A.exp_count(h / 2, path, child_field(0))
-                c2 = B.exp_count(h, path, child_field(1))
-                return c + c1 + c2
-
-            w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
-            w2 = 1 - 2 * w1
-            return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, c)))
-
-        return iterate(self.level, h, c)
-
-    @property
-    def h_scales(self):
-        m = 1.0
-        for k in range(1, self.level + 1):
-            w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
-            m *= max(abs(w1), abs(1 - 2 * w1))
-        return 0.5 * m, m
 
 
 class AbstractPRKSplitMethod(AbstractSplitMethod):
@@ -156,43 +120,10 @@ class AbstractPRKSplitMethod(AbstractSplitMethod):
     b: eqx.AbstractClassVar[Array]
 
     @property
-    def _coeffs(self):
+    def _coeffs(self) -> tuple[Array, Array]:
         a = jnp.concatenate([self.a, jnp.array([1 - 2 * self.a.sum()]), self.a[::-1]])
         b_half = jnp.concatenate([self.b, jnp.array([0.5 - self.b.sum()])])
         return a, jnp.concatenate([b_half, b_half[::-1]])
-
-    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        A, B = add_op.children
-        a, b = self._coeffs
-
-        def do_step(y, coeffs):
-            ai, bi = coeffs
-            y_next = A.exp(ai * h, B.exp(bi * h, y))
-            return y_next, None
-
-        y_init = A.exp(a[0] * h, y)
-        y_exp, _ = jax.lax.scan(do_step, y_init, (a[1:], b))
-        return y_exp
-
-    def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
-
-        A, B = op.children
-        path = op.path(parent_path, field)
-        a, b = self._coeffs
-        c = A.exp_count(a[0] * h, path, child_field(0))
-        for (ai, bi) in zip(a[1:], b):
-            c += A.exp_count(ai * h, path, child_field(0)) + B.exp_count(bi * h, path, child_field(1))
-        return c
-
-    @property
-    def h_scales(self):
-        a, b = self._coeffs
-        return float(jnp.abs(a).max()), float(jnp.abs(b).max())
 
 
 class BlanesMoan6(AbstractPRKSplitMethod):

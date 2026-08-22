@@ -55,13 +55,11 @@ class PauliOperator(AbstractPauliOperator):
     axis: str
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
-    def __init__(self, domain: TwoLevel, axis: str):
-        if axis not in ("i", "x", "y", "z"):
+    def __check_init__(self):
+        if self.axis not in ("i", "x", "y", "z"):
             raise ValueError(
-                f"Invalid axis={axis!r}; axis must be one of 'i', 'x', 'y', or 'z'."
+                f"Invalid axis={self.axis!r}; axis must be one of 'i', 'x', 'y', or 'z'."
             )
-        self.domain = domain
-        self.axis = axis
 
     def action(self, y: TwoLevelState) -> TwoLevelState:
         return self.domain.from_coeffs((self.to_matrix() @ y.coeffs[..., None])[..., 0])
@@ -89,9 +87,15 @@ class Qubits(TensorPower):
 class PauliProduct(AbstractPauliOperator, KroneckerProduct):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
-    def __init__(self, domain: Qubits, ax_list: list[str]):
+    def __init__(
+        self,
+        domain: Qubits,
+        ax_list: list[str],
+        exponentiator: AbstractExponentiator=ExactExponentiator()):
+
         self.domain = domain
         self.children = tuple(
             domain[idx].identity() if ax.lower() == "i" else PauliOperator(domain[idx], ax.lower())
             for idx, ax in enumerate(ax_list)
         )
+        self.exponentiator = exponentiator

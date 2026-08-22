@@ -7,7 +7,7 @@ from abc import abstractmethod
 
 import jax.numpy as jnp
 import equinox as eqx
-from jaxtyping import ScalarLike
+from jaxtyping import ScalarLike, Scalar
 
 from .._introspect import CountDict, Path, Field, child_field
 from .._internal import _update_field
@@ -114,8 +114,27 @@ class AbstractExponentiator(eqx.Module):
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         pass
 
-    def schedule(self, op) -> tuple[tuple[Field, ScalarLike, int]]:
-        return ()
+    @property
+    @abstractmethod
+    def order(self) -> Order:
+        """
+        The intrinsic order of the method itself, independent of any operator. None means the
+        method contributes no truncation error of its own.
+        """
+
+    @abstractmethod
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: Field=Field()) -> CountDict:
+        """
+        Counts number of calls to each interface of op required by one call 
+        to self.exp(op, h, y) recursing into children of op, if necessary,  
+        via op_child.exp_count for each child of op.
+        """
+        return CountDict()
 
     def adapt(
         self,
@@ -160,14 +179,6 @@ class AbstractExponentiator(eqx.Module):
         """
         pass
 
-    @property
-    @abstractmethod
-    def order(self) -> Order:
-        """
-        The intrinsic order of the method itself, independent of any operator. None means the
-        method contributes no truncation error of its own.
-        """
-
     def effective_order(self, op: Operator) -> Order:
         """
         The minimum of the intrinsic order and the orders of the exponentiators of each 
@@ -175,18 +186,41 @@ class AbstractExponentiator(eqx.Module):
         """
         return self.order
 
-    def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+
+class DelegatingExponentiator(AbstractExponentiator):
+
+    @abstractmethod
+    def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:
+        pass 
+
+    def count(self, op, h, parent_path=Path(), field=Field()) -> CountDict:
+        path = op.path(parent_path, field)
+        c = CountDict()
+        for idx, scale, mult in self.schedule(op):
+            c += mult * op.children[idx].exp_count(scale * h, path, child_field(idx))
+        return c
+
+    def h_scales(self, op) -> list[Scalar]:
+        scales = [0.0] * len(op.children)
+        for idx, coeff, _ in self.schedule(op):
+            scales[idx] = max(scales[idx], abs(coeff))
+        return scales
+
+    def check_exponentiable(self, op, parent_path=Path(), field=Field()) -> None:
+        path = op.path(parent_path, field)
+        for idx in range(len(op.children)):
+            op.children[idx].check_exponentiable_tree(path, child_field(idx))
+
+    def adapt_children(self, op, dt_max) -> Operator:
+        children = tuple(child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op)))
+        return _update_field(op, "children", children)
+
+    def effective_order(self, op: Operator) -> Order:
         """
-        Counts number of calls to each interface of op required by one call 
-        to self.exp(op, h, y) recursing into children of op, if necessary,  
-        via op_child.exp_count for each child of op.
+        The minimum of the intrinsic order and the orders of the exponentiators of each 
+        child of op, queried via op_child.tree_order for each child of op
         """
-        return CountDict()
+        return min_order(self.order, *(child.tree_order for child in op.children))
 
 
 class ExactExponentiator(AbstractExponentiator):
@@ -218,53 +252,27 @@ class ExactExponentiator(AbstractExponentiator):
         return op.interface_count(parent_path, field).exp_action
 
 
-class ShiftScaleExponentiator(AbstractExponentiator):
+class ShiftScaleExponentiator(DelegatingExponentiator):
     """
     Exponentiates op = shift * I + scale * A
     """
 
+    def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:
+        # only the scale stretches the step; the shift contributes a phase
+        return [(0, op.scale, 1)]
+
     def exp(self, op, h, y):
         (A,) = op.children
         return jnp.exp(h * op.shift) * A.exp(h * op.scale, y)
-
-    def adapt_children(self, op: Operator, dt_max: ScalarLike) -> Operator:
-        # only the scale stretches the step; the shift contributes a phase
-        (A,) = op.children
-        return _update_field(op, "children", (A.adapt(jnp.abs(op.scale) * dt_max),))
 
     @property
     def operator_type(self) -> type:
         from ..operator import ShiftScaleOperator
         return ShiftScaleOperator
 
-    def check_exponentiable(
-        self,
-        op: Operator,
-        parent_path: Path=Path(),
-        field: Field=Field()):
-
-        (A,) = op.children
-        path = op.path(parent_path, field)
-        A.check_exponentiable_tree(path, child_field(0))
-
     @property
     def order(self) -> Order:
         return None
-
-    def effective_order(self, op: Operator):
-        (A,) = op.children
-        return A.tree_order
-
-    def count(
-        self,
-        op: Operator,
-        h: ScalarLike,
-        parent_path: Path=Path(),
-        field: Field=Field()) -> CountDict:
-
-        (A,) = op.children
-        path = op.path(parent_path, field)
-        return A.exp_count(h * op.scale, path, child_field(0))
 
 
 class NoExponentiator(AbstractExponentiator):
@@ -280,6 +288,17 @@ class NoExponentiator(AbstractExponentiator):
         parent_path: Path=Path(), 
         field: Field=Field()):
         
+        raise NotExponentiableError(
+            f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
+            "Use .with_exponentiator to assign an exponentiator")
+
+    def count(
+        self, 
+        op: Operator, 
+        h: ScalarLike, 
+        parent_path: Path=Path(), 
+        field: Field=Field()) -> CountDict:
+
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
             "Use .with_exponentiator to assign an exponentiator")

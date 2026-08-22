@@ -187,10 +187,11 @@ class ControlledPropagator(AbstractPropagator):
             )
 
         # propagate_stage splits c1 * op1 + c2 * op2, so validate that whole tree up front
-        split_method.check_exponentiable_tree(op1 + op2)
+        add_op = op1 + op2
+        split_method.check_exponentiable_tree(add_op)
 
         w_max = jnp.max(jnp.sum(jnp.abs(self.weights), axis=1))
-        h1, h2 = split_method.h_scales
+        h1, h2 = split_method.h_scales(add_op)
         dt1 = h1 * w_max * self.u1_max * self.dt / op1.domain.hbar
         dt2 = h2 * w_max * self.u2_max * self.dt / op1.domain.hbar
 

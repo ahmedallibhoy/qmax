@@ -10,8 +10,10 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractHermitianOperator
-from ..exponentiators import AbstractExponentiator, ExactExponentiator, CrankNicolson
-from ..tensor import TensorProduct, TensorState, KroneckerSum, LiftOperator
+from ..exponentiators import (
+    AbstractExponentiator, ExactExponentiator, CrankNicolson, NoExponentiator
+)
+from ..tensor import TensorProduct, TensorState, KroneckerSum, KroneckerSumExp, LiftOperator
 from ..utils import over_batch
 from .spatial_discretization import (
     SpatialDiscretization, 
@@ -169,18 +171,29 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
 
 class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
-    def __init__(self, domain: FiniteDifference):
+    def __init__(
+        self,
+        domain: FiniteDifference,
+        exponentiator: AbstractExponentiator=KroneckerSumExp()):
+
         self.domain = domain
         self.children = tuple(
             _FiniteDifference1DLaplacian(domain[idx]) for idx in range(domain.num_factors))
+        self.exponentiator = exponentiator
 
 
 class FiniteDifferenceMomentum(LiftOperator):
 
-    def __init__(self, domain: FiniteDifference, axis: int):
+    def __init__(
+        self,
+        domain: FiniteDifference,
+        axis: int,
+        exponentiator: AbstractExponentiator=NoExponentiator()):
+
         self.domain = domain
         self.children = (_FiniteDifference1DMomentum(domain[axis]),)
         self.factor_idx = axis
+        self.exponentiator = exponentiator
 
     @property
     def idx(self) -> int:

@@ -1,8 +1,8 @@
 from .._introspect import Count, CountDict, Path
 from .base import (
     Order, min_order,
-    AbstractExponentiator, ExactExponentiator, ShiftScaleExponentiator,
-    NoExponentiator, NotExponentiableError
+    AbstractExponentiator, DelegatingExponentiator, ExactExponentiator,
+    ShiftScaleExponentiator, NoExponentiator, NotExponentiableError
 )
 
 from .euler import ForwardEuler, ImplicitEuler, CrankNicolson
@@ -21,6 +21,7 @@ __all__ = [
     "NoExponentiator",
     "NotExponentiableError",
     "AbstractExponentiator",
+    "DelegatingExponentiator",
     "ExactExponentiator",
     "ForwardEuler",
     "ImplicitEuler",

@@ -97,7 +97,7 @@ class Path:
         path_str = op.label() 
     
         for field, op in self.steps[1:]:
-            path_str += f".{field} → {op.label()}"
+            path_str += f".children[{field}] → {op.label()}"
         return path_str
 
     def __hash__(self) -> int:
