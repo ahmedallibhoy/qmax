@@ -7,7 +7,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
-from .._introspect import Path, Field
+from .._introspect import Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractDiagonalOperator
 from ..exponentiators import Order, AbstractExponentiator
@@ -121,10 +121,10 @@ class PseudoSpectralExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return op.interface_count(parent_path, field).exp_action
+        return op.interface_count(parent_path, child_idx).exp_action
 
 
 class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):

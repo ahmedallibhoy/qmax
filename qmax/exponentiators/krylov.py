@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
-from .._introspect import CountDict, Path, Path, Field
+from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..lanczos import lanczos
 from ..utils import over_batch
@@ -90,7 +90,7 @@ class KrylovExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return self.num_iterations * op.interface_count(parent_path, field).action
+        return self.num_iterations * op.interface_count(parent_path, child_idx).action

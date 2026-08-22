@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Optional
 from abc import abstractmethod
 from functools import reduce
 
@@ -13,7 +13,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ._introspect import (
-    Count, InterfaceCount, Path, Field, child_field
+    Count, InterfaceCount, Path
 )
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Operator, Identity, IncompatibleDomainError
@@ -228,13 +228,14 @@ class LiftOperator(AbstractTensorOperator):
         (A,) = self.children
         return LiftOperator(self.domain, self.factor_idx, children=(A.adjoint(),))
 
+    @property
     def label(self) -> str:
         return f"{type(self).__name__}(idx={self.factor_idx})"
 
-    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
+    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         (A,) = self.children
-        path = self.path(parent_path, field)
-        c = A.interface_count(path, child_field(0))
+        path = self.path(parent_path, child_idx)
+        c = A.interface_count(path, 0)
         num = self.domain.dim // A.domain.dim
 
         return InterfaceCount(
@@ -263,11 +264,11 @@ class KroneckerProductMixin(AbstractTensorOperator):
                     f"operand at index {idx} acts on {self.children[idx].domain}"
                 )
 
-    def interface_count(self, parent_path: Path=Path(), field: Field=Field()) -> InterfaceCount:
-        path = self.path(parent_path, field)
+    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+        path = self.path(parent_path, child_idx)
         dim = self.domain.dim
         scaled = [
-            (dim // self.domain[idx].dim, op.interface_count(path, child_field(idx)))
+            (dim // self.domain[idx].dim, op.interface_count(path, idx))
             for idx, op in enumerate(self.children)
         ]
 

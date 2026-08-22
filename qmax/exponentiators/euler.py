@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 import jax.numpy as jnp
 
 from jaxtyping import ScalarLike
 
-from .._introspect import CountDict, Path, Field
+from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
 
@@ -27,10 +27,10 @@ class ForwardEuler(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return op.interface_count(parent_path, field).action
+        return op.interface_count(parent_path, child_idx).action
 
 
 class ImplicitEuler(AbstractExponentiator):
@@ -46,10 +46,10 @@ class ImplicitEuler(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return op.interface_count(parent_path, field).solve
+        return op.interface_count(parent_path, child_idx).solve
 
 
 class CrankNicolson(AbstractExponentiator):
@@ -65,8 +65,8 @@ class CrankNicolson(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        i_count = op.interface_count(parent_path, field)
+        i_count = op.interface_count(parent_path, child_idx)
         return i_count.action + i_count.solve

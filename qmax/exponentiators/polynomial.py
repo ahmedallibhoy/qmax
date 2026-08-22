@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 import warnings
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import ArrayLike, ScalarLike
 
-from .._introspect import CountDict, Path, Field
+from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
 from ..eig import op_spectral_bounds_lanczos
@@ -149,10 +149,10 @@ class ChebyshevExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return self.num_iterations * op.interface_count(parent_path, field).action
+        return self.num_iterations * op.interface_count(parent_path, child_idx).action
 
 
 class LaguerreExponentiator(AbstractExponentiator):
@@ -189,7 +189,7 @@ class LaguerreExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return self.num_iterations * op.interface_count(parent_path, field).action
+        return self.num_iterations * op.interface_count(parent_path, child_idx).action

@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import ScalarLike, Scalar
 
-from .._introspect import CountDict, Path, Field, child_field
+from .._introspect import CountDict, Path
 from .._internal import _update_field
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 
@@ -30,7 +30,10 @@ class NotExponentiableError(Exception):
         super().__init__(f"{reason}\n  path: {path}")
 
     def from_path(self, path: Path=Path()) -> NotExponentiableError:
+        #if self.path:
+        #    return self
         return type(self)(self.reason, path)
+
 
 
 class AbstractExponentiator(eqx.Module):
@@ -50,8 +53,8 @@ class AbstractExponentiator(eqx.Module):
     def check_exponentiable_tree(
         self, 
         op: Operator, 
-        parent_path: Path=Path(), 
-        field: Field=Field()):
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None):
 
         """
         Traverses the expression tree of op to ensure op is compatible with this 
@@ -65,21 +68,23 @@ class AbstractExponentiator(eqx.Module):
                     f"{self.operator_type.__name__} but received operator of type "
                     f"{type(op).__name__}"
                 )
-            self.check_exponentiable(op, parent_path, field)
+            self.check_exponentiable(op, parent_path, child_idx)
         except NotExponentiableError as e:
-            raise e.from_path(op.path(parent_path, field)) from None
+            if e.path:
+                raise e from None
+            raise e.from_path(op.path(parent_path, child_idx)) from None
 
     def can_exponentiate(
         self, 
         op: Operator, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> bool:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> bool:
         """
         Traverses the expression tree of op and returns True if this exponentiator 
         can be called on op without raising an error. 
         """
         try:
-            self.check_exponentiable_tree(op, parent_path, field)
+            self.check_exponentiable_tree(op, parent_path, child_idx)
             return True
         except NotExponentiableError:
             return False
@@ -96,15 +101,15 @@ class AbstractExponentiator(eqx.Module):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
         """
         Traverses the expression tree of op to count the number of calls to interface 
         methods of leaves per one call to self.exp(op, h, y), as a rough measure 
         of the computational effort of required by this exponentiatiator. 
         """
         self.check_exponentiable_tree(op)
-        return self.count(op, h, parent_path, field)
+        return self.count(op, h, parent_path, child_idx)
 
     # --------------------------------------------------------------------------------------------
     # Should be overriden by subclasses if necessary
@@ -127,8 +132,8 @@ class AbstractExponentiator(eqx.Module):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
         """
         Counts number of calls to each interface of op required by one call 
         to self.exp(op, h, y) recursing into children of op, if necessary,  
@@ -171,8 +176,8 @@ class AbstractExponentiator(eqx.Module):
     def check_exponentiable(
         self, 
         op: Operator, 
-        parent_path: Path=Path(), 
-        field: Field=Field()):
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None):
         """
         Validates exponentiability by recursing into a composite operators tree via 
         op_child.check_exponentiable_tree for each child of op
@@ -191,25 +196,33 @@ class DelegatingExponentiator(AbstractExponentiator):
 
     @abstractmethod
     def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:
+        """
+        Schedule of (index, scale, mult) of op's children that this exponentiator 
+        delegates to, i.e., (i, s, m) means that op.children[i].exp(scale * h, y)
+        is called m times. 
+        """
         pass 
 
-    def count(self, op, h, parent_path=Path(), field=Field()) -> CountDict:
-        path = op.path(parent_path, field)
+    def count(self, op, h, parent_path=None, child_idx=None) -> CountDict:
+        path = op.path(parent_path, child_idx)
         c = CountDict()
         for idx, scale, mult in self.schedule(op):
-            c += mult * op.children[idx].exp_count(scale * h, path, child_field(idx))
+            c += mult * op.children[idx].exp_count(scale * h, path, idx)
         return c
 
     def h_scales(self, op) -> list[Scalar]:
+        """
+        Returns list where h_scales[i] is the maximum scaling factor applied to op.children[i]
+        """
         scales = [0.0] * len(op.children)
         for idx, coeff, _ in self.schedule(op):
             scales[idx] = max(scales[idx], abs(coeff))
         return scales
 
-    def check_exponentiable(self, op, parent_path=Path(), field=Field()) -> None:
-        path = op.path(parent_path, field)
+    def check_exponentiable(self, op, parent_path=None, child_idx=None) -> None:
+        path = op.path(parent_path, child_idx)
         for idx in range(len(op.children)):
-            op.children[idx].check_exponentiable_tree(path, child_field(idx))
+            op.children[idx].check_exponentiable_tree(path, idx)
 
     def adapt_children(self, op, dt_max) -> Operator:
         children = tuple(child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op)))
@@ -231,8 +244,8 @@ class ExactExponentiator(AbstractExponentiator):
     def check_exponentiable(
         self, 
         op: Operator, 
-        parent_path: Path=Path(), 
-        field: Field=Field()):
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None):
 
         if not op.has_exact_exponential:
             raise NotExponentiableError(
@@ -246,10 +259,10 @@ class ExactExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
-        return op.interface_count(parent_path, field).exp_action
+        return op.interface_count(parent_path, child_idx).exp_action
 
 
 class ShiftScaleExponentiator(DelegatingExponentiator):
@@ -285,8 +298,8 @@ class NoExponentiator(AbstractExponentiator):
     def check_exponentiable(
         self, 
         op: Operator, 
-        parent_path: Path=Path(), 
-        field: Field=Field()):
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None):
         
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
@@ -296,8 +309,8 @@ class NoExponentiator(AbstractExponentiator):
         self, 
         op: Operator, 
         h: ScalarLike, 
-        parent_path: Path=Path(), 
-        field: Field=Field()) -> CountDict:
+        parent_path: Optional[Path]=None, 
+        child_idx: Optional[int]=None) -> CountDict:
 
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
