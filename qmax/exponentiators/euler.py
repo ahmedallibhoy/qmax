@@ -69,4 +69,4 @@ class CrankNicolson(AbstractExponentiator):
         child_idx: Optional[int]=None) -> CountDict:
 
         i_count = op.interface_count(parent_path, child_idx)
-        return i_count.action + i_count.solve
+        return i_count.action | i_count.solve

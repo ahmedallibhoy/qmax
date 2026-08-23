@@ -22,7 +22,7 @@ from .utils import *
 #       a. exponentiators should report backward error estimates?
 #       b. adapt() should accept tunable tolerances
 #       c. validating interface and exp counts (see 6)
-#       d. fix path / field semantics
+#       d. fix path / field semantics ... DONE
 #       e. extending count functionality to propagators
 #
 #   3. Eigensolvers

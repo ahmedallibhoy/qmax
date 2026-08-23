@@ -8,6 +8,7 @@ import jax.numpy as jnp
 
 from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
 
+from ._introspect import CountDict
 from .hilbert_space import AbstractState, AbstractHilbertSpace
 from .operator import Operator, IncompatibleDomainError
 from .control import AbstractControl, ControlFunction
@@ -100,6 +101,21 @@ class AbstractPropagator(eqx.Module):
         y1, ys = jax.lax.scan(loop, y, (t_range[:-1], t_range[1:]))
         return PropagateResult(y1, ys, t_range[1:])
 
+    @abstractmethod
+    def count_stage(
+        self, 
+        t: ScalarLike, 
+        dt: ScalarLike, 
+        params: Optional[PyTree]=None) -> CountDict:
+        
+        pass
+
+    def count(self, params: Optional[PyTree]=None) -> CountDict:
+        t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
+        dt = t_range[1] - t_range[0]
+        c = self.count_stage(0, dt, params)
+        return len(t_range) * c
+
 
 class TimeInvariantPropagator(AbstractPropagator):
     op: Operator
@@ -131,6 +147,18 @@ class TimeInvariantPropagator(AbstractPropagator):
     @property
     def hilbert_space(self) -> AbstractHilbertSpace:
         return self.op.domain
+
+    def count_stage(
+        self, 
+        t: ScalarLike, 
+        dt: ScalarLike, 
+        params: Optional[PyTree]=None) -> CountDict:
+
+        c = CountDict()
+        for i in range(self.weights.shape[0]):
+            w = jnp.sum(self.weights[i, :])
+            c |= self.op.exp_count((-1j / self.hbar) * w * dt)
+        return c
 
     def propagate_stage(
         self,

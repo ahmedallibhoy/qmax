@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union, Optional, TypeVar
 
 import equinox as eqx
 import jax 
@@ -52,10 +52,14 @@ def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
     return None
 
 
+T = TypeVar("T")
+
+
 class Operator(eqx.Module):
     domain: AbstractHilbertSpace = eqx.field(static=True)
     children: tuple[Operator, ...] = eqx.field(default=(), kw_only=True)
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
+    _label: Optional[str] = eqx.field(default=None, kw_only=True)
 
     def _check_domain(self, y: AbstractState):
         if self.domain != y.hilbert_space:
@@ -70,6 +74,25 @@ class Operator(eqx.Module):
                 f"{type(self).__name__} acts on {self.domain}, "
                 f"but {type(other).__name__} acts on {other.domain}"
             )
+
+    def with_label(
+        self, 
+        label: str,
+        path: Path=Path(), 
+        parent_path=None, 
+        child_idx=None) -> Operator:
+
+        if path:
+            index, new_path = path.descend()
+            fn = lambda o: o.children[index]
+
+            child = fn(self)
+            new_child = child.with_label(
+                label, new_path, self.path(parent_path, child_idx), index)
+            new_self = eqx.tree_at(fn, self, new_child)
+            return new_self
+
+        return _update_field(self, "_label", label)
 
     def with_exponentiator(
         self, 
@@ -337,9 +360,13 @@ class Operator(eqx.Module):
         index, rest = path.descend()
         return self.children[index].child_at(rest)
 
-    #------------- Should override if necessary -------------
     @property
     def label(self) -> str:
+        return self.default_label if self._label is None else self._label
+
+    #------------- Should override if necessary -------------
+    @property
+    def default_label(self) -> str:
         return type(self).__name__
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
@@ -425,8 +452,16 @@ class ShiftScaleOperator(Operator):
         return jnp.conj(self.shift) + jnp.conj(self.scale) * A.adjoint()
 
     @property
-    def label(self) -> str:
-        return f"{type(self).__name__}(shift={self.shift}, scale={self.scale})"
+    def default_label(self) -> str:
+        (A,) = self.children
+        if self.shift == 0 and self.scale == 0:
+             return "0"
+        elif self.shift == 0:
+            return f"{self.scale} * {A.label}"
+        elif self.scale == 0:
+            return f"{A.label} + {self.shift} * Identity()"
+        else:
+            return f"{self.scale} * {A.label} + {self.shift} * Identity()"
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         (A,) = self.children
@@ -445,25 +480,28 @@ class AddOperator(Operator):
 
     def __init__(
         self,
-        op1: Operator,
-        op2: Operator,
-        exponentiator: Optional[AbstractExponentiator]=None):
+        A: Operator,
+        B: Operator,
+        exponentiator: Optional[AbstractExponentiator]=None, 
+        label: Optional[str]=None):
 
-        if op1.domain != op2.domain:
+        if A.domain != B.domain:
             raise IncompatibleDomainError(
-                f"Cannot add operators on different domains: op1={type(op1).__name__} acts on {op1.domain}, "
-                f"but op2={type(op2).__name__} acts on {op2.domain},"
+                f"Cannot add operators on different domains: A={type(A).__name__} acts on {A.domain}, "
+                f"but B={type(B).__name__} acts on {B.domain},"
             )
 
-        self.domain = op1.domain
-        self.children = (op1, op2)
+        self.domain = A.domain
+        self.children = (A, B)
 
         if exponentiator is not None:
             self.exponentiator = exponentiator
-        elif not op1.can_exponentiate() or not op2.can_exponentiate():
+        elif not A.can_exponentiate() or not B.can_exponentiate():
             self.exponentiator = NoExponentiator()
         else:
             self.exponentiator = Strang()
+
+        self._label = label
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -486,13 +524,18 @@ class AddOperator(Operator):
         A, B = self.children
         return A.adjoint() + B.adjoint()
 
+    @property
+    def default_label(self) -> str:
+        A, B = self.children
+        return f"({A.label} + {B.label})"
+
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
-            action     = c1.action + c2.action,
-            adj_action = c1.adj_action + c2.adj_action,
+            action     = c1.action | c2.action,
+            adj_action = c1.adj_action | c2.adj_action,
             solve      = {path: Count(solves=1)},
             exp_action = self._exp_action_count(path),
         )
@@ -500,16 +543,23 @@ class AddOperator(Operator):
 
 class MatMulOperator(Operator):
 
-    def __init__(self, op1, op2, exponentiator=NoExponentiator()):
-        if op1.domain != op2.domain:
+    def __init__(
+        self, 
+        A: Operator, 
+        B: Operator, 
+        exponentiator=NoExponentiator(),
+        label: Optional[str]=None):
+
+        if A.domain != B.domain:
             raise IncompatibleDomainError(
-                f"Cannot compose operators on different domains: op1={type(op1).__name__} acts on {op1.domain}, "
-                f"but op2={type(op2).__name__} acts on {op2.domain},"
+                f"Cannot compose operators on different domains: A={type(A).__name__} acts on {A.domain}, "
+                f"but B={type(B).__name__} acts on {B.domain},"
             )
 
-        self.domain = op1.domain
-        self.children = (op1, op2)
+        self.domain = A.domain
+        self.children = (A, B)
         self.exponentiator = exponentiator
+        self._label = label
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -527,13 +577,18 @@ class MatMulOperator(Operator):
         A, B = self.children
         return B.adjoint() @ A.adjoint()
 
+    @property
+    def default_label(self) -> str:
+        A, B = self.children
+        return f"({A.label} @ {B.label})"
+
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
-            action     = c1.action + c2.action,
-            adj_action = c1.adj_action + c2.adj_action,
+            action     = c1.action | c2.action,
+            adj_action = c1.adj_action | c2.adj_action,
             solve      = {path: Count(solves=1)},
             exp_action = self._exp_action_count(path),
         )
@@ -544,11 +599,13 @@ class AdjOperator(Operator):
     def __init__(
         self,
         op: Operator,
-        exponentiator: Optional[AbstractExponentiator]=NoExponentiator()):
+        exponentiator: Optional[AbstractExponentiator]=NoExponentiator(), 
+        label: Optional[str]=None):
 
         self.domain = op.domain
         self.children = (op,)
         self.exponentiator = exponentiator
+        self._label = label
 
     def action(self, y: AbstractState) -> AbstractState:
         (A,) = self.children
@@ -570,6 +627,12 @@ class AdjOperator(Operator):
     def adjoint(self) -> Operator:
         (A,) = self.children
         return A
+
+    @property
+    def default_label(self) -> str:
+        (A,) = self.children
+        return f"({A.label})^H"
+
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         (A,) = self.children

@@ -207,7 +207,7 @@ class DelegatingExponentiator(AbstractExponentiator):
         path = op.path(parent_path, child_idx)
         c = CountDict()
         for idx, scale, mult in self.schedule(op):
-            c += mult * op.children[idx].exp_count(scale * h, path, idx)
+            c |= mult * op.children[idx].exp_count(scale * h, path, idx)
         return c
 
     def h_scales(self, op) -> list[Scalar]:

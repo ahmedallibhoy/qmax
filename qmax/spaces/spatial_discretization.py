@@ -50,6 +50,9 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def from_values(self, values: ArrayLike) -> SpatiallyDiscretizedState:
         pass
 
+    def from_function(self, fn: Callable[[ArrayLike], ScalarLike]) -> SpatiallyDiscretizedState:
+        return self.from_values(self.eval(fn))
+
     def innerp(self, 
         y1: SpatiallyDiscretizedState, 
         y2: SpatiallyDiscretizedState) -> ScalarLike:
@@ -106,7 +109,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
         return self.grid_vectors(self.x_ranges)
  
-    def eval(self, fn: Callable[[Array], ScalarLike]) -> Array:
+    def eval(self, fn: Callable[[ArrayLike], ScalarLike]) -> Array:
         return self.to_grid(jax.vmap(fn)(self.points))
 
     @property

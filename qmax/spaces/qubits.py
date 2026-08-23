@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -67,6 +67,10 @@ class PauliOperator(AbstractPauliOperator):
     def to_matrix(self) -> Array:
         return PAULI_MATRICES[self.axis]
 
+    @property
+    def default_label(self) -> str:
+        return f"σ_{self.axis}" if self.axis != "i" else "Id"
+
 
 class QubitsState(TensorState):
     """
@@ -91,7 +95,8 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
         self,
         domain: Qubits,
         ax_list: list[str],
-        exponentiator: AbstractExponentiator=ExactExponentiator()):
+        exponentiator: AbstractExponentiator=ExactExponentiator(), 
+        label: Optional[str]=None):
 
         self.domain = domain
         self.children = tuple(
@@ -99,3 +104,4 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
             for idx, ax in enumerate(ax_list)
         )
         self.exponentiator = exponentiator
+        self._label = label

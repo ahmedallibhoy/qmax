@@ -1,4 +1,4 @@
-from typing import Callable, ClassVar, Union
+from typing import Callable, ClassVar, Union, Optional
 
 from functools import reduce
 
@@ -174,12 +174,14 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
     def __init__(
         self,
         domain: FiniteDifference,
-        exponentiator: AbstractExponentiator=KroneckerSumExp()):
+        exponentiator: AbstractExponentiator=KroneckerSumExp(), 
+        label: str="Laplacian"):
 
-        self.domain = domain
+        self.domain = domain 
         self.children = tuple(
-            _FiniteDifference1DLaplacian(domain[idx]) for idx in range(domain.num_factors))
+            _FiniteDifference1DLaplacian(domain[idx], _label=f"Laplacian1D(axis={idx})") for idx in range(domain.num_factors))
         self.exponentiator = exponentiator
+        self._label = label
 
 
 class FiniteDifferenceMomentum(LiftOperator):
@@ -188,12 +190,14 @@ class FiniteDifferenceMomentum(LiftOperator):
         self,
         domain: FiniteDifference,
         axis: int,
-        exponentiator: AbstractExponentiator=NoExponentiator()):
+        exponentiator: AbstractExponentiator=NoExponentiator(), 
+        label: Optional[str]=None):
 
         self.domain = domain
         self.children = (_FiniteDifference1DMomentum(domain[axis]),)
         self.factor_idx = axis
         self.exponentiator = exponentiator
+        self._label = label
 
     @property
     def idx(self) -> int:

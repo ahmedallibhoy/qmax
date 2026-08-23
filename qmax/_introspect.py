@@ -12,10 +12,10 @@ if TYPE_CHECKING:
 
 
 BRANCH = "├"
-PIPE = "|"
+PIPE = "| "
 ANGLE = "└"
 DASH = "─"
-PAD = "    "
+PAD = ""
 
 
 @dataclasses.dataclass
@@ -45,7 +45,7 @@ def _rows(
         line, child_prefix = node.label, ""
     elif is_last:
         line = f"{prefix}{PAD + ANGLE}{DASH}{node.label}"
-        child_prefix = prefix + PAD + " "
+        child_prefix = prefix + PAD + "  "
     else:
         line = f"{prefix}{PAD + BRANCH}{DASH}{node.label}"
         child_prefix = prefix + PAD + PIPE
@@ -150,7 +150,7 @@ class CountDict:
     def items(self):
         return self.ct_dict.items()
 
-    def __add__(self, other: CountDict) -> CountDict:
+    def __or__(self, other: CountDict) -> CountDict:
         if not isinstance(other, CountDict):
             return NotImplemented
 

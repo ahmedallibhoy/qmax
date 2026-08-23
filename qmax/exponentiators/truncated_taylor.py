@@ -423,6 +423,6 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
             s = int(jnp.maximum(1, jnp.ceil(theta / theta_list[self.m - 1])))
             c_action = (s * self.m + NUM_BLOCK_ITERATIONS * NUM_BLOCK_SAMPLES) * i_count.action
             c_adj = ((NUM_BLOCK_ITERATIONS - 1) * NUM_BLOCK_SAMPLES) * i_count.adj_action
-            return c_action + c_adj
+            return c_action | c_adj
 
         return self.s * self.m * i_count.action
