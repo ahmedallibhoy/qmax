@@ -55,9 +55,6 @@ class AbstractSplitMethod(DelegatingExponentiator):
 
 
 class Strang(AbstractSplitMethod):
-    """
-    Strang splitting: A(h/2) B(h) A(h/2)
-    """
 
     @property
     def _coeffs(self) -> tuple[Array, Array]:

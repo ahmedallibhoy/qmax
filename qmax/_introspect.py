@@ -69,8 +69,8 @@ class Path:
         return Path(self.root_label, self.steps + ((index, label),))
 
     def descend(self) -> tuple[int, Path]:
-        (index, label), rest = self.steps[0], self.steps[1:]
-        return index, Path(label, rest)
+        (index, label), new_path = self.steps[0], self.steps[1:]
+        return index, Path(label, new_path)
 
     @property
     def labels(self) -> list[str]:
@@ -116,7 +116,7 @@ class Count:
     def __repr__(self) -> str:
         args_list = [
             f"{attr}={getattr(self, attr)}" for attr in 
-            ["actions", "adj_actions", "solves", "exp_actions"] if getattr(self, attr) ]
+            ["actions", "adj_actions", "solves", "exp_actions"] if getattr(self, attr)]
         args = ", ".join(args_list)
         return f"{args}"
 

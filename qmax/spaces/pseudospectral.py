@@ -7,10 +7,10 @@ import jax.numpy as jnp
 import equinox as eqx
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
-from .._introspect import Path
+from .._introspect import Path, CountDict
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractDiagonalOperator
-from ..exponentiators import Order, AbstractExponentiator
+from ..exponentiators import Order, AbstractExponentiator, ExactExponentiator
 from .spatial_discretization import (
     SpatialDiscretization, 
     SpatiallyDiscretizedState, 
@@ -62,12 +62,6 @@ class PseudoSpectral(SpatialDiscretization):
             out = jnp.concatenate([lo, hi], axis=ax)
         return out
 
-    def innerp(self, 
-        y1: PseudoSpectralState, 
-        y2: PseudoSpectralState) -> ScalarLike:
-
-        return jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1)
-
     def from_values(self, values: ArrayLike) -> PseudoSpectralState:
         full = jnp.fft.fftn(values, self.mesh_size, axes=self.spatial_axes, norm="forward")
         return PseudoSpectralState(self.flatten(self.truncate(full)), self)
@@ -101,10 +95,7 @@ class PseudoSpectralLaplacian(AbstractDiagonalOperator):
         return -jnp.linalg.norm(ks, axis=-1) ** 2
 
 
-class PseudoSpectralExponentiator(AbstractExponentiator):
-
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        return AbstractPotentialEnergy.exp_action(op, h, y)
+class PseudoSpectralExponentiator(ExactExponentiator):
 
     @property
     def operator_type(self) -> type:
@@ -113,26 +104,9 @@ class PseudoSpectralExponentiator(AbstractExponentiator):
     def effective_order(self, op: PseudoSpectralPotentialEnergy) -> Order:
         return None if op.domain.lossless else 1
 
-    @property
-    def order(self) -> Order:
-        return None
-
-    def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
-
-        return op.interface_count(parent_path, child_idx).exp_action
-
 
 class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
     exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
-
-    @property
-    def has_exact_exponential(self) -> bool:
-        return self.domain.lossless
 
     def _solve(
         self, 

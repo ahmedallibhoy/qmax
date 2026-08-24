@@ -184,6 +184,9 @@ class AbstractState(eqx.Module):
         self, 
         weights: ArrayLike, 
         axes: Union[int, tuple]=(0, 0)) -> AbstractState:
+        """
+        Takes a linear combination of states corresponding to batch axes
+        """
 
         if isinstance(axes, int):
             w_axes, c_axes = tuple(range(axes)), tuple(range(axes))

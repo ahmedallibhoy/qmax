@@ -161,7 +161,8 @@ class LiftExp(DelegatingExponentiator):
     def schedule(self, lift_op: LiftOperator) -> list[tuple[int, Scalar, int]]:
         # the lifted operator acts on each of the remaining subspaces in turn
         (A,) = lift_op.children
-        return [(0, 1.0, lift_op.domain.dim // A.domain.dim)]
+        #return [(0, 1.0, lift_op.domain.dim // A.domain.dim)]
+        return [(0, 1.0, 1)]
 
     def exp(
         self,
@@ -236,7 +237,8 @@ class LiftOperator(AbstractTensorOperator):
         (A,) = self.children
         path = self.path(parent_path, child_idx)
         c = A.interface_count(path, 0)
-        num = self.domain.dim // A.domain.dim
+        #num = self.domain.dim // A.domain.dim
+        num = 1
 
         return InterfaceCount(
             action     = num * c.action,
@@ -267,14 +269,19 @@ class KroneckerProductMixin(AbstractTensorOperator):
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         dim = self.domain.dim
+        #scaled = [
+        #    (dim // self.domain[idx].dim, op.interface_count(path, idx))
+        #    for idx, op in enumerate(self.children)
+        #]
+
         scaled = [
-            (dim // self.domain[idx].dim, op.interface_count(path, idx))
+            (1, op.interface_count(path, idx))
             for idx, op in enumerate(self.children)
         ]
 
         return InterfaceCount(
-            action = reduce(lambda a, b: a + b, [num * c.action for num, c in scaled]),
-            adj_action = reduce(lambda a, b: a + b, [num * c.adj_action for num, c in scaled]),
+            action = reduce(lambda a, b: a | b, [num * c.action for num, c in scaled]),
+            adj_action = reduce(lambda a, b: a | b, [num * c.adj_action for num, c in scaled]),
             solve = {path: Count(solves=1)},
             exp_action = self._exp_action_count(path),
         )
@@ -287,8 +294,13 @@ class KroneckerSumExp(DelegatingExponentiator):
 
     def schedule(self, kron_op: KroneckerSum) -> list[tuple[int, Scalar, int]]:
         # each factor acts on every slice along its own axis
+        #return [
+        #    (idx, 1.0, kron_op.domain.dim // kron_op.domain[idx].dim)
+        #    for idx in range(len(kron_op.children))
+        #]
+
         return [
-            (idx, 1.0, kron_op.domain.dim // kron_op.domain[idx].dim)
+            (idx, 1.0, 1)
             for idx in range(len(kron_op.children))
         ]
 

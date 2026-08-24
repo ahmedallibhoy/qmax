@@ -42,7 +42,7 @@ class NoRealSpectrumError(Exception):
 
 def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
     """The coefficient c if x is c*I -- as a bare scalar, Identity, or a scalar
-    multiple of one -- else None."""
+    multiple of one, else None."""
     if jnp.isscalar(x):
         return x
     if isinstance(x, Identity):
@@ -121,8 +121,12 @@ class Operator(eqx.Module):
             raise e.from_path(path) from None
 
     @property
-    def has_exact_exponential(self) -> bool:
+    def overrides_exp_action(self) -> bool:
         return _overrides(type(self), "exp_action", Operator)
+
+    @property
+    def overrides_solve(self) -> bool:
+        return _overrides(type(self), "solve", Operator)
 
     # --------------------------------------------------------------------------------------------
     # Exponentiator delegators
@@ -343,7 +347,7 @@ class Operator(eqx.Module):
         return parent_path.append(child_idx, self.label)
 
     def _exp_action_count(self, path: Path) -> CountType:
-        return {path: Count(exp_actions=1)} if self.has_exact_exponential else NotImplemented
+        return {path: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
 
     def leaves(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> list[Path]:
         path = self.path(parent_path, child_idx)

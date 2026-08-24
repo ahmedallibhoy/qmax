@@ -35,7 +35,6 @@ class NotExponentiableError(Exception):
         return type(self)(self.reason, path)
 
 
-
 class AbstractExponentiator(eqx.Module):
 
     # --------------------------------------------------------------------------------------------
@@ -247,7 +246,7 @@ class ExactExponentiator(AbstractExponentiator):
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None):
 
-        if not op.has_exact_exponential:
+        if not op.overrides_exp_action:
             raise NotExponentiableError(
                 f"ExactExponentiator requires {type(op).__name__} to implement exp_action")
 
