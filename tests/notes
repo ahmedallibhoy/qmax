@@ -1,0 +1,71 @@
+#   Operator interfaces
+#       X.action(y).coeffs == X.to_matrix() @ y.coeffs
+#       X.adj_action(y).coeffs = X.to_matrix().conj().T @ y.coeffs
+#
+#       If solve is overrided:
+#       X.solve(b, scale, shift).coeffs = jnp.linalg.solve(scale * X.to_matrix() - shift * jnp.eye(dim), b.coeffs)
+#
+#       If exp_action is overrided:
+#       X.exp_action(-1j * dt, y).coeffs = expm(-1j * dt * X.to_matrix) @ y.coeffs
+
+
+# Operator batching
+#   rank 1 and rank 2 batching on 
+#       -action
+#       -adj_action
+#       -solve if overrided
+#       -exp_action if overrided
+
+
+# Operator algebra - one step on leaves
+#   do .to_matrix(), action, adj_action agree?
+#   do they preserve batching?
+#     A + B
+#     A - B
+#     c * A
+#     A.H
+#     A @ B
+#     A + I
+#     c * A + s * I
+#     c * A + s
+#     s * I + c * A
+#     s + c * A
+#
+
+# Operator algebra - complex 
+#   c1 * A + c2 * B
+#   (A + A.H).H 
+#   (A.H @ A).H 
+#   (-1j * (A - A.H))
+#   A @ B @ A + s * I
+
+
+# Tensor operators
+#   On both tensor power and tensor product spaces
+#       .to_matrix(), action, adj_action agree
+#
+#   Lift(A)
+#   KroneckerProduct(A, B)
+#   KroneckerProduct(A, B, C, D)
+#
+#   KroneckerSum(A, B)
+#   KroneckerSum(A, B, C, D)
+
+
+# Operator introspection
+#
+#   child_at
+#       - empty returns root
+#
+#
+#
+#
+#   with_exponentiator
+#       -on root
+#       -on leaf
+#       -in between 
+#
+#   with_label
+#       -on root
+#       -on leaf
+#       -in between 

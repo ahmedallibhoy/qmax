@@ -192,6 +192,10 @@ class AbstractExponentiator(eqx.Module):
 
 
 class DelegatingExponentiator(AbstractExponentiator):
+    """
+    Base class for exponentiators that delegate to children of an operator, e.g. splitting
+    exponentiators or exponentiators acting on tensor products
+    """
 
     @abstractmethod
     def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:

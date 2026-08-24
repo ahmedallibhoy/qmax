@@ -126,7 +126,7 @@ class Operator(eqx.Module):
 
     @property
     def overrides_solve(self) -> bool:
-        return _overrides(type(self), "solve", Operator)
+        return _overrides(type(self), "_solve", Operator)
 
     # --------------------------------------------------------------------------------------------
     # Exponentiator delegators
