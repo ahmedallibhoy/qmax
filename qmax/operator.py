@@ -40,7 +40,7 @@ class NoRealSpectrumError(Exception):
     pass
 
 
-def _as_shift(x: Union[Operator, ScalarLike]) -> Optional[ScalarLike]:
+def _as_shift(x: Operator | ScalarLike) -> Optional[ScalarLike]:
     """The coefficient c if x is c*I -- as a bare scalar, Identity, or a scalar
     multiple of one, else None."""
     if jnp.isscalar(x):
@@ -68,7 +68,7 @@ class Operator(eqx.Module):
                 f"but received a state on {y.hilbert_space}"
             )
 
-    def _check_compatible(self, other: Union[ScalarLike, Operator]):
+    def _check_compatible(self, other: ScalarLike | Operator):
         if isinstance(other, Operator) and other.domain != self.domain:
             raise IncompatibleDomainError(
                 f"{type(self).__name__} acts on {self.domain}, "
@@ -215,7 +215,7 @@ class Operator(eqx.Module):
     # Operator Algebra
     # --------------------------------------------------------------------------------------------
 
-    def __add__(self, other: Union[Operator, ScalarLike]) -> Operator:
+    def __add__(self, other: Operator | ScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -231,7 +231,7 @@ class Operator(eqx.Module):
             
         return AddOperator(self, other)
 
-    def __radd__(self, other: Union[Operator, ScalarLike]) -> Operator:
+    def __radd__(self, other: Operator | ScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -247,7 +247,7 @@ class Operator(eqx.Module):
 
         return AddOperator(other, self)
 
-    def __sub__(self, other: Union[Operator, ScalarLike]) -> Operator:
+    def __sub__(self, other: Operator | ScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -258,7 +258,7 @@ class Operator(eqx.Module):
 
         return NotImplemented
 
-    def __rsub__(self, other: Union[Operator, ScalarLike]) -> Operator:
+    def __rsub__(self, other: Operator | ScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -432,7 +432,7 @@ class ShiftScaleOperator(Operator):
         (A,) = self.children
         return jnp.conj(self.scale) * A.adj_action(y) + jnp.conj(self.shift) * y
 
-    def _solve(self, b, scale=-1.0, shift=0.0):
+    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0):
         (A,) = self.children
         return A._solve(b, scale * self.scale, shift + scale * self.shift)
 
