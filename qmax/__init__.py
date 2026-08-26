@@ -4,6 +4,7 @@ from . import spaces
 from . import timestepper
 from . import eig
 from . import exponentiators
+from . import plot
 
 from . import tensor
 
@@ -17,6 +18,7 @@ from .utils import *
 #       b. ControlledPropagator should compute cost functions 
 #       c. explicit adjoints + checkpointing
 #       d. utilities / helpers for optimal control 
+#       e. dense solutions?
 #
 #   2. Introspection
 #       a. exponentiators should report backward error estimates?

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 type Shape = tuple[int, ...]
 
-type Index = Union[int, tuple[int, ...]]
+type Index = int | tuple[int, ...]
 
 
 def _to_tuple(idx: Index) -> tuple[int, ...]:
@@ -114,7 +114,7 @@ class AbstractState(eqx.Module):
         self, 
         other: AbstractState, 
         fn: Callable, 
-        on_coeffs: bool=True) -> Union[AbstractState, ScalarLike]:
+        on_coeffs: bool=True) -> AbstractState | ScalarLike:
 
         if not isinstance(other, AbstractState):
             return NotImplemented
@@ -183,7 +183,7 @@ class AbstractState(eqx.Module):
     def contract(
         self, 
         weights: ArrayLike, 
-        axes: Union[int, tuple]=(0, 0)) -> AbstractState:
+        axes: int | tuple=(0, 0)) -> AbstractState:
         """
         Takes a linear combination of states corresponding to batch axes
         """

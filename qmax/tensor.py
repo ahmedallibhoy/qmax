@@ -26,10 +26,29 @@ def apply_along_tensor(
     fn: Callable[[ArrayLike], ArrayLike],
     tensor: ArrayLike,
     axis: int) -> Array:
-    """Apply `fn` to each 1-D slice along `axis`, batched over every other axis.
+    """
+    Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m  and a linear map A: V_i -> V_i, 
+    this function applies A along each axis of y. 
 
-    `axis` is a literal array axis and may be negative. `fn` may change the axis
-    length; the output shape is inferred from `fn`'s output."""
+    Specifically, if dim V_j = n_j, then 
+
+        V_1 ⊗ V_2 ⊗ ... ⊗ V_m ≅ V_i x V_i x ... x V_i, 
+
+    where the direct product consists of n_1 x n_2 x n_{i-1} x n_{i+1} ... x n_m, 
+    independent copies of V_i. Thus A may be lifted to a map blockdiag(A, A, ..., A) 
+    acting on y. 
+
+    In coordinates, if y = y_{k_1, k_2, ..., k_m}, then y may be decomposed into 
+    a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} ... x n_m vectors each on 
+    the space V_i having coordinates 
+
+        y_{k_1, ..., 1, ... k_m} 
+        y_{k_1, ..., 2, ... k_m} 
+         ...
+        y_{k_1, ..., n_i, ..., k_m}
+
+    This function vmaps A over all multi-indices (k_1, ..., k_{i-1}, k_{i+1}, ..., k_m). 
+    """
 
     t = jnp.moveaxis(tensor, axis, 0)
     rest = t.shape[1:]
@@ -41,20 +60,12 @@ def apply_along_state(
     state_fn: Callable[[AbstractState], AbstractState],
     y: TensorState,
     factor_idx: int) -> TensorState:
-    """Apply a subspace endomorphism `state_fn` along factor `factor_idx` of a
-    tensor product state, wrapping the from_coeffs / .coeffs / from_tensor
-    boilerplate.
-
-    `factor_idx` selects a tensor factor, not an axis of `y.coeff_tensor`. The
-    factor axes are the trailing ones, so leading batch axes -- time from a
-    timestepper, an outer vmap over initial conditions, both at once -- pass
-    through untouched, and `state_fn` only ever sees an unbatched subspace
-    state. Callers therefore never need to know the batch rank of `y`."""
+    """
+    """
 
     num_factors = y.hilbert_space.num_factors
     space = y.hilbert_space[factor_idx]
     fn = lambda col: state_fn(space.from_coeffs(col)).coeffs
-    # Count from the back, so the axis is independent of the batch rank.
     axis = factor_idx % num_factors - num_factors
     return y.hilbert_space.from_tensor(apply_along_tensor(fn, y.coeff_tensor, axis))
 

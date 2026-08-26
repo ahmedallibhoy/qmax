@@ -14,14 +14,6 @@ from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractHermitianOperator
 
 
-# TODO:
-#   1. Abstract position and momentum operators
-#   2. Abstract annihilation and creation operators?
-#   3. Nonrectangular spatial discretizations
-#       a. spherical / cylindrical spaces
-#       b. abstract point meshes
-
-
 def _to_tuple(x, dtype=float):
     if jnp.isscalar(x):
         return (x,)

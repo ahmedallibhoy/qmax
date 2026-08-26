@@ -113,6 +113,41 @@ def unary_composition_adj_action_agrees(
         fn_op(A).adj_action(y.coeffs), rtol=RTOL, atol=ATOL)
 
 
+def action_preserves_batch(A: Operator, y_batch: AbstractState, rank: int) -> bool:
+    y1_batch = A.action(y_batch)
+    if rank == 1:
+        y1_vmap = jax.vmap(A.action)(y_batch)
+    elif rank == 2:
+        y1_vmap = jax.vmap(lambda yy: jax.vmap(A.action)(yy))(y_batch)
+    
+    return jnp.allclose(y1_batch, y1_vmap, rtol=RTOL, atol=ATOL)
+
+
+def adj_action_preserves_batch(
+    A: Operator, h: ScalarLike, y_batch: AbstractState, rank: int) -> bool:
+    
+    y1_batch = A.action(y_batch)
+    if rank == 1:
+        y1_vmap = jax.vmap(A.adj_action)(y_batch)
+    elif rank == 2:
+        y1_vmap = jax.vmap(lambda y: jax.vmap(A.adj_action)(y))(y_batch)
+    
+    return jnp.allclose(y1_batch, y1_vmap, rtol=RTOL, atol=ATOL)
+
+
+def exp_action_preserves_batch(
+    A: Operator, h: ScalarLike, y_batch: AbstractState, rank: int) -> bool:
+
+    y1_batch = A.action(y_batch)
+    if rank == 1:
+        y1_vmap = jax.vmap(partial(A.exp_action, h))(y_batch)
+    elif rank == 2:
+        y1_vmap = jax.vmap(lambda y: jax.vmap(partial(A.exp_action, dt))(y))(y_batch)
+    
+    return jnp.allclose(y1_batch, y1_vmap, rtol=RTOL, atol=ATOL)
+
+
+
 BINARY_COMPOSITIONS = [
     (lambda A, B: A + B, lambda A, B: A + B),
     (lambda A, B: A - B, lambda A, B: A - B),

@@ -36,7 +36,7 @@ class RenderTree:
 
 
 def _rows(
-    node: Union[RenderTree, Operator], 
+    node: RenderTree | Operator, 
     prefix: str="", 
     is_last: bool=True, 
     is_root: bool=True) -> list[tuple[str, Optional[Count]]]:
@@ -214,7 +214,7 @@ class CountDict:
 
 type CountType = Union[CountDict, type(NotImplemented)]
 
-def _to_ct_type(val: Union[CountType, dict]) -> CountType:
+def _to_ct_type(val: CountType | dict) -> CountType:
     if isinstance(val, CountDict):
         return val 
     if isinstance(val, dict):
@@ -231,10 +231,10 @@ class InterfaceCount:
 
     def __init__(
         self, 
-        action: Union[CountType, dict],
-        adj_action: Union[CountType, dict],
-        solve: Union[CountType, dict],
-        exp_action: Union[CountType, dict]):
+        action: CountType | dict,
+        adj_action: CountType | dict,
+        solve: CountType | dict,
+        exp_action: CountType | dict):
 
         self.action = _to_ct_type(action)
         self.adj_action = _to_ct_type(adj_action)
