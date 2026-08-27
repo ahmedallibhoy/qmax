@@ -45,7 +45,8 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def from_function(self, fn: Callable[[ArrayLike], ScalarLike]) -> SpatiallyDiscretizedState:
         return self.from_values(self.eval(fn))
 
-    def innerp(self, 
+    def innerp(
+        self, 
         y1: SpatiallyDiscretizedState, 
         y2: SpatiallyDiscretizedState) -> ScalarLike:
 
@@ -124,8 +125,9 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
     def position(self, axis: int = 0) -> Operator:
         if self.spatial_dim == 1:
-            return self.potential_energy(lambda x: x)
-        return self.potential_energy(lambda x, i=axis: x[i])
+            X = self.potential_energy(lambda x: x)
+        X = self.potential_energy(lambda x, i=axis: x[i])
+        return X.with_label(f"Position(axis={axis})")
 
     def momentum(self, axis: int) -> Operator:
         raise NotImplementedError 

@@ -32,6 +32,7 @@ from .spaces.spatial_discretization import SpatialDiscretization
 
 
 class PropagateResult(eqx.Module):
+    y0: AbstractState
     y1: AbstractState
     ys: PyTree
     ts: ArrayLike
@@ -76,7 +77,7 @@ class AbstractPropagator(eqx.Module):
 
     def propagate(
         self, 
-        y: AbstractState, 
+        y0: AbstractState, 
         params: Optional[PyTree]=None,
         *,
         save_every: Optional[int] = None, 
@@ -88,9 +89,6 @@ class AbstractPropagator(eqx.Module):
 
         if not self.num_steps % save_every == 0:
             raise ValueError(f"num_steps={self.num_steps} is not divisible by save_every={save_every}")
-
-        t_range = jnp.linspace(self.t0, self.t1, 
-            self.num_steps // save_every + 1, endpoint=True)
 
         if progressbar:
             BAR = "Propagating: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{rate_fmt}, {elapsed}<{remaining}]"
@@ -111,12 +109,14 @@ class AbstractPropagator(eqx.Module):
             y_next, _ = jax.lax.scan(inner_loop, y, jnp.linspace(t, t_next, save_every, endpoint=False))
             return y_next, save_fn(t_next, y_next)
 
-        y1, ys = jax.lax.scan(loop, y, (t_range[:-1], t_range[1:]))
+        t_range = jnp.linspace(self.t0, self.t1, self.num_steps // save_every + 1, endpoint=True)
+        y1, ys = jax.lax.scan(loop, y0, (t_range[:-1], t_range[1:]))
+        ys = self.hilbert_space.concatenate((y0, ys))
         
         if progressbar:
             tqdm_bar.close()
 
-        return PropagateResult(y1, ys, t_range[1:])
+        return PropagateResult(y0, y1, ys, t_range)
 
     @abstractmethod
     def count_stage(
