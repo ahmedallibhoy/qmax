@@ -6,6 +6,8 @@ import equinox as eqx
 import jax 
 import jax.numpy as jnp
 
+import tqdm
+
 from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
 
 from ._introspect import CountDict
@@ -78,10 +80,11 @@ class AbstractPropagator(eqx.Module):
         params: Optional[PyTree]=None,
         *,
         save_every: Optional[int] = None, 
-        save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y) -> PropagateResult:
+        save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y, 
+        progressbar: bool=False) -> PropagateResult:
 
         if save_every is None:
-            save_every = 1
+            save_every = self.num_steps
 
         if not self.num_steps % save_every == 0:
             raise ValueError(f"num_steps={self.num_steps} is not divisible by save_every={save_every}")
@@ -89,8 +92,18 @@ class AbstractPropagator(eqx.Module):
         t_range = jnp.linspace(self.t0, self.t1, 
             self.num_steps // save_every + 1, endpoint=True)
 
+        if progressbar:
+            BAR = "Propagating: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{rate_fmt}, {elapsed}<{remaining}]"
+            tqdm_bar = tqdm.tqdm(total=self.num_steps, mininterval=0.2, bar_format=BAR, unit=" steps")
+
+            def update_bar(steps):
+                tqdm_bar.update(int(steps))
+
         def inner_loop(y, t):
             y_next = self.propagate_stage(t, self.dt, y, params)
+            if progressbar:
+                jax.experimental.io_callback(update_bar, None, 1)
+
             return y_next, None
 
         def loop(y, args):
@@ -99,6 +112,10 @@ class AbstractPropagator(eqx.Module):
             return y_next, save_fn(t_next, y_next)
 
         y1, ys = jax.lax.scan(loop, y, (t_range[:-1], t_range[1:]))
+        
+        if progressbar:
+            tqdm_bar.close()
+
         return PropagateResult(y1, ys, t_range[1:])
 
     @abstractmethod

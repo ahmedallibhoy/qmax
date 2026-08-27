@@ -88,7 +88,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def x_range(self) -> Array:
         if self.spatial_dim == 1:
             return jnp.linspace(self.x0[0], self.xf[0], self.mesh_size[0], endpoint=self.endpoint) 
-        raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.dim}, did you mean x_ranges?")
+        raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.spatial_dim}, did you mean x_ranges?")
 
     @property
     def x_meshgrid(self) -> Array:

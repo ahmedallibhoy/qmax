@@ -27,27 +27,30 @@ def apply_along_tensor(
     tensor: ArrayLike,
     axis: int) -> Array:
     """
-    Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m  and a linear map A: V_i -> V_i, 
+    Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m and a linear map A: V_i -> V_i, 
     this function applies A along each axis of y. 
 
-    Specifically, if dim V_j = n_j, then 
+    Specifically, we have
 
         V_1 ⊗ V_2 ⊗ ... ⊗ V_m ≅ V_i x V_i x ... x V_i, 
 
     where the direct product consists of n_1 x n_2 x n_{i-1} x n_{i+1} ... x n_m, 
-    independent copies of V_i. Thus A may be lifted to a map blockdiag(A, A, ..., A) 
-    acting on y. 
+    independent copies of V_i, with n_j = dim V_j. Thus A may be lifted to the map 
+    blockdiag(A, A, ..., A) acting on y. 
 
-    In coordinates, if y = y_{k_1, k_2, ..., k_m}, then y may be decomposed into 
-    a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} ... x n_m vectors each on 
-    the space V_i having coordinates 
+    The map blockdiag(A, A, ..., A) may be applied in coordinates as follows. The 
+    tensor y is an array with shape (n_1, n_2, ..., n_m), whose element at the 
+    multi-index (k_1, k_2, ..., k_m) is y_{k_1, k_2, ..., k_m}. Then y may be 
+    decomposed into a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} x ... x n_m 
+    vectors, with coordinates 
 
         y_{k_1, ..., 1, ... k_m} 
         y_{k_1, ..., 2, ... k_m} 
-         ...
+        ...
         y_{k_1, ..., n_i, ..., k_m}
 
-    This function vmaps A over all multi-indices (k_1, ..., k_{i-1}, k_{i+1}, ..., k_m). 
+    for each multi-index (k_1, ..., k_{i-1}, k_{i+1}, ..., k_m). The block diagonal 
+    map is computed by vmapping A over all such multi-indices.  
     """
 
     t = jnp.moveaxis(tensor, axis, 0)
@@ -61,6 +64,9 @@ def apply_along_state(
     y: TensorState,
     factor_idx: int) -> TensorState:
     """
+    Same function as apply_along_tensor except acting on batched state vectors 
+    rather than raw coefficient arrays. This function extracts the coefficients, 
+    then delegates to apply_along_tensor, and repacks the result into a TensorState
     """
 
     num_factors = y.hilbert_space.num_factors
