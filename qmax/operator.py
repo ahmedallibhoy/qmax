@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Union, Optional, TypeVar
+from typing import Callable, Union, Optional, TypeVar
 
 import equinox as eqx
 import jax 
@@ -19,11 +19,13 @@ from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .exponentiators import (
     Order, 
     AbstractExponentiator, 
+    AbstractCompositionMethod,
     ExactExponentiator, 
     NoExponentiator,
     ShiftScaleExponentiator, 
     NotExponentiableError,
-    Strang
+    Strang, 
+    compose
 )
 from .utils import over_batch
 
@@ -75,50 +77,64 @@ class Operator(eqx.Module):
                 f"but {type(other).__name__} acts on {other.domain}"
             )
 
-    def with_label(
-        self, 
-        label: str,
-        path: Path=Path(), 
-        parent_path=None, 
-        child_idx=None) -> Operator:
+    def _at_path(
+        self,
+        update: Callable[[Operator, Optional[Path], Optional[int]], Operator],
+        path: Path=Path(),
+        parent_path: Optional[Path]=None,
+        child_idx: Optional[int]=None) -> Operator:
 
+        """
+        Rebuilds self with update(op, parent_path, child_idx) applied to the node at path,
+        where parent_path and child_idx locate that node relative to the root.
+        """
         if path:
             index, new_path = path.descend()
             fn = lambda o: o.children[index]
 
             child = fn(self)
-            new_child = child.with_label(
-                label, new_path, self.path(parent_path, child_idx), index)
-            new_self = eqx.tree_at(fn, self, new_child)
-            return new_self
+            new_child = child._at_path(
+                update, new_path, self.path(parent_path, child_idx), index)
+            return eqx.tree_at(fn, self, new_child)
 
-        return _update_field(self, "_label", label)
+        return update(self, parent_path, child_idx)
 
-    def with_exponentiator(
-        self, 
-        exponentiator: AbstractExponentiator, 
-        path: Path=Path(), 
-        parent_path=None, 
-        child_idx=None) -> Operator:
+    def _set_exponentiator(
+        self,
+        make_exponentiator: Callable[[Operator], AbstractExponentiator],
+        path: Path=Path()) -> Operator:
 
-        try:
-            if path:
-                index, new_path = path.descend()
-                fn = lambda o: o.children[index]
-
-                child = fn(self)
-                new_child = child.with_exponentiator(
-                    exponentiator, new_path, self.path(parent_path, child_idx), index)
-                new_self = eqx.tree_at(fn, self, new_child)
-                return new_self
+        def update(op, parent_path, child_idx):
+            exponentiator = make_exponentiator(op)
 
             if not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
-                exponentiator.check_exponentiable_tree(self, parent_path, child_idx)    
+                exponentiator.check_exponentiable_tree(op, parent_path, child_idx)
 
             # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
-            return _update_field(self, "exponentiator", exponentiator)
+            return _update_field(op, "exponentiator", exponentiator)
+
+        try:
+            return self._at_path(update, path)
         except NotExponentiableError as e:
             raise e.from_path(path) from None
+
+    def with_label(self, label: str, path: Path=Path()) -> Operator:
+        return self._at_path(lambda op, _, __: _update_field(op, "_label", label), path)
+
+    def with_exponentiator(
+        self,
+        exponentiator: AbstractExponentiator,
+        path: Path=Path()) -> Operator:
+
+        return self._set_exponentiator(lambda op: exponentiator, path)
+
+    def compose_exponentiator(
+        self,
+        composition: AbstractCompositionMethod,
+        path: Path=Path()) -> Operator:
+
+        return self._set_exponentiator(
+            lambda op: compose(op.exponentiator, composition), path)
 
     @property
     def overrides_exp_action(self) -> bool:

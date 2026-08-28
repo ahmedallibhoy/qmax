@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
+__all__ = ["KrylovExponentiator"]
+
+
 N_MAX = 100
 
 

@@ -16,35 +16,67 @@ if TYPE_CHECKING:
     from ..operator import AddOperator
 
 
+__all__ = ["AbstractSplitMethod", "Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
+
+
 class AbstractSplitMethod(DelegatingExponentiator):
     """
     Exponential splitting of op = A + B into an alternating sequence of exponentials:
+        exp(h(A + B)) ~ exp(a_0 hA) exp(b_0 hB)  ... exp(a_{n-1} hA) exp(b_{n-1} hB) exp(a_n hA)
 
-        exp(h(A + B)) ~ exp(a_0 hA) exp(b_0 hB)  ... exp(a_{n -1} hA) exp(b_{n-1} hB) exp(a_n hA)
-
-    where a, b = self._coeffs
     """
+    nest_left: bool = eqx.field(static=True, kw_only=True, default=True)
 
     @property
     @abstractmethod
-    def _coeffs(self) -> tuple[Array, Array]:
+    def a(self) -> Array:
         pass
 
+    @property
+    @abstractmethod
+    def b(self) -> Array:
+        pass
+
+    def __check_init__(self):
+        if not (jnp.allclose(jnp.sum(self.a), 1) and jnp.allclose(jnp.sum(self.b), 1)):
+            raise ValueError("Coefficient arrays a and b must sum to 1")
+        if not self.a.shape[0] == self.b.shape[0] + 1:
+            raise ValueError(
+                f"Need len(self.a) == len(self.b) + 1 "
+                f"but len(self.a)={self.a.shape[0]} and len(self.b)={self.b.shape[0]}")
+        if not (jnp.allclose(self.a, self.a[::-1]) and jnp.allclose(self.b, self.b[::-1])):
+            raise ValueError(f"self.a and self.b must be palindromic sequences")
+
     def schedule(self, op: AddOperator) -> list[tuple[int, Scalar, int]]:
-        a, b = self._coeffs
-        sched = [(0, a[0], 1)]
+        if self.nest_left:
+            a_index, b_index = 1, 0
+        else:
+            a_index, b_index = 0, 1
+
+        a = self.a
+        b = self.b
+        sched = [(a_index, a[0], 1)]
         for (ai, bi) in zip(a[1:], b):
-            sched += [(1, bi, 1), (0, ai, 1)]
+            sched += [(b_index, bi, 1), (a_index, ai, 1)]
         return sched
 
-    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        A, B = add_op.children
-        a, b = self._coeffs
+    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:        
+        if self.nest_left:
+            # We flip so that the Strang method on a nested sum ((A + B) + C) expands as
+            #   exp(h/2 C)exp(h/2 B)exp(hA)exp(h/2 B)exp(h/2 C) 
+            # rather than 
+            #   exp(h/4 A)exp(h/2 B)exp(h/4 A)exp(hC)exp(h/4 A)exp(h/2 B)exp(h/4 A)
+            B, A = add_op.children
+        else:
+            # Assumes sums are nested on the right (A + (B + (C + ...) ...))
+            A, B = add_op.children
 
         def do_step(y, coeffs):
             ai, bi = coeffs
             return A.exp(ai * h, B.exp(bi * h, y)), None
 
+        a = self.a
+        b = self.b
         y_exp, _ = jax.lax.scan(do_step, A.exp(a[0] * h, y), (a[1:], b))
         return y_exp
 
@@ -55,75 +87,50 @@ class AbstractSplitMethod(DelegatingExponentiator):
 
 
 class Strang(AbstractSplitMethod):
-
-    @property
-    def _coeffs(self) -> tuple[Array, Array]:
-        return jnp.array([0.5, 0.5]), jnp.array([1.0])
+    a: ClassVar[Array] = jnp.array([0.5, 0.5])
+    b: ClassVar[Array] = jnp.array([1.0])
 
     @property
     def order(self) -> Order:
         return 2
 
 
-class Yoshida(AbstractSplitMethod):
+class PRK_r2_s2(AbstractSplitMethod):
     """
-    Yoshida triple-jump exponential splitting, see e.g. [1], and [2, Example 4.2]
+    2nd order partitioned Runge-Kutta exponential splitting, c.f. Section 3.7.1 from:
 
-        1. Yoshida, Haruo. "Construction of higher order symplectic integrators."
-           Physics letters A 150.5-7 (1990): 262-268.
-
-        2. Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations
-           Hairer, Ernst and Lubich, Christian and Wanner, Gerhard. Springer-Verlag, 2006
+        A Concise Introduction to Geometric Numerical Integration (2nd ed.).
+        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
     """
-
-    level: int = eqx.field(static=True)
-
-    @property
-    def _coeffs(self) -> tuple[Array, Array]:
-
-        def iterate(k, h, seq):
-            if k == 0:
-                return seq + [(0, 0.5 * h), (1, h), (0, 0.5 * h)]
-
-            w1 = 1 / (2 - 2 ** (1 / (2 * k + 1)))
-            w2 = 1 - 2 * w1
-            return iterate(k - 1, w1 * h, iterate(k - 1, w2 * h, iterate(k - 1, w1 * h, seq)))
-
-        fused = []
-        for idx, c in iterate(self.level, 1.0, []):
-            if fused and fused[-1][0] == idx:
-                fused[-1] = (idx, fused[-1][1] + c)
-            else:
-                fused.append((idx, c))
-
-        return (jnp.array([c for idx, c in fused if idx == 0]),
-                jnp.array([c for idx, c in fused if idx == 1]))
+    a: ClassVar[Array] = jnp.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
+    b: ClassVar[Array] = jnp.array([0.5, 0.5])
 
     @property
     def order(self) -> Order:
-        return 2 * (self.level + 1)
+        return 2
 
 
-class AbstractPRKSplitMethod(AbstractSplitMethod):
+class PRK_r4_s6(AbstractSplitMethod):
     """
-    Abstract class for partitioned Runge-Kutta exponential splitting, c.f. (7) from
+    4th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
 
         Practical symplectic partitioned Runge–Kutta and Runge–Kutta–Nyström methods.
         Blanes, Sergio, and Per Christian Moan.
         Journal of Computational and Applied Mathematics 142.2 (2002): 313-330.
     """
-
-    a: eqx.AbstractClassVar[Array]
-    b: eqx.AbstractClassVar[Array]
+    a: ClassVar[Array] = jnp.array(
+        [0.0792036964311956, 0.353172906049774, -0.0420650803577195, 0.2193769557534997,
+         -0.0420650803577195, 0.353172906049774, 0.0792036964311956])
+    b: ClassVar[Array] = jnp.array(
+        [0.209515106613362, -0.1438517731798181, 0.4343366665664561,
+         0.4343366665664561, -0.1438517731798181, 0.209515106613362])
 
     @property
-    def _coeffs(self) -> tuple[Array, Array]:
-        a = jnp.concatenate([self.a, jnp.array([1 - 2 * self.a.sum()]), self.a[::-1]])
-        b_half = jnp.concatenate([self.b, jnp.array([0.5 - self.b.sum()])])
-        return a, jnp.concatenate([b_half, b_half[::-1]])
+    def order(self) -> Order:
+        return 4
 
 
-class BlanesMoan6(AbstractPRKSplitMethod):
+class PRK_r6_s10(AbstractSplitMethod):
     """
     6th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
 
@@ -131,15 +138,16 @@ class BlanesMoan6(AbstractPRKSplitMethod):
         Blanes, Sergio, and Per Christian Moan.
         Journal of Computational and Applied Mathematics 142.2 (2002): 313-330.
     """
-
     a: ClassVar[Array] = jnp.array(
-        [0.0502627644003922, 0.413514300428344, 0.0450798897943977, -0.188054853819569, 0.541960678450780]
-    )
-
+        [0.0502627644003922, 0.413514300428344, 0.0450798897943977, -0.188054853819569,
+         0.541960678450780, -0.7255255585086897, 0.541960678450780, -0.188054853819569,
+         0.0450798897943977, 0.413514300428344, 0.0502627644003922])
     b: ClassVar[Array] = jnp.array(
-        [0.148816447901042, -0.132385865767784, 0.067307604692185, 0.432666402578175]
-    )
+        [0.148816447901042, -0.132385865767784, 0.067307604692185, 0.432666402578175,
+         -0.0164045894036180, -0.0164045894036180, 0.432666402578175, 0.067307604692185,
+         -0.132385865767784, 0.148816447901042])
 
     @property
     def order(self) -> Order:
         return 6
+

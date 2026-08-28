@@ -39,6 +39,9 @@ from .utils import *
 #           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
 #           ii. Arbitrary meshes
 #
+#   5. Exponentiation
+#       a. Processing 
+#
 #   5. Misc Utilities 
 #       a. Wigner functions
 #       b. better plotting / visualization?

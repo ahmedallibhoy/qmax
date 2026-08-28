@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
+__all__ = ["ChebyshevExponentiator", "LaguerreExponentiator"]
+
+
 N_MAX = 100
 
 

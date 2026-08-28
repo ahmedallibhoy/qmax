@@ -52,7 +52,7 @@ class CFET_r4_e2(AbstractTimeStepper):
 
 class CFET_r4_e3opt(AbstractTimeStepper):
     """
-    Optimized 4th-order CFET with 3 exponentials
+    Optimized 4th-order CFET with 3 exponential evaluations
 
         High-order commutator-free exponential time-propagation of driven quantum systems 
         Alvermann, Andreas, and Holger Fehske. 
@@ -69,7 +69,7 @@ class CFET_r4_e3opt(AbstractTimeStepper):
 
 class CFET_r4_e4opt(AbstractTimeStepper):
     """
-    Optimized 4th-order CFET with real coefficients
+    Optimized 4th-order CFET with 4 exponential evaluations
 
         High-order commutator-free quasi-Magnus exponential integrators for non-autonomous linear evolution equations.
         Blanes, Sergio, Fernando Casas, and Mechthild Thalhammer.  
@@ -85,9 +85,9 @@ class CFET_r4_e4opt(AbstractTimeStepper):
          [ 0.0119511881315244, -0.0469610812011527,  0.2463347584748155]])
 
 
-class CFET_r6_e4opt(AbstractTimeStepper):
+class CFET_r6_e4opt_cplx(AbstractTimeStepper):
     """
-    Optimized 6th-order CFET with complex coefficients
+    Optimized 6th-order CFET with complex coefficients and 4 exponential evaluations
 
         High-order commutator-free quasi-Magnus exponential integrators for non-autonomous linear evolution equations.
         Blanes, Sergio, Fernando Casas, and Mechthild Thalhammer.  
