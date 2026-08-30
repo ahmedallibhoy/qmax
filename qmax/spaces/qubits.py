@@ -55,6 +55,23 @@ class PauliOperator(AbstractPauliOperator):
     axis: str
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
+    def __init__(
+        self,
+        domain: TwoLevel,
+        axis: str,
+        *,
+        exponentiator: AbstractExponentiator=ExactExponentiator(),
+        name: Optional[str]=None):
+
+        self.domain = domain
+        self.axis = axis
+        self.exponentiator = exponentiator
+
+        if name is not None:
+            self.name = name
+        else:
+            self.name = f"σ_{axis}" if axis != "i" else "Id"
+
     def __check_init__(self):
         if self.axis not in ("i", "x", "y", "z"):
             raise ValueError(
@@ -66,10 +83,6 @@ class PauliOperator(AbstractPauliOperator):
 
     def to_matrix(self) -> Array:
         return PAULI_MATRICES[self.axis]
-
-    @property
-    def default_label(self) -> str:
-        return f"σ_{self.axis}" if self.axis != "i" else "Id"
 
 
 class QubitsState(TensorState):
@@ -95,8 +108,8 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
         self,
         domain: Qubits,
         ax_list: list[str],
-        exponentiator: AbstractExponentiator=ExactExponentiator(), 
-        label: Optional[str]=None):
+        exponentiator: AbstractExponentiator=ExactExponentiator(),
+        name: Optional[str]=None):
 
         self.domain = domain
         self.children = tuple(
@@ -104,4 +117,4 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
             for idx, ax in enumerate(ax_list)
         )
         self.exponentiator = exponentiator
-        self._label = label
+        self.name = name

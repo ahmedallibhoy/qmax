@@ -26,9 +26,10 @@ def apply_along_tensor(
     fn: Callable[[ArrayLike], ArrayLike],
     tensor: ArrayLike,
     axis: int) -> Array:
-    """
+    r"""
     Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m and a linear map A: V_i -> V_i, 
-    this function applies A along each axis of y. 
+    this function applies I ⊗ ... ⊗ A ⊗ ... ⊗ I to y, or equivalently, applies 
+    the map A to each axis of y. 
 
     Specifically, we have
 
@@ -38,11 +39,11 @@ def apply_along_tensor(
     independent copies of V_i, with n_j = dim V_j. Thus A may be lifted to the map 
     blockdiag(A, A, ..., A) acting on y. 
 
-    The map blockdiag(A, A, ..., A) may be applied in coordinates as follows. The 
+    The map blockdiag(A, A, ..., A) may be expressed in coordinates as follows. The 
     tensor y is an array with shape (n_1, n_2, ..., n_m), whose element at the 
-    multi-index (k_1, k_2, ..., k_m) is y_{k_1, k_2, ..., k_m}. Then y may be 
+    multi-index (k_1, k_2, ..., k_m) is y_{k_1, k_2, ..., k_m}. Thus y may be 
     decomposed into a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} x ... x n_m 
-    vectors, with coordinates 
+    vectors, having coordinates 
 
         y_{k_1, ..., 1, ... k_m} 
         y_{k_1, ..., 2, ... k_m} 
@@ -73,14 +74,14 @@ def apply_along_state(
     space = y.hilbert_space[factor_idx]
     fn = lambda col: state_fn(space.from_coeffs(col)).coeffs
     axis = factor_idx % num_factors - num_factors
-    return y.hilbert_space.from_tensor(apply_along_tensor(fn, y.coeff_tensor, axis))
+    return y.hilbert_space.from_tensor(apply_along_tensor(fn, y.tensor, axis))
 
 
 class TensorState(AbstractState):
     hilbert_space: AbstractTensorSpace = eqx.field(static=True)
 
     @property
-    def coeff_tensor(self) -> Array:
+    def tensor(self) -> Array:
         return self.coeffs.reshape(*self.coeffs.shape[:-1], *self.hilbert_space.dim_list)
 
 
@@ -108,10 +109,10 @@ class AbstractTensorSpace(AbstractHilbertSpace):
     def dim(self) -> int:
         return math.prod(self.dim_list)
 
-    def from_tensor(self, coeff_tensor: ArrayLike):
-        coeff_tensor = jnp.asarray(coeff_tensor)
-        batch_shape = coeff_tensor.shape[:coeff_tensor.ndim - self.num_factors]
-        return self.from_coeffs(coeff_tensor.reshape(*batch_shape, self.dim))
+    def from_tensor(self, tensor: ArrayLike):
+        tensor = jnp.asarray(tensor)
+        batch_shape = tensor.shape[:tensor.ndim - self.num_factors]
+        return self.from_coeffs(tensor.reshape(*batch_shape, self.dim))
 
     def product_state(self, y_list: tuple[AbstractState, ...]) -> TensorState:
         expanded = [
@@ -188,7 +189,7 @@ class LiftExp(DelegatingExponentiator):
         y: TensorState) -> TensorState:
 
         (A,) = lift_op.children
-        return apply_along_state(lambda s: A.exp(h, s), y, lift_op.factor_idx)
+        return apply_along_state(lambda s: A._exp(h, s), y, lift_op.factor_idx)
 
     @property
     def operator_type(self) -> type:
@@ -328,7 +329,7 @@ class KroneckerSumExp(DelegatingExponentiator):
         y: TensorState) -> TensorState:
 
         for factor_idx, op in enumerate(kron_op.children):
-            y = apply_along_state(lambda s, op=op: op.exp(h, s), y, factor_idx)
+            y = apply_along_state(lambda s, op=op: op._exp(h, s), y, factor_idx)
 
         return y
 

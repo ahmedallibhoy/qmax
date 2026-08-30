@@ -61,7 +61,7 @@ class Operator(eqx.Module):
     domain: AbstractHilbertSpace = eqx.field(static=True)
     children: tuple[Operator, ...] = eqx.field(default=(), kw_only=True)
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
-    _label: Optional[str] = eqx.field(default=None, kw_only=True)
+    name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
 
     def _check_domain(self, y: AbstractState):
         if self.domain != y.hilbert_space:
@@ -82,7 +82,8 @@ class Operator(eqx.Module):
         update: Callable[[Operator, Optional[Path], Optional[int]], Operator],
         path: Path=Path(),
         parent_path: Optional[Path]=None,
-        child_idx: Optional[int]=None) -> Operator:
+        child_idx: Optional[int]=None, 
+        **kwargs) -> Operator:
 
         """
         Rebuilds self with update(op, parent_path, child_idx) applied to the node at path,
@@ -94,47 +95,50 @@ class Operator(eqx.Module):
 
             child = fn(self)
             new_child = child._at_path(
-                update, new_path, self.path(parent_path, child_idx), index)
+                update, new_path, self.path(parent_path, child_idx), index, **kwargs)
             return eqx.tree_at(fn, self, new_child)
 
-        return update(self, parent_path, child_idx)
+        return update(self, parent_path, child_idx, **kwargs)
 
     def _set_exponentiator(
         self,
         make_exponentiator: Callable[[Operator], AbstractExponentiator],
-        path: Path=Path()) -> Operator:
+        path: Path=Path(), 
+        validate: bool=True) -> Operator:
 
-        def update(op, parent_path, child_idx):
+        def update(op, parent_path, child_idx, validate=True):
             exponentiator = make_exponentiator(op)
 
-            if not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
+            if validate and not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
                 exponentiator.check_exponentiable_tree(op, parent_path, child_idx)
 
             # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves
             return _update_field(op, "exponentiator", exponentiator)
 
         try:
-            return self._at_path(update, path)
+            return self._at_path(update, path, validate=validate)
         except NotExponentiableError as e:
             raise e.from_path(path) from None
 
-    def with_label(self, label: str, path: Path=Path()) -> Operator:
-        return self._at_path(lambda op, _, __: _update_field(op, "_label", label), path)
+    def with_name(self, name: str, path: Path=Path()) -> Operator:
+        return self._at_path(lambda op, _, __: _update_field(op, "name", name), path)
 
     def with_exponentiator(
         self,
         exponentiator: AbstractExponentiator,
-        path: Path=Path()) -> Operator:
+        path: Path=Path(), 
+        validate: bool=True) -> Operator:
 
-        return self._set_exponentiator(lambda op: exponentiator, path)
+        return self._set_exponentiator(lambda op: exponentiator, path, validate=validate)
 
     def compose_exponentiator(
         self,
         composition: AbstractCompositionMethod,
-        path: Path=Path()) -> Operator:
+        path: Path=Path(), 
+        validate: bool=True) -> Operator:
 
         return self._set_exponentiator(
-            lambda op: compose(op.exponentiator, composition), path)
+            lambda op: compose(op.exponentiator, composition), path, validate=validate)
 
     @property
     def overrides_exp_action(self) -> bool:
@@ -175,6 +179,14 @@ class Operator(eqx.Module):
     def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         self._check_domain(y)
         return self.exponentiator(self, h, y)
+
+    def _exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        """
+        Unchecked entry point used by delegating exponentiators to recurse into children:
+        exponentiability of the whole tree is already established by the root call to exp.
+        """
+        self._check_domain(y)
+        return self.exponentiator.exp(self, h, y)
 
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         self._check_domain(b)
@@ -382,12 +394,7 @@ class Operator(eqx.Module):
 
     @property
     def label(self) -> str:
-        return self.default_label if self._label is None else self._label
-
-    #------------- Should override if necessary -------------
-    @property
-    def default_label(self) -> str:
-        return type(self).__name__
+        return type(self).__name__ if self.name is None else self.name
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         # for each interface (i.e. action, adj_action, solve, exp_action), 
@@ -423,7 +430,9 @@ class ShiftScaleOperator(Operator):
         op: Operator,
         shift: ScalarLike=0.0,
         scale: ScalarLike=1.0,
-        exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator()):
+        *,
+        exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator(),
+        name: Optional[str]=None):
 
         self.domain = op.domain
 
@@ -439,6 +448,22 @@ class ShiftScaleOperator(Operator):
             self.scale = scale
 
         self.exponentiator = exponentiator
+        self.name = name if name is not None else self._default_name()
+
+    def _default_name(self) -> Optional[str]:
+        if isinstance(self.shift, jax.core.Tracer) or isinstance(self.scale, jax.core.Tracer):
+            # To avoid tracer issues since default name depends on values of shift and scale
+            return None
+
+        (A,) = self.children
+        if self.shift == 0 and self.scale == 0:
+            return "0"
+        elif self.shift == 0:
+            return f"{self.scale} * {A.label}"
+        elif self.scale == 0:
+            return f"{A.label} + {self.shift} * Identity()"
+        else:
+            return f"{self.scale} * {A.label} + {self.shift} * Identity()"
 
     def action(self, y: AbstractState) -> AbstractState:
         (A,) = self.children
@@ -471,18 +496,6 @@ class ShiftScaleOperator(Operator):
         (A,) = self.children
         return jnp.conj(self.shift) + jnp.conj(self.scale) * A.adjoint()
 
-    @property
-    def default_label(self) -> str:
-        (A,) = self.children
-        if self.shift == 0 and self.scale == 0:
-             return "0"
-        elif self.shift == 0:
-            return f"{self.scale} * {A.label}"
-        elif self.scale == 0:
-            return f"{A.label} + {self.shift} * Identity()"
-        else:
-            return f"{self.scale} * {A.label} + {self.shift} * Identity()"
-
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         (A,) = self.children
         path = self.path(parent_path, child_idx)
@@ -502,8 +515,9 @@ class AddOperator(Operator):
         self,
         A: Operator,
         B: Operator,
-        exponentiator: Optional[AbstractExponentiator]=None, 
-        label: Optional[str]=None):
+        *,
+        exponentiator: Optional[AbstractExponentiator]=None,
+        name: Optional[str]=None):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
@@ -521,7 +535,7 @@ class AddOperator(Operator):
         else:
             self.exponentiator = Strang()
 
-        self._label = label
+        self.name = name if name is not None else f"({A.label} + {B.label})"
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -544,11 +558,6 @@ class AddOperator(Operator):
         A, B = self.children
         return A.adjoint() + B.adjoint()
 
-    @property
-    def default_label(self) -> str:
-        A, B = self.children
-        return f"({A.label} + {B.label})"
-
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
@@ -568,7 +577,7 @@ class MatMulOperator(Operator):
         A: Operator, 
         B: Operator, 
         exponentiator=NoExponentiator(),
-        label: Optional[str]=None):
+        name: Optional[str]=None):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
@@ -579,7 +588,7 @@ class MatMulOperator(Operator):
         self.domain = A.domain
         self.children = (A, B)
         self.exponentiator = exponentiator
-        self._label = label
+        self.name = name if name is not None else f"({A.label} @ {B.label})"
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -596,11 +605,6 @@ class MatMulOperator(Operator):
     def adjoint(self) -> Operator:
         A, B = self.children
         return B.adjoint() @ A.adjoint()
-
-    @property
-    def default_label(self) -> str:
-        A, B = self.children
-        return f"({A.label} @ {B.label})"
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
@@ -619,13 +623,14 @@ class AdjOperator(Operator):
     def __init__(
         self,
         op: Operator,
-        exponentiator: Optional[AbstractExponentiator]=NoExponentiator(), 
-        label: Optional[str]=None):
+        *,
+        exponentiator: Optional[AbstractExponentiator]=NoExponentiator(),
+        name: Optional[str]=None):
 
         self.domain = op.domain
         self.children = (op,)
         self.exponentiator = exponentiator
-        self._label = label
+        self.name = name if name is not None else f"({op.label})^H"
 
     def action(self, y: AbstractState) -> AbstractState:
         (A,) = self.children
@@ -647,12 +652,6 @@ class AdjOperator(Operator):
     def adjoint(self) -> Operator:
         (A,) = self.children
         return A
-
-    @property
-    def default_label(self) -> str:
-        (A,) = self.children
-        return f"({A.label})^H"
-
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         (A,) = self.children

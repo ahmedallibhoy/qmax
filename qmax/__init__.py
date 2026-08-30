@@ -5,8 +5,8 @@ from . import timestepper
 from . import eig
 from . import exponentiators
 from . import plot
-
 from . import tensor
+from . import control
 
 from .propagator import *
 from .utils import *
@@ -14,8 +14,8 @@ from .utils import *
 
 # TODO: ROADMAP -- short / medium term
 #   1. Time Propagation
-#       a. ControlledPropagator should take proper drift + control form 
-#       b. ControlledPropagator should compute cost functions 
+#       a. ControlledPropagator should take proper drift + control form ... DONE
+#       b. Propagator should compute cost functions 
 #       c. explicit adjoints + checkpointing
 #       d. utilities / helpers for optimal control 
 #       e. dense solutions?
@@ -28,9 +28,8 @@ from .utils import *
 #       e. extending count functionality to propagators
 #
 #   3. Eigensolvers
-#       a. Davidson's method 
-#       b. Chebyshev filtering
-#       c. eigensolvers should be modular like time propagators?
+#       a. Polynomial / rational filtering
+#       b. More sophisticated spectrum slicing
 #
 #   4. Spaces and Spatial Discretizations
 #       a. extending current spaces
@@ -42,14 +41,14 @@ from .utils import *
 #   5. Exponentiation
 #       a. Processing 
 #
-#   5. Misc Utilities 
+#   6. Misc Utilities 
 #       a. Wigner functions
 #       b. better plotting / visualization?
 #
-#   6. Testing / Validation
+#   7. Testing / Validation
 #       a. Rewrite test suite, benchmarking and diagnostic scripts
 #
-#   7. Documentation :/
+#   8. Documentation :/
 #       a. docstrings / makedocs    
 #       b. worked examples
 #       c. website

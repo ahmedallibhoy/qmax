@@ -127,7 +127,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         if self.spatial_dim == 1:
             X = self.potential_energy(lambda x: x)
         X = self.potential_energy(lambda x, i=axis: x[i])
-        return X.with_label(f"Position(axis={axis})")
+        return X.with_name(f"Position(axis={axis})")
 
     def momentum(self, axis: int) -> Operator:
         raise NotImplementedError 

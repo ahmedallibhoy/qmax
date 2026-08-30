@@ -30,8 +30,8 @@ class AbstractTimeStepper(eqx.Module):
 
 class Midpoint(AbstractTimeStepper):
     num_nodes: ClassVar[int] = 1
-    weights:   ClassVar[Array] = jnp.array([[1.]])
     order:     ClassVar[int] = 2
+    weights:   ClassVar[Array] = jnp.array([[1.]])
 
 
 class CFET_r4_e2(AbstractTimeStepper):

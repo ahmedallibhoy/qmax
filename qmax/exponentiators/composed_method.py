@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
+# TODO: NoExponentiableError on order checks should be replaced by warnings
+
 __all__ = [
     "compose",
     "AbstractCompositionMethod",
@@ -80,7 +82,8 @@ class Suzuki(AbstractCompositionMethod):
     """
     Suzuki quintuple-jump exponential splitting, see e.g. [1], and [2, Example 4.3]
 
-        1. Suzuki, Masuo. "Fractal decomposition of exponential operators with applications to many-body theories and Monte Carlo simulations." 
+        1. Suzuki, Masuo. "Fractal decomposition of exponential operators with applications 
+           to many-body theories and Monte Carlo simulations." 
            Physics Letters A 146.6 (1990): 319-323.
 
         2. Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations
@@ -249,6 +252,8 @@ class AbstractComposedExponentiator(AbstractExponentiator):
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None):
 
+        self.base_exp.check_exponentiable(op, parent_path, child_idx)
+
         base_effective_order = self.base_exp.effective_order(op)
 
         if not base_effective_order == 2:
@@ -257,7 +262,6 @@ class AbstractComposedExponentiator(AbstractExponentiator):
                 f"but {self.base_exp} has effective_order={base_effective_order} when applied "
                 f"to the operator {op.label}")
 
-        self.base_exp.check_exponentiable(op, parent_path, child_idx)
 
     @property
     def weights(self) -> Array:

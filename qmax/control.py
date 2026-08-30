@@ -1,11 +1,18 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-from typing import Callable, ClassVar, Optional
+from typing import Callable, ClassVar, Optional, TYPE_CHECKING
 
 import equinox as eqx
-import jax 
+import jax
 import jax.numpy as jnp
 
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+
+from .operator import Operator
+
+if TYPE_CHECKING:
+    from .timevarying_operator import AbstractTimeVaryingOperator
 
 
 class AbstractControl(eqx.Module):
@@ -13,6 +20,20 @@ class AbstractControl(eqx.Module):
 
     def __call__(self, t: ScalarLike) -> Scalar:
         return self.evaluate(t)
+
+    def __mul__(self, op: Operator) -> AbstractTimeVaryingOperator:
+        if not isinstance(op, Operator):
+            return NotImplemented
+
+        from .timevarying_operator import ConstantTimeVaryingOperator
+        return self * ConstantTimeVaryingOperator(op)
+
+    def __rmul__(self, op: Operator) -> AbstractTimeVaryingOperator:
+        if not isinstance(op, Operator):
+            return NotImplemented
+
+        from .timevarying_operator import ConstantTimeVaryingOperator
+        return self * ConstantTimeVaryingOperator(op)
 
     @abstractmethod
     def evaluate(self, t: ScalarLike) -> Scalar:
@@ -35,6 +56,10 @@ class ControlFunction(AbstractControl):
 
     def evaluate(self, t: ScalarLike) -> Scalar:
         return self.cntrl(t)
+
+    def bound(self, t_range: ArrayLike) -> Scalar:
+        u_range = jax.vmap(self.evaluate)(t_range)
+        return jnp.max(jnp.abs(u_range))
 
     def integral(self, t: ScalarLike) -> Scalar:
         return self.cntrl_int(t)
@@ -81,6 +106,17 @@ class InterpolatedControl(AbstractControl):
         u_prev = self.u_range[idx]
         u = self.evaluate(t)
         return u_int[idx] + 0.5 * (t - t_prev)  * (u_prev + u)
+
+
+class ConstantControl(AbstractControl):
+    u: Scalar
+    t0: Scalar = eqx.field(kw_only=True, default=0.0)
+
+    def evaluate(self, t: ScalarLike) -> Scalar:
+        return self.u
+
+    def integral(self, t: ScalarLike) -> Scalar:
+        return (t - self.t0) * self.u
 
 
 class PiecewiseConstantControl(AbstractControl):

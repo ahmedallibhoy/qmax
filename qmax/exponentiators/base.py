@@ -28,6 +28,7 @@ __all__ = [
     "NoExponentiator",
 ]
 
+# TODO: fix redundant tree checks
 
 type Order = Optional[int]
 
@@ -105,7 +106,6 @@ class AbstractExponentiator(eqx.Module):
         Traverses the expression tree of op to compute effective order of this 
         exponentiator when applied to op
         """
-        self.check_exponentiable_tree(op)
         return self.effective_order(op)
 
     def tree_count(
@@ -119,7 +119,6 @@ class AbstractExponentiator(eqx.Module):
         methods of leaves per one call to self.exp(op, h, y), as a rough measure 
         of the computational effort of required by this exponentiatiator. 
         """
-        self.check_exponentiable_tree(op)
         return self.count(op, h, parent_path, child_idx)
 
     # --------------------------------------------------------------------------------------------
@@ -289,9 +288,9 @@ class ShiftScaleExponentiator(DelegatingExponentiator):
         # only the scale stretches the step; the shift contributes a phase
         return [(0, op.scale, 1)]
 
-    def exp(self, op, h, y):
+    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         (A,) = op.children
-        return jnp.exp(h * op.shift) * A.exp(h * op.scale, y)
+        return jnp.exp(h * op.shift) * A._exp(h * op.scale, y)
 
     @property
     def operator_type(self) -> type:
@@ -333,4 +332,5 @@ class NoExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        return None
+        raise NotExponentiableError(f"Cannot compute order of NoExponentatiator")
+

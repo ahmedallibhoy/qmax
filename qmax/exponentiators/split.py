@@ -69,15 +69,16 @@ class AbstractSplitMethod(DelegatingExponentiator):
             B, A = add_op.children
         else:
             # Assumes sums are nested on the right (A + (B + (C + ...) ...))
+            # This is not the case in general: by default A + B + C + ... nests on the left
             A, B = add_op.children
 
         def do_step(y, coeffs):
             ai, bi = coeffs
-            return A.exp(ai * h, B.exp(bi * h, y)), None
+            return A._exp(ai * h, B._exp(bi * h, y)), None
 
         a = self.a
         b = self.b
-        y_exp, _ = jax.lax.scan(do_step, A.exp(a[0] * h, y), (a[1:], b))
+        y_exp, _ = jax.lax.scan(do_step, A._exp(a[0] * h, y), (a[1:], b))
         return y_exp
 
     @property

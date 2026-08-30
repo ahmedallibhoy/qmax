@@ -12,7 +12,8 @@ from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
 
 from ._introspect import CountDict
 from .hilbert_space import AbstractState, AbstractHilbertSpace
-from .operator import Operator, IncompatibleDomainError
+from .operator import Operator, AddOperator, IncompatibleDomainError
+from .timevarying_operator import AbstractTimeVaryingOperator
 from .control import AbstractControl, ControlFunction
 from .timestepper import AbstractTimeStepper, Midpoint
 from .exponentiators import AbstractSplitMethod, Strang
@@ -20,14 +21,10 @@ from .spaces.spatial_discretization import SpatialDiscretization
 
 
 # TODO:
-#   1. ControlledPropagator should evaluate a Hamiltonian of the form
-#           H(t) = H_0 + \sum_{i=1}^{m}u_i(t)H_i
-#   2. Progress bars
-#   3. propagate() should optionally compute cost functions:
+#   1. propagate() should optionally compute cost functions:
 #       a. Running cost c(t, y, args) 
 #       b. Terminal cost V(t1, y1, args)
-#   4. Checkpoints + explicit adjoints
-#
+#   2. Checkpoints + explicit adjoints
 
 
 
@@ -47,7 +44,7 @@ class AbstractPropagator(eqx.Module):
     t1: float = eqx.field(static=True)
     num_steps: int = eqx.field(static=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
-    hilbert_space: eqx.AbstractVar[AbstractHilbertSpace]
+    domain: eqx.AbstractVar[AbstractHilbertSpace]
 
     @property
     def weights(self) -> Array:
@@ -63,24 +60,22 @@ class AbstractPropagator(eqx.Module):
 
     @property
     def hbar(self) -> Scalar:
-        return self.hilbert_space.hbar
+        return self.domain.hbar
 
     @abstractmethod
     def propagate_stage(
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState, 
-        args: PyTree) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
         pass
 
     def propagate(
-        self, 
-        y0: AbstractState, 
-        params: Optional[PyTree]=None,
+        self,
+        y0: AbstractState,
         *,
-        save_every: Optional[int] = None, 
+        save_every: Optional[int] = None,
         save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y, 
         progressbar: bool=False) -> PropagateResult:
 
@@ -98,7 +93,7 @@ class AbstractPropagator(eqx.Module):
                 tqdm_bar.update(int(steps))
 
         def inner_loop(y, t):
-            y_next = self.propagate_stage(t, self.dt, y, params)
+            y_next = self.propagate_stage(t, self.dt, y)
             if progressbar:
                 jax.experimental.io_callback(update_bar, None, 1)
 
@@ -111,7 +106,7 @@ class AbstractPropagator(eqx.Module):
 
         t_range = jnp.linspace(self.t0, self.t1, self.num_steps // save_every + 1, endpoint=True)
         y1, ys = jax.lax.scan(loop, y0, (t_range[:-1], t_range[1:]))
-        ys = self.hilbert_space.concatenate((y0, ys))
+        ys = self.domain.concatenate((y0, ys))
         
         if progressbar:
             tqdm_bar.close()
@@ -120,18 +115,18 @@ class AbstractPropagator(eqx.Module):
 
     @abstractmethod
     def count_stage(
-        self, 
-        t: ScalarLike, 
-        dt: ScalarLike, 
-        params: Optional[PyTree]=None) -> CountDict:
-        
+        self,
+        t: ScalarLike,
+        dt: ScalarLike) -> CountDict:
+
         pass
 
-    def count(self, params: Optional[PyTree]=None) -> CountDict:
+    def count(self) -> CountDict:
+        c = CountDict()
         t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
-        dt = t_range[1] - t_range[0]
-        c = self.count_stage(0, dt, params)
-        return len(t_range) * c
+        for t in t_range[:-1]:
+            c |= self.count_stage(t, self.dt)
+        return c
 
 
 class TimeInvariantPropagator(AbstractPropagator):
@@ -143,14 +138,21 @@ class TimeInvariantPropagator(AbstractPropagator):
         t1: ScalarLike,
         op: Operator,
         *,
+        num_steps: Optional[int]=None,
         dt_max: Optional[ScalarLike]=None,
-        timestepper: AbstractTimeStepper = Midpoint()):
+        timestepper: AbstractTimeStepper = Midpoint(), 
+        adapt: bool=True):
 
         self.t0 = t0
         self.t1 = t1
 
-        if dt_max is None:
+        if dt_max is not None and num_steps is not None:
+            raise ValueError(f"Only one of dt_max or num_steps may not be None")
+
+        if num_steps is None and dt_max is None:
             self.num_steps = 1
+        elif dt_max is None:
+            self.num_steps = num_steps
         else:
             self.num_steps = ceil((t1 - t0) / dt_max)
 
@@ -159,17 +161,20 @@ class TimeInvariantPropagator(AbstractPropagator):
         op.check_exponentiable_tree()
 
         h = self.dt / op.domain.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
-        self.op = op.adapt(h)
+
+        if adapt:
+            self.op = op.adapt(h)
+        else:
+            self.op = op
 
     @property
-    def hilbert_space(self) -> AbstractHilbertSpace:
+    def domain(self) -> AbstractHilbertSpace:
         return self.op.domain
 
     def count_stage(
-        self, 
-        t: ScalarLike, 
-        dt: ScalarLike, 
-        params: Optional[PyTree]=None) -> CountDict:
+        self,
+        t: ScalarLike,
+        dt: ScalarLike) -> CountDict:
 
         c = CountDict()
         for i in range(self.weights.shape[0]):
@@ -181,8 +186,7 @@ class TimeInvariantPropagator(AbstractPropagator):
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState, 
-        params: Optional[PyTree]=None) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
         y_next = y
 
@@ -193,132 +197,67 @@ class TimeInvariantPropagator(AbstractPropagator):
         return y_next
 
 
-class ControlledPropagator(AbstractPropagator):
-    op1: Operator
-    op2: Operator
-    u1_max: Scalar
-    u2_max: Scalar
-    split_method: AbstractSplitMethod
+class TimeVaryingPropagator(AbstractPropagator):
+    t_op: AbstractTimeVaryingOperator
 
     def __init__(
         self, 
         t0: ScalarLike, 
         t1: ScalarLike, 
-        op1: Operator,
-        op2: Operator,
-        u1_max: Scalar,
-        u2_max: Scalar,
+        t_op: AbstractTimeVaryingOperator,
         *,
+        num_steps: Optional[int]=None,
         dt_max: Optional[ScalarLike]=None,
-        timestepper: AbstractTimeStepper = Midpoint(),
-        split_method: AbstractSplitMethod = Strang()):
+        timestepper: AbstractTimeStepper = Midpoint()):
 
         self.t0 = t0
         self.t1 = t1
 
-        if dt_max is None:
+        if dt_max is not None and num_steps is not None:
+            raise ValueError(f"Only one of dt_max or num_steps may not be None")
+
+        if num_steps is None and dt_max is None:
             self.num_steps = 1
+        elif dt_max is None:
+            self.num_steps = num_steps
         else:
             self.num_steps = ceil((t1 - t0) / dt_max)
 
         self.timestepper = timestepper
-        self.u1_max = u1_max
-        self.u2_max = u2_max
 
-        if op1.domain != op2.domain:
-            raise IncompatibleDomainError(
-                f"{type(op1).__name__} acts on {op1.domain}, "
-                f"but {type(op2).__name__} acts on {op2.domain}"
-            )
-
-        # propagate_stage splits c1 * op1 + c2 * op2, so validate that whole tree up front
-        add_op = op1 + op2
-        split_method.check_exponentiable_tree(add_op)
-
-        w_max = jnp.max(jnp.sum(jnp.abs(self.weights), axis=1))
-        h1, h2 = split_method.h_scales(add_op)
-        dt1 = h1 * w_max * self.u1_max * self.dt / op1.domain.hbar
-        dt2 = h2 * w_max * self.u2_max * self.dt / op1.domain.hbar
-
-        self.op1 = op1.adapt(dt1)
-        self.op2 = op2.adapt(dt2)
-        self.split_method = split_method
+        t_op(t0).check_exponentiable_tree()
+        self.t_op = t_op
 
     @property
-    def hilbert_space(self) -> AbstractHilbertSpace:
-        return self.op1.domain
-
-    def coeffs(self, t: ScalarLike, dt: ScalarLike, u: AbstractControl) -> Array:
-        t_quad, w_quad = self.quad_rule
-        u_quad = jax.vmap(u)(t + dt * t_quad)
-        coeffs = self.weights @ u_quad
-        if not u.has_integral:
-            return coeffs 
-        c_bar = (u.integral(t + dt) - u.integral(t)) / dt
-        return coeffs + jnp.sum(self.weights, axis=1) * (c_bar - w_quad @ u_quad)
+    def domain(self) -> AbstractHilbertSpace:
+        return self.t_op.domain
 
     def propagate_stage(
         self,
         t: ScalarLike,
         dt: ScalarLike,
-        y: AbstractState, 
-        us: tuple[AbstractControl, AbstractControl]) -> AbstractState:
+        y: AbstractState) -> AbstractState:
 
-        u1, u2 = us
-        c1_coeffs = self.coeffs(t, dt, u1)
-        c2_coeffs = self.coeffs(t, dt, u2)
         y_next = y
+        t_quad, _ = self.quad_rule
 
         for i in range(self.weights.shape[0]):
-            y_next = self.split_method(
-                c1_coeffs[i] * self.op1 + c2_coeffs[i] * self.op2, (-1j / self.hbar) * dt, y_next)
+            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])
+            y_next = H.exp((-1j / self.hbar) * dt, y_next)
 
         return y_next
 
-
-class QuantumHamiltonianDescent(ControlledPropagator):
-    u1: AbstractControl
-    u2: AbstractControl
-
-    def __init__(
-        self, 
-        t0: ScalarLike, 
-        t1: ScalarLike, 
-        objective: Callable[[ArrayLike], ScalarLike], 
-        hilbert_space: SpatialDiscretization,
-        *,
-        dt_max: Optional[ScalarLike]=None, 
-        split_method=Strang(), 
-        timestepper=Midpoint()):
-
-        self.u1 = ControlFunction(lambda t: 1.0 / t, lambda t: jnp.log(t))
-        self.u2 = ControlFunction(lambda t: t, lambda t: t ** 2 / 2)
-
-        num_steps = ceil((t1 - t0) / dt_max)
-        t_range = jnp.linspace(t0, t1, num_steps + 1)
-        t_eval = timestepper.eval_points(t_range).flatten()
-        u1_max = self.u1.bound(t_eval)
-        u2_max = self.u2.bound(t_eval)
-
-        op1 = -0.5 * hilbert_space.laplacian()
-        op2 = hilbert_space.potential_energy(objective)
-
-        super().__init__(t0, t1, op1, op2, u1_max, u2_max,
-            dt_max=dt_max, timestepper=timestepper, split_method=split_method)
-
-    def propagate_stage(
+    def count_stage(
         self,
         t: ScalarLike,
-        dt: ScalarLike,
-        y: AbstractState, 
-        params: Optional[PyTree]=None) -> AbstractState:
+        dt: ScalarLike) -> CountDict:
 
-        c1_coeffs = self.coeffs(t, dt, self.u1)
-        c2_coeffs = self.coeffs(t, dt, self.u2)
-        y_next = y
+        c = CountDict()
+        t_quad, _ = self.quad_rule
 
         for i in range(self.weights.shape[0]):
-            y_next = self.split_method(
-                c1_coeffs[i] * self.op1 + c2_coeffs[i] * self.op2, (-1j / self.hbar) * dt, y_next)
+            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])            
+            c |= H.exp_count((-1j / self.hbar) * dt)
 
-        return y_next
+        return c
+
