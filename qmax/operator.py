@@ -361,6 +361,9 @@ class Operator(eqx.Module):
     #------------------- Do not override -------------------
 
     def __repr__(self) -> str:
+        return self.label
+
+    def tree(self) -> str:
         return "\n".join(line for line, _ in _rows(self))
 
     def path(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> Path:

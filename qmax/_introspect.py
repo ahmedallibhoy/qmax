@@ -169,7 +169,7 @@ class CountDict:
 
         return CountDict({path: other * count for (path, count) in self.ct_dict.items()})
 
-    def to_tree(self) -> RenderTree:
+    def render_tree(self) -> RenderTree:
         if not self.ct_dict:
             return RenderTree(label="")
 
@@ -188,17 +188,21 @@ class CountDict:
 
         return root
 
-    #def __str__(self) -> str:
-    #    string = ""
-    #    for path, count in self.items():
-    #        string += f"{path}: {count}\n"
-    #    return string
+    @property
+    def total(self) -> Count:
+        return reduce(lambda a, b: a + b, self.ct_dict.values())
 
     def __repr__(self) -> str:
+        string = ""
+        for path, count in self.items():
+            string += f"{path}: {count}\n"
+        return string
+
+    def tree(self) -> str:
         if not self.ct_dict:
             return "CountDict(empty)"
 
-        rows = _rows(self.to_tree())
+        rows = _rows(self.render_tree())
 
         width = max(len(line) for line, _ in rows) + 4
         out = [
@@ -206,9 +210,8 @@ class CountDict:
             for line, c in rows
         ]
 
-        total = reduce(lambda a, b: a + b, self.ct_dict.values())
         out.append("─" * (width - 1))
-        out.append("total:".ljust(width - 1) + f"  {total}")
+        out.append("total:".ljust(width - 1) + f"  {self.total}")
         return "\n".join(out)
 
 

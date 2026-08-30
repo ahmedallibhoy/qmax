@@ -89,6 +89,9 @@ class AbstractTimeVaryingOperator(eqx.Module):
         return type(self).__name__ if self.name is None else self.name
 
     def __repr__(self) -> str:
+        return self.label
+
+    def tree(self) -> str:
         return "\n".join(line for line, _ in _rows(self))
 
 

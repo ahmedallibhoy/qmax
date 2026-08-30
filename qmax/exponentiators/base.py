@@ -28,8 +28,6 @@ __all__ = [
     "NoExponentiator",
 ]
 
-# TODO: fix redundant tree checks
-
 type Order = Optional[int]
 
 def min_order(*orders: Order) -> Order:

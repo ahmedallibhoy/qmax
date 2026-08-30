@@ -113,30 +113,15 @@ class AbstractPropagator(eqx.Module):
 
         return PropagateResult(y0, y1, ys, t_range)
 
-    @abstractmethod
-    def count_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike) -> CountDict:
-
-        pass
-
-    def count(self) -> CountDict:
-        c = CountDict()
-        t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
-        for t in t_range[:-1]:
-            c |= self.count_stage(t, self.dt)
-        return c
-
 
 class TimeInvariantPropagator(AbstractPropagator):
     op: Operator
 
     def __init__(
         self, 
+        op: Operator,
         t0: ScalarLike,
         t1: ScalarLike,
-        op: Operator,
         *,
         num_steps: Optional[int]=None,
         dt_max: Optional[ScalarLike]=None,
@@ -171,17 +156,6 @@ class TimeInvariantPropagator(AbstractPropagator):
     def domain(self) -> AbstractHilbertSpace:
         return self.op.domain
 
-    def count_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike) -> CountDict:
-
-        c = CountDict()
-        for i in range(self.weights.shape[0]):
-            w = jnp.sum(self.weights[i, :])
-            c |= self.op.exp_count((-1j / self.hbar) * w * dt)
-        return c
-
     def propagate_stage(
         self,
         t: ScalarLike,
@@ -196,15 +170,30 @@ class TimeInvariantPropagator(AbstractPropagator):
 
         return y_next
 
+    def count_stage(
+        self,
+        t: ScalarLike,
+        dt: ScalarLike) -> CountDict:
+
+        c = CountDict()
+        for i in range(self.weights.shape[0]):
+            w = jnp.sum(self.weights[i, :])
+            c |= self.op.exp_count((-1j / self.hbar) * w * dt)
+        return c
+
+    def count(self) -> CountDict:
+        c = self.count_stage(0.0, self.dt)
+        return self.num_steps * c
+
 
 class TimeVaryingPropagator(AbstractPropagator):
     t_op: AbstractTimeVaryingOperator
 
     def __init__(
         self, 
+        t_op: AbstractTimeVaryingOperator,
         t0: ScalarLike, 
         t1: ScalarLike, 
-        t_op: AbstractTimeVaryingOperator,
         *,
         num_steps: Optional[int]=None,
         dt_max: Optional[ScalarLike]=None,
@@ -261,3 +250,9 @@ class TimeVaryingPropagator(AbstractPropagator):
 
         return c
 
+    def count(self) -> CountDict:
+        c = CountDict()
+        t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
+        for t in t_range[:-1]:
+            c |= self.count_stage(t, self.dt)
+        return c
