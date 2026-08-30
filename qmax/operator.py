@@ -180,14 +180,6 @@ class Operator(eqx.Module):
         self._check_domain(y)
         return self.exponentiator(self, h, y)
 
-    def _exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
-        """
-        Unchecked entry point used by delegating exponentiators to recurse into children:
-        exponentiability of the whole tree is already established by the root call to exp.
-        """
-        self._check_domain(y)
-        return self.exponentiator.exp(self, h, y)
-
     def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         self._check_domain(b)
         return self._solve(b, scale, shift)
@@ -208,6 +200,9 @@ class Operator(eqx.Module):
         raise NoExactExponentialError(
             f"Exact exponential cannot be computed: {type(self).__name__} does not override base exp_action"
         )
+
+    def _exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return self.exponentiator.exp(self, h, y)
 
     def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
         """

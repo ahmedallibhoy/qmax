@@ -25,11 +25,11 @@ from .utils import *
 #       b. adapt() should accept tunable tolerances
 #       c. validating interface and exp counts (see 6)
 #       d. fix path / field semantics ... DONE
-#       e. extending count functionality to propagators
+#       e. extending count functionality to propagators ... DONE
 #
 #   3. Eigensolvers
 #       a. Polynomial / rational filtering
-#       b. More sophisticated spectrum slicing
+#       b. Spectrum slicing
 #
 #   4. Spaces and Spatial Discretizations
 #       a. extending current spaces
@@ -37,18 +37,15 @@ from .utils import *
 #       b. new spaces
 #           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
 #           ii. Arbitrary meshes
-#
-#   5. Exponentiation
-#       a. Processing 
-#
-#   6. Misc Utilities 
+
+#   5. Misc Utilities 
 #       a. Wigner functions
 #       b. better plotting / visualization?
 #
-#   7. Testing / Validation
+#   6. Testing / Validation
 #       a. Rewrite test suite, benchmarking and diagnostic scripts
 #
-#   8. Documentation :/
+#   7. Documentation :/
 #       a. docstrings / makedocs    
 #       b. worked examples
 #       c. website
