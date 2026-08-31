@@ -179,7 +179,8 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
         self.domain = domain
         self.children = tuple(
-            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})") for idx in range(domain.num_factors))
+            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})") 
+            for idx in range(domain.num_factors))
         self.exponentiator = exponentiator
         self.name = name if name is not None else "Laplacian"
 

@@ -174,6 +174,8 @@ class CountDict:
             return RenderTree(label="")
 
         key = next(iter(self.ct_dict))
+
+        # TODO: should return a sequence of trees for each identified root
         root = RenderTree(label=key.root_label)
         index = {(): root}
 

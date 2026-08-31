@@ -69,7 +69,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
             B, A = add_op.children
         else:
             # Assumes sums are nested on the right (A + (B + (C + ...) ...))
-            # This is not the case in general: by default A + B + C + ... nests on the left
+            # This is NOT the case in general: by default A + B + C + ... nests on the left
             A, B = add_op.children
 
         def do_step(y, coeffs):
