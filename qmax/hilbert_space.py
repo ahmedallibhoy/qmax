@@ -21,7 +21,6 @@ type Index = int | tuple[int, ...]
 def _to_tuple(idx: Index) -> tuple[int, ...]:
     if isinstance(idx, tuple):
         return idx 
-
     return (idx,)
 
 

@@ -53,6 +53,9 @@ class ConstantControl(AbstractControl):
         return self.u
 
 
+type CanMultiply = AbstractInterpolatedControl | ScalarLike | Operator
+
+
 class AbstractInterpolatedControl(AbstractControl):
     u_range: ArrayLike
     t0: ScalarLike = eqx.field(static=True, converter=float)
@@ -80,7 +83,7 @@ class AbstractInterpolatedControl(AbstractControl):
 
         if not (jnp.allclose(self.t0, other.t0) and jnp.allclose(self.t1, other.t1)):
             raise ValueError(
-                f"Only controls defined on the same interval may be combined but received "
+                f"Only controls defined on the same interval may be combined but "
                 f"u1 is defined on ({self.t0}, {self.t1}) and u2 is defined on ({other.t0}, {other.t1})")
 
         return type(self)(func(self.u_range, other.u_range), self.t0, self.t1)
@@ -91,7 +94,7 @@ class AbstractInterpolatedControl(AbstractControl):
     def __sub__(self, other: AbstractInterpolatedControl) -> AbstractInterpolatedControl:
         return self.binary_op(other, lambda a, b: a - b)
 
-    def __mul__(self, other: AbstractInterpolatedControl | ScalarLike | Operator) -> AbstractInterpolatedControl:
+    def __mul__(self, other: CanMultiply) -> AbstractInterpolatedControl | AbstractTimeVaryingOperator:
         if isinstance(other, AbstractInterpolatedControl):
             return self.binary_op(other, lambda a, b: a * b)
 
@@ -100,7 +103,7 @@ class AbstractInterpolatedControl(AbstractControl):
 
         return super().__mul__(other)
 
-    def __rmul__(self, other: ScalarLike | Operator) -> AbstractInterpolatedControl:
+    def __rmul__(self, other: CanMultiply) -> AbstractInterpolatedControl | AbstractTimeVaryingOperator:
         if jnp.isscalar(other):
             return type(self)(other * self.u_range, self.t0, self.t1)
 
