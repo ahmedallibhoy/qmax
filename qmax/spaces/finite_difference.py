@@ -23,6 +23,9 @@ from .spatial_discretization import (
 )
 
 
+__all__ = ["FiniteDifference"]
+
+
 class _FiniteDifference1DState(SpatiallyDiscretizedState):
 
     @property

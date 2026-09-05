@@ -47,7 +47,7 @@ class ControlFunction(AbstractControl):
 
 
 class ConstantControl(AbstractControl):
-    u: Scalar
+    u: Scalar = eqx.field(static=True, converter=float)
 
     def evaluate(self, t: ScalarLike) -> Scalar:
         return self.u
@@ -58,8 +58,8 @@ type CanMultiply = AbstractInterpolatedControl | ScalarLike | Operator
 
 class AbstractInterpolatedControl(AbstractControl):
     u_range: ArrayLike
-    t0: ScalarLike = eqx.field(static=True, converter=float)
-    t1: ScalarLike = eqx.field(static=True, converter=float)
+    t0: Scalar = eqx.field(static=True, converter=float)
+    t1: Scalar = eqx.field(static=True, converter=float)
 
     @property
     def num_steps(self) -> int:

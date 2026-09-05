@@ -19,6 +19,9 @@ from .spatial_discretization import (
 )
 
 
+__all__ = ["PseudoSpectral"]
+
+
 class PseudoSpectralState(SpatiallyDiscretizedState):
 
     @property

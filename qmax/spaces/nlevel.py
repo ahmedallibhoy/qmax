@@ -12,11 +12,8 @@ from ..exponentiators import AbstractExponentiator, TruncatedTaylorExponentiator
 from ..tensor import TensorState, TensorPower, KroneckerProduct
 
 
-#   TODO:
-#       1. coherent states
-#       2. generators on NLevel spaces
-#       3. merge with Qubit
-#
+__all__ = ["NLevel"]
+
 
 class NLevelState(AbstractState):
     """

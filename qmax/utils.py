@@ -8,7 +8,6 @@ from .hilbert_space import AbstractHilbertSpace, AbstractState
 
 __all__ = ["zeros_like", "stack", "unstack", "over_batch"]
 
-# TODO: consolidate with hilbert_space.py 
 
 def zeros_like(y: AbstractState) -> AbstractState:
     return y.hilbert_space.from_coeffs(jnp.zeros_like(y.coeffs))

@@ -40,8 +40,8 @@ def _save_y(t, y):
 
 
 class AbstractPropagator(eqx.Module):
-    t0: float = eqx.field(static=True)
-    t1: float = eqx.field(static=True)
+    t0: float
+    t1: float
     num_steps: int = eqx.field(static=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
     domain: eqx.AbstractVar[AbstractHilbertSpace]
@@ -256,3 +256,21 @@ class TimeVaryingPropagator(AbstractPropagator):
         for t in t_range[:-1]:
             c |= self.count_stage(t, self.dt)
         return c
+
+
+def propagator(
+    op: Operator | AbstractTimeVaryingOperator, 
+    t0: ScalarLike, 
+    t1: ScalarLike,
+    *, 
+    num_steps: Optional[int]=None,
+    dt_max: Optional[ScalarLike]=None,
+    timestepper: AbstractTimeStepper = Midpoint(), 
+    adapt: bool=True) -> AbstractPropagator:
+
+    if isinstance(op, Operator):
+        return TimeInvariantPropagator(op, t0, t1, 
+            num_steps=num_steps, dt_max=dt_max, timestepper=timestepper, adapt=adapt)
+    else:
+        return TimeVaryingPropagator(op, t0, t1,
+            num_steps=num_steps, dt_max=dt_max, timestepper=timestepper)

@@ -11,16 +11,14 @@ from jaxtyping import ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from ._introspect import _rows
+from .expression_tree import AbstractExpressionTree
 from .hilbert_space import AbstractHilbertSpace
 from .operator import Operator, AddOperator, IncompatibleDomainError
 from .exponentiators import AbstractSplitMethod, Strang
 from .control import AbstractControl, ConstantControl
 
 
-class AbstractTimeVaryingOperator(eqx.Module):
-    domain: AbstractHilbertSpace = eqx.field(static=True)
-    children: tuple[AbstractTimeVaryingOperator, ...] = eqx.field(default=(), kw_only=True)
-    name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
+class AbstractTimeVaryingOperator(AbstractExpressionTree):
 
     def __call__(self, t: ScalarLike) -> Operator:
         return self.evaluate(t)
@@ -37,6 +35,8 @@ class AbstractTimeVaryingOperator(eqx.Module):
     # --------------------------------------------------------------------------------------------
 
     def __add__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+        self._check_compatible(other)
+
         if isinstance(other, Operator):
             other = ConstantTimeVaryingOperator(other)
         if not isinstance(other, AbstractTimeVaryingOperator):
@@ -45,6 +45,8 @@ class AbstractTimeVaryingOperator(eqx.Module):
         return AddTimeVaryingOperator(self, other)
 
     def __radd__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+        self._check_compatible(other)
+    
         if isinstance(other, Operator):
             other = ConstantTimeVaryingOperator(other)
         if not isinstance(other, AbstractTimeVaryingOperator):
@@ -76,23 +78,6 @@ class AbstractTimeVaryingOperator(eqx.Module):
 
     def __neg__(self) -> AbstractTimeVaryingOperator:
         return -1.0 * self
-
-    # --------------------------------------------------------------------------------------------
-    # Introspection
-    # --------------------------------------------------------------------------------------------
-   
-    def with_name(self, name: str) -> AbstractTimeVaryingOperator:
-        return _update_field(self, "name", name)
-
-    @property
-    def label(self) -> str:
-        return type(self).__name__ if self.name is None else self.name
-
-    def __repr__(self) -> str:
-        return self.label
-
-    def tree(self) -> str:
-        return "\n".join(line for line, _ in _rows(self))
 
 
 class ConstantTimeVaryingOperator(AbstractTimeVaryingOperator):

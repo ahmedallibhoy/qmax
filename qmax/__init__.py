@@ -1,14 +1,11 @@
-from . import hilbert_space
-from . import operator
 from . import spaces
 from . import timestepper
 from . import eig
 from . import exponentiators
 from . import plot
-from . import tensor
 from . import control
 
-from .propagator import *
+from .propagator import propagator
 from .utils import *
 
 

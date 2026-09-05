@@ -28,12 +28,6 @@ class RenderTree:
     count: Optional[Count] = None                
     children: list[RenderTree] = dataclasses.field(default_factory=list)
 
-    def __str__(self) -> str:
-        return "\n".join(line for line, _ in _rows(self))
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
 
 def _rows(
     node: RenderTree | Operator, 
@@ -64,6 +58,10 @@ def _rows(
 class Path:
     root_label: str = ""
     steps: tuple[tuple[int, str], ...] = ()
+
+    @property
+    def root(self) -> bool:
+        return Path(self.root_label)
 
     def append(self, index: int, label: str) -> Path:
         return Path(self.root_label, self.steps + ((index, label),))
@@ -169,26 +167,33 @@ class CountDict:
 
         return CountDict({path: other * count for (path, count) in self.ct_dict.items()})
 
-    def render_tree(self) -> RenderTree:
+    def render_trees(self) -> RenderTree:
         if not self.ct_dict:
             return RenderTree(label="")
 
         key = next(iter(self.ct_dict))
+        roots = list(set([path.root for path in self.ct_dict.keys()]))
+        trees = []
 
-        # TODO: should return a sequence of trees for each identified root
-        root = RenderTree(label=key.root_label)
-        index = {(): root}
+        for root in roots:
+            root_node = RenderTree(label=root.root_label)
+            index = {(): root_node}
 
-        for path, count in self.ct_dict.items():
-            for idx in range(1, len(path) + 1):
-                prefix = path.steps[:idx]
-                if prefix not in index:
-                    tree = RenderTree(label=prefix[-1][1])
-                    index[prefix[:-1]].children.append(tree)
-                    index[prefix] = tree
-            index[path.steps].count = count
+            for path, count in self.ct_dict.items():
+                if not path.root == root:
+                    continue
 
-        return root
+                for idx in range(1, len(path) + 1):
+                    prefix = path.steps[:idx]
+                    if prefix not in index:
+                        tree = RenderTree(label=prefix[-1][1])
+                        index[prefix[:-1]].children.append(tree)
+                        index[prefix] = tree
+                index[path.steps].count = count
+
+            trees += [root_node]
+
+        return trees
 
     @property
     def total(self) -> Count:
@@ -204,12 +209,17 @@ class CountDict:
         if not self.ct_dict:
             return "CountDict(empty)"
 
-        rows = _rows(self.render_tree())
+        all_rows = []
+        width = 0
 
-        width = max(len(line) for line, _ in rows) + 4
+        for tree in self.render_trees():
+            rows = _rows(tree)
+            width = max(width, max(len(line) + 4 for line, _ in rows))
+            all_rows += rows
+
         out = [
             line if c is None else f"{line} {'·' * (width - len(line) - 2)}  {c}"
-            for line, c in rows
+            for line, c in all_rows
         ]
 
         out.append("─" * (width - 1))
