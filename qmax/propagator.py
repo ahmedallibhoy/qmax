@@ -3,6 +3,7 @@ from abc import abstractmethod
 from math import ceil
 
 import equinox as eqx
+import equinox.internal as eqxi
 import jax 
 import jax.numpy as jnp
 
@@ -20,29 +21,28 @@ from .exponentiators import AbstractSplitMethod, Strang
 from .spaces.spatial_discretization import SpatialDiscretization
 
 
-# TODO:
-#   1. propagate() should optionally compute cost functions:
-#       a. Running cost c(t, y, args) 
-#       b. Terminal cost V(t1, y1, args)
-#   2. Checkpoints + explicit adjoints
-
-
-
 class PropagateResult(eqx.Module):
     y0: AbstractState
     y1: AbstractState
     ys: PyTree
-    ts: ArrayLike
+    ts: Array
+    cost: Scalar
+
+
+type CostFunction = Callable[[ScalarLike, AbstractState, tuple[AbstractControl, ...]], Scalar]
 
 
 def _save_y(t, y): 
     return y
 
+def _no_cost(t, y):
+    return 0.0
+
 
 class AbstractPropagator(eqx.Module):
-    t0: float
-    t1: float
-    num_steps: int = eqx.field(static=True)
+    t0: Scalar
+    t1: Scalar
+    num_steps: int
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
     domain: eqx.AbstractVar[AbstractHilbertSpace]
 
@@ -75,8 +75,9 @@ class AbstractPropagator(eqx.Module):
         self,
         y0: AbstractState,
         *,
-        save_every: Optional[int] = None,
+        cost_fn: CostFunction = _no_cost,
         save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y, 
+        save_every: Optional[int] = None,
         progressbar: bool=False) -> PropagateResult:
 
         if save_every is None:
@@ -92,26 +93,35 @@ class AbstractPropagator(eqx.Module):
             def update_bar(steps):
                 tqdm_bar.update(int(steps))
 
-        def inner_loop(y, t):
+        def step(carry, t):
+            (y, cost, total_cost) = carry
             y_next = self.propagate_stage(t, self.dt, y)
+            cost_next = cost_fn(t + self.dt, y_next)   
+            total_cost = total_cost + self.dt * (cost + cost_next) / 2
+
             if progressbar:
                 jax.experimental.io_callback(update_bar, None, 1)
 
-            return y_next, None
+            return (y_next, cost_next, total_cost), None
 
-        def loop(y, args):
+        def loop(carry, args):
             t, t_next = args
-            y_next, _ = jax.lax.scan(inner_loop, y, jnp.linspace(t, t_next, save_every, endpoint=False))
-            return y_next, save_fn(t_next, y_next)
+            (y_next, cost_next, total_cost), _ = eqxi.scan(
+                step, carry, jnp.linspace(t, t_next, save_every, endpoint=False), kind="checkpointed")
+            return (y_next, cost_next, total_cost), save_fn(t_next, y_next)
 
         t_range = jnp.linspace(self.t0, self.t1, self.num_steps // save_every + 1, endpoint=True)
-        y1, ys = jax.lax.scan(loop, y0, (t_range[:-1], t_range[1:]))
-        ys = self.domain.concatenate((y0, ys))
+        (y1, _, total_cost), ys = eqxi.scan(
+            loop, (y0, cost_fn(self.t0, y0), 0.0), (t_range[:-1], t_range[1:]), kind="checkpointed")
+        
+        ys = jax.tree.map(
+            lambda a, b: jnp.concatenate([jnp.asarray(a)[None], b], axis=0),
+            save_fn(self.t0, y0), ys)
         
         if progressbar:
             tqdm_bar.close()
 
-        return PropagateResult(y0, y1, ys, t_range)
+        return PropagateResult(y0, y1, ys, t_range, total_cost)
 
 
 class TimeInvariantPropagator(AbstractPropagator):
