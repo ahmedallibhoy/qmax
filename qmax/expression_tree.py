@@ -53,7 +53,7 @@ class AbstractExpressionTree(eqx.Module):
         **kwargs) -> AbstractExpressionTree:
 
         """
-        Rebuilds self with update(op, parent_path, child_idx) applied to the node at path,
+        Rebuilds self with update(expr, parent_path, child_idx) applied to the node at path,
         where parent_path and child_idx locate that node relative to the root.
         """
         if path:

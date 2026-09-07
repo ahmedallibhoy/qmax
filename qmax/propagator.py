@@ -14,7 +14,7 @@ from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
 from ._introspect import CountDict
 from .hilbert_space import AbstractState, AbstractHilbertSpace
 from .operator import Operator, AddOperator, IncompatibleDomainError
-from .timevarying_operator import AbstractTimeVaryingOperator
+from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
 from .control import AbstractControl, ControlFunction
 from .timestepper import AbstractTimeStepper, Midpoint
 from .exponentiators import AbstractSplitMethod, Strang
@@ -39,12 +39,15 @@ def _no_cost(t, y):
     return 0.0
 
 
-class AbstractPropagator(eqx.Module):
-    t0: Scalar
-    t1: Scalar
-    num_steps: int
+class Propagator(eqx.Module):
+    t_op: AbstractTimeVaryingOperator
+    t0: Scalar = eqx.field(static=True)
+    t1: Scalar = eqx.field(static=True)
+    num_steps: int = eqx.field(static=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
-    domain: eqx.AbstractVar[AbstractHilbertSpace]
+
+    def __check_init__(self):
+        self.t_op(self.t0).check_exponentiable_tree()
 
     @property
     def weights(self) -> Array:
@@ -62,14 +65,24 @@ class AbstractPropagator(eqx.Module):
     def hbar(self) -> Scalar:
         return self.domain.hbar
 
-    @abstractmethod
+    @property
+    def domain(self) -> AbstractHilbertSpace:
+        return self.t_op.domain
+
     def propagate_stage(
         self,
         t: ScalarLike,
         dt: ScalarLike,
         y: AbstractState) -> AbstractState:
 
-        pass
+        y_next = y
+        t_quad, _ = self.quad_rule
+
+        for i in range(self.weights.shape[0]):
+            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])
+            y_next = H.exp((-1j / self.hbar) * dt, y_next)
+
+        return y_next
 
     def propagate(
         self,
@@ -124,150 +137,6 @@ class AbstractPropagator(eqx.Module):
         return PropagateResult(y0, y1, ys, t_range, total_cost)
 
 
-class TimeInvariantPropagator(AbstractPropagator):
-    op: Operator
-
-    def __init__(
-        self, 
-        op: Operator,
-        t0: ScalarLike,
-        t1: ScalarLike,
-        *,
-        num_steps: Optional[int]=None,
-        dt_max: Optional[ScalarLike]=None,
-        timestepper: AbstractTimeStepper = Midpoint(), 
-        adapt: bool=True):
-
-        self.t0 = t0
-        self.t1 = t1
-
-        if dt_max is not None and num_steps is not None:
-            raise ValueError(f"Only one of dt_max or num_steps may not be None")
-
-        if num_steps is None and dt_max is None:
-            self.num_steps = 1
-        elif dt_max is None:
-            self.num_steps = num_steps
-        else:
-            self.num_steps = ceil((t1 - t0) / dt_max)
-
-        self.timestepper = timestepper
-
-        op.check_exponentiable_tree()
-
-        h = self.dt / op.domain.hbar * jnp.max(jnp.abs(jnp.sum(self.weights, axis=1)))
-
-        if adapt:
-            self.op = op.adapt(h)
-        else:
-            self.op = op
-
-    @property
-    def domain(self) -> AbstractHilbertSpace:
-        return self.op.domain
-
-    def propagate_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike,
-        y: AbstractState) -> AbstractState:
-
-        y_next = y
-
-        for i in range(self.weights.shape[0]):
-            w = jnp.sum(self.weights[i, :])
-            y_next = self.op.exp((-1j / self.hbar) * w * dt, y_next)
-
-        return y_next
-
-    def count_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike) -> CountDict:
-
-        c = CountDict()
-        for i in range(self.weights.shape[0]):
-            w = jnp.sum(self.weights[i, :])
-            c |= self.op.exp_count((-1j / self.hbar) * w * dt)
-        return c
-
-    def count(self) -> CountDict:
-        c = self.count_stage(0.0, self.dt)
-        return self.num_steps * c
-
-
-class TimeVaryingPropagator(AbstractPropagator):
-    t_op: AbstractTimeVaryingOperator
-
-    def __init__(
-        self, 
-        t_op: AbstractTimeVaryingOperator,
-        t0: ScalarLike, 
-        t1: ScalarLike, 
-        *,
-        num_steps: Optional[int]=None,
-        dt_max: Optional[ScalarLike]=None,
-        timestepper: AbstractTimeStepper = Midpoint()):
-
-        self.t0 = t0
-        self.t1 = t1
-
-        if dt_max is not None and num_steps is not None:
-            raise ValueError(f"Only one of dt_max or num_steps may not be None")
-
-        if num_steps is None and dt_max is None:
-            self.num_steps = 1
-        elif dt_max is None:
-            self.num_steps = num_steps
-        else:
-            self.num_steps = ceil((t1 - t0) / dt_max)
-
-        self.timestepper = timestepper
-
-        t_op(t0).check_exponentiable_tree()
-        self.t_op = t_op
-
-    @property
-    def domain(self) -> AbstractHilbertSpace:
-        return self.t_op.domain
-
-    def propagate_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike,
-        y: AbstractState) -> AbstractState:
-
-        y_next = y
-        t_quad, _ = self.quad_rule
-
-        for i in range(self.weights.shape[0]):
-            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])
-            y_next = H.exp((-1j / self.hbar) * dt, y_next)
-
-        return y_next
-
-    def count_stage(
-        self,
-        t: ScalarLike,
-        dt: ScalarLike) -> CountDict:
-
-        c = CountDict()
-        t_quad, _ = self.quad_rule
-
-        for i in range(self.weights.shape[0]):
-            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])            
-            c |= H.exp_count((-1j / self.hbar) * dt)
-
-        return c
-
-    def count(self) -> CountDict:
-        c = CountDict()
-        t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
-        for t in t_range[:-1]:
-            c |= self.count_stage(t, self.dt)
-        return c
-
-
 def propagator(
     op: Operator | AbstractTimeVaryingOperator, 
     t0: ScalarLike, 
@@ -278,9 +147,19 @@ def propagator(
     timestepper: AbstractTimeStepper = Midpoint(), 
     adapt: bool=True) -> AbstractPropagator:
 
-    if isinstance(op, Operator):
-        return TimeInvariantPropagator(op, t0, t1, 
-            num_steps=num_steps, dt_max=dt_max, timestepper=timestepper, adapt=adapt)
+    if dt_max is not None and num_steps is not None:
+        raise ValueError(f"Only one of dt_max or num_steps may not be None")
+
+    if num_steps is None and dt_max is None:
+        num_steps = 1
+    elif dt_max is None:
+        num_steps = num_steps
     else:
-        return TimeVaryingPropagator(op, t0, t1,
-            num_steps=num_steps, dt_max=dt_max, timestepper=timestepper)
+        num_steps = ceil((t1 - t0) / dt_max)
+
+    if isinstance(op, Operator):
+        if adapt:
+            op = op.adapt((t1 - t0) / num_steps) 
+        op = ConstantTimeVaryingOperator(op)
+
+    return Propagator(op, t0, t1, num_steps=num_steps, timestepper=timestepper)

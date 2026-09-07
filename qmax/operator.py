@@ -70,7 +70,7 @@ class Operator(AbstractExpressionTree):
         path: Path=Path(), 
         validate: bool=True) -> Operator:
 
-        def update(op, parent_path, child_idx, validate=True):
+        def update(op, parent_path, child_idx):
             exponentiator = make_exponentiator(op)
 
             if validate and not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
