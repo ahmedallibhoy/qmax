@@ -49,8 +49,7 @@ class AbstractExpressionTree(eqx.Module):
         update: Callable[[AbstractExpressionTree, Optional[Path], Optional[int]], AbstractExpressionTree],
         path: Path=Path(),
         parent_path: Optional[Path]=None,
-        child_idx: Optional[int]=None, 
-        **kwargs) -> AbstractExpressionTree:
+        child_idx: Optional[int]=None) -> AbstractExpressionTree:
 
         """
         Rebuilds self with update(expr, parent_path, child_idx) applied to the node at path,
@@ -62,13 +61,13 @@ class AbstractExpressionTree(eqx.Module):
 
             child = fn(self)
             new_child = child.set_at_path(
-                update, new_path, self.path(parent_path, child_idx), index, **kwargs)
+                update, new_path, self.path(parent_path, child_idx), index)
             return eqx.tree_at(fn, self, new_child)
 
-        return update(self, parent_path, child_idx, **kwargs)
+        return update(self, parent_path, child_idx)
 
     def with_name(self, name: str, path: Path=Path()) -> AbstractExpressionTree:
-        return self._at_path(lambda op, _, __: _update_field(op, "name", name), path)
+        return self.set_at_path(lambda op, _, __: _update_field(op, "name", name), path)
 
     @property
     def label(self) -> str:

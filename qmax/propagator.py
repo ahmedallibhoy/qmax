@@ -136,6 +136,31 @@ class Propagator(eqx.Module):
 
         return PropagateResult(y0, y1, ys, t_range, total_cost)
 
+    def count_stage(
+        self,
+        t: ScalarLike,
+        dt: ScalarLike) -> CountDict:
+
+        c = CountDict()
+        t_quad, _ = self.quad_rule
+
+        for i in range(self.weights.shape[0]):
+            H = self.t_op.quadrature(t + dt * t_quad, self.weights[i])            
+            c |= H.exp_count((-1j / self.hbar) * dt)
+
+        return c
+
+    def count(self) -> CountDict:
+        c = CountDict()
+        t_range = jnp.linspace(self.t0, self.t1, self.num_steps + 1, endpoint=True)
+        
+        if isinstance(self.t_op, ConstantTimeVaryingOperator):
+            return self.num_steps * self.count_stage(self.t0, self.dt)
+
+        for t in t_range[:-1]:
+            c |= self.count_stage(t, self.dt)
+        return c
+
 
 def propagator(
     op: Operator | AbstractTimeVaryingOperator, 

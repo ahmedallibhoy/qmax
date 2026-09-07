@@ -80,7 +80,7 @@ class Operator(AbstractExpressionTree):
             return _update_field(op, "exponentiator", exponentiator)
 
         try:
-            return self.set_at_path(update, path, validate=validate)
+            return self.set_at_path(update, path)
         except NotExponentiableError as e:
             raise e.from_path(path) from None
 
