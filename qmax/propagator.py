@@ -41,8 +41,8 @@ def _no_cost(t, y):
 
 class Propagator(eqx.Module):
     t_op: AbstractTimeVaryingOperator
-    t0: Scalar = eqx.field(static=True)
-    t1: Scalar = eqx.field(static=True)
+    t0: Scalar = eqx.field(static=True, converter=float)
+    t1: Scalar = eqx.field(static=True, converter=float)
     num_steps: int = eqx.field(static=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
 
