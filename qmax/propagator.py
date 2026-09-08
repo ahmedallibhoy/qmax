@@ -1,24 +1,20 @@
-from typing import ClassVar, Optional, Callable
-from abc import abstractmethod
+from typing import Optional, Callable
 from math import ceil
 
 import equinox as eqx
-import equinox.internal as eqxi
-import jax 
+import jax
 import jax.numpy as jnp
 
 import tqdm
 
-from jaxtyping import Scalar, ScalarLike, PyTree, Array, ArrayLike
+from jaxtyping import Scalar, ScalarLike, PyTree, Array
 
 from ._introspect import CountDict
+from .adjoint import AbstractAdjoint, ReversibleAdjoint
 from .hilbert_space import AbstractState, AbstractHilbertSpace
-from .operator import Operator, AddOperator, IncompatibleDomainError
+from .operator import Operator
 from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
-from .control import AbstractControl, ControlFunction
 from .timestepper import AbstractTimeStepper, Midpoint
-from .exponentiators import AbstractSplitMethod, Strang
-from .spaces.spatial_discretization import SpatialDiscretization
 
 
 class PropagateResult(eqx.Module):
@@ -29,14 +25,14 @@ class PropagateResult(eqx.Module):
     cost: Scalar
 
 
-type CostFunction = Callable[[ScalarLike, AbstractState, tuple[AbstractControl, ...]], Scalar]
-
+type CostFunction = Callable[[ScalarLike, AbstractState], Scalar]
+type SaveFunction = Callable[[ScalarLike, AbstractState], PyTree]
 
 def _save_y(t, y): 
     return y
 
 def _no_cost(t, y):
-    return 0.0
+    return jnp.zeros(())
 
 
 class Propagator(eqx.Module):
@@ -69,6 +65,10 @@ class Propagator(eqx.Module):
     def domain(self) -> AbstractHilbertSpace:
         return self.t_op.domain
 
+    @property
+    def ts(self) -> Array:
+        return jnp.linspace(self.t0, self.t1, self.num_steps + 1)
+
     def propagate_stage(
         self,
         t: ScalarLike,
@@ -88,10 +88,11 @@ class Propagator(eqx.Module):
         self,
         y0: AbstractState,
         *,
-        cost_fn: CostFunction = _no_cost,
-        save_fn: Callable[[ScalarLike, AbstractState], PyTree] = _save_y, 
-        save_every: Optional[int] = None,
-        progressbar: bool=False) -> PropagateResult:
+        cost_fn: CostFunction=_no_cost,
+        save_fn: SaveFunction=_save_y, 
+        save_every: Optional[int]=None,
+        progressbar: bool=False, 
+        adjoint: AbstractAdjoint=ReversibleAdjoint()) -> PropagateResult:
 
         if save_every is None:
             save_every = self.num_steps
@@ -102,39 +103,22 @@ class Propagator(eqx.Module):
         if progressbar:
             BAR = "Propagating: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{rate_fmt}, {elapsed}<{remaining}]"
             tqdm_bar = tqdm.tqdm(total=self.num_steps, mininterval=0.2, bar_format=BAR, unit=" steps")
+            def update_bar(n):
+                tqdm_bar.update(int(n))
 
-            def update_bar(steps):
-                tqdm_bar.update(int(steps))
+            callback = lambda: jax.experimental.io_callback(update_bar, None, 1)
+        else:
+            callback = None
 
-        def step(carry, t):
-            (y, cost, total_cost) = carry
-            y_next = self.propagate_stage(t, self.dt, y)
-            cost_next = cost_fn(t + self.dt, y_next)   
-            total_cost = total_cost + self.dt * (cost + cost_next) / 2
+        # capture inputs or other variables that cost_fn closes over. 
+        cost_fn = eqx.filter_closure_convert(cost_fn, jnp.asarray(self.t0), y0)
 
-            if progressbar:
-                jax.experimental.io_callback(update_bar, None, 1)
+        y1, total_cost, ys = adjoint.propagate_fn((self, cost_fn, y0), save_every, save_fn, callback)
 
-            return (y_next, cost_next, total_cost), None
-
-        def loop(carry, args):
-            t, t_next = args
-            (y_next, cost_next, total_cost), _ = eqxi.scan(
-                step, carry, jnp.linspace(t, t_next, save_every, endpoint=False), kind="checkpointed")
-            return (y_next, cost_next, total_cost), save_fn(t_next, y_next)
-
-        t_range = jnp.linspace(self.t0, self.t1, self.num_steps // save_every + 1, endpoint=True)
-        (y1, _, total_cost), ys = eqxi.scan(
-            loop, (y0, cost_fn(self.t0, y0), 0.0), (t_range[:-1], t_range[1:]), kind="checkpointed")
-        
-        ys = jax.tree.map(
-            lambda a, b: jnp.concatenate([jnp.asarray(a)[None], b], axis=0),
-            save_fn(self.t0, y0), ys)
-        
         if progressbar:
             tqdm_bar.close()
 
-        return PropagateResult(y0, y1, ys, t_range, total_cost)
+        return PropagateResult(y0, y1, ys, self.ts[::save_every], total_cost)
 
     def count_stage(
         self,
@@ -170,16 +154,14 @@ def propagator(
     num_steps: Optional[int]=None,
     dt_max: Optional[ScalarLike]=None,
     timestepper: AbstractTimeStepper = Midpoint(), 
-    adapt: bool=True) -> AbstractPropagator:
+    adapt: bool=True) -> Propagator:
 
     if dt_max is not None and num_steps is not None:
         raise ValueError(f"Only one of dt_max or num_steps may not be None")
 
     if num_steps is None and dt_max is None:
         num_steps = 1
-    elif dt_max is None:
-        num_steps = num_steps
-    else:
+    elif num_steps is None:
         num_steps = ceil((t1 - t0) / dt_max)
 
     if isinstance(op, Operator):

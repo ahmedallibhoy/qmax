@@ -4,6 +4,7 @@ from . import eig
 from . import exponentiators
 from . import plot
 from . import control
+from . import adjoint
 
 from .propagator import propagator
 from .utils import *
@@ -12,8 +13,8 @@ from .utils import *
 # TODO: ROADMAP -- short / medium term
 #   1. Time Propagation
 #       a. ControlledPropagator should take proper drift + control form ... DONE
-#       b. Propagator should compute cost functions 
-#       c. explicit adjoints + checkpointing
+#       b. Propagator should compute cost functions ... DONE
+#       c. explicit adjoints + checkpointing ... DONE (needs testing)
 #       d. utilities / helpers for optimal control 
 #       e. dense solutions?
 #

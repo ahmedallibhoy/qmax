@@ -51,9 +51,6 @@ def _as_shift(x: Operator | ScalarLike) -> Optional[ScalarLike]:
     return None
 
 
-T = TypeVar("T")
-
-
 class Operator(AbstractExpressionTree):
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
 
