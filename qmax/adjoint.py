@@ -10,130 +10,117 @@ if TYPE_CHECKING:
     from .propagator import Propagator
 
 
-__all__ = [
-    "AbstractAdjoint",
-    "DirectAdjoint",
-    "ReversibleAdjoint",
-    "CheckpointedAdjoint",
-]
-
-
-def _zeros_like(tree):
-    return jax.tree.map(jnp.zeros_like, eqx.filter(tree, eqx.is_inexact_array))
-
-
-def _step(U, cost_fn, y, t_pair):
+def _step(carry, u_next, u_quad, t_pair, U, running_cost_fn, dt):
+    y, cost, total = carry
     t, t_next = t_pair
-    y_next = U.propagate_stage(t, U.dt, y)
-    cost_next = 0.5 * (cost_fn(t, y) + cost_fn(t_next, y_next)) * U.dt
-    return y_next, jnp.asarray(cost_next)
+    y_next = U.propagate_stage(t, dt, y, u_quad)
+    cost_next = running_cost_fn(t_next, y_next, u_next)
+    total_next = total + 0.5 * (cost + cost_next) * dt
+    return y_next, cost_next, total_next
 
 
 @eqx.filter_custom_vjp
 def _propagate(
-    vjp_args, save_every, save_fn, callback, *,
-    outer_scan_fn=jax.lax.scan, inner_scan_fn=jax.lax.scan):
-    U, cost_fn, y0 = vjp_args
+    vjp_args,
+    U: "Propagator",
+    running_cost_fn,
+    save_every,
+    save_fn,
+    callback,
+    *,
+    outer_scan_fn=jax.lax.scan,
+    inner_scan_fn=jax.lax.scan):
 
-    def step(carry, t_pair):
-        y, total = carry
-        y_next, cost_next = _step(U, cost_fn, y, t_pair)
-        total_next = total + cost_next
+    y0, us, u_quads = vjp_args
+    ts, dt = U.ts, U.dt
+
+    def step(carry, args):
+        t_pair, u_pair, u_quad = args
+        _, u_next = u_pair
+        carry_next = _step(carry, u_next, u_quad, t_pair, U, running_cost_fn, dt)
         if callback is not None:
             callback()
-        return (y_next, total_next), None
+        return carry_next, None
 
-    def loop(carry, t_pairs):
-        y, _ = carry
-        t_starts, _ = t_pairs
-        carry, _ = inner_scan_fn(step, carry, t_pairs)
-        return carry, save_fn(t_starts[0], y)
+    def loop(carry, args):
+        y, _, _ = carry
+        (t_starts, _), (u_starts, _), _ = args
+        carry, _ = inner_scan_fn(step, carry, args)
+        return carry, save_fn(t_starts[0], y, u_starts[0])
 
-    ts = U.ts
-    (y1, total_cost), ys = outer_scan_fn(loop, (y0, 0.0),
-        (ts[:-1].reshape(-1, save_every), ts[1:].reshape(-1, save_every)))
+    t0, t1 = ts[0], ts[-1]
+    cost0 = running_cost_fn(t0, y0, us[0])
+
+    num_blocks = (ts.shape[0] - 1) // save_every
+    args = (
+        (ts[:-1].reshape(-1, save_every), ts[1:].reshape(-1, save_every)),
+        (us[:-1].reshape(num_blocks, save_every, -1),
+         us[1:].reshape(num_blocks, save_every, -1)),
+        u_quads.reshape(num_blocks, save_every, *u_quads.shape[1:]))
+
+    (y1, _, running_cost), ys = outer_scan_fn(loop, (y0, cost0, 0.0), args)
 
     ys = jax.tree.map(
         lambda a, b: jnp.concatenate([a, jnp.asarray(b)[None]]),
-        ys, save_fn(U.t1, y1))
+        ys, save_fn(t1, y1, us[-1]))
 
-    return y1, total_cost, ys
+    return y1, running_cost, ys
 
 
 @_propagate.def_fwd
 def _propagate_fwd(_, vjp_args, *args, **kwargs):
-    y1, total_cost, ys = _propagate(vjp_args, *args, **kwargs)
-    return (y1, total_cost, ys), y1
+    y1, running_cost, ys = _propagate(vjp_args, *args, **kwargs)
+    return (y1, running_cost, ys), (y1, running_cost)
 
 
 @_propagate.def_bwd
-def _propagate_bwd(y1, grad_out, _, vjp_args, *args, **kwargs):
-    U, cost_fn, y0 = vjp_args
-    g_y1, g_total_cost, g_ys = grad_out
+def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, *args, **kwargs):
+    y0, us, u_quads = vjp_args
+    y1, total = res
+    ts, dt = U.ts, U.dt
+
+    g_y1, g_total, g_ys = grad_out
 
     if g_y1 is None:
         g_y1 = y1.hilbert_space.zeros_like(y1)
 
-    if g_total_cost is None:
-        g_total_cost = 0.0
+    if g_total is None:
+        g_total = 0.0
 
     if jax.tree.leaves(g_ys):
         raise NotImplementedError("Save values of propagate are not backward differentiable")
 
-    def bwd_step(carry, t_pair):
-        y_next, g_y_next, g_U_next, g_cost_fn_next = carry
-        _, t_next = t_pair
+    def bwd_step(carry, args):
+        carry_next, g_carry_next = carry
+        t_pair, u_pair, u_quad_next = args
+        u, u_next = u_pair
 
-        # Reconstruct y from y_next by stepping backward through the method
-        # If the integration method is symmetric, the reconstruction is exact
-        y = U.propagate_stage(t_next, -U.dt, y_next)
+        carry = _step(
+            carry_next, u, u_quad_next[:, ::-1], t_pair[::-1], U, running_cost_fn, -dt)
 
-        _, vjp = eqx.filter_vjp(lambda *args: _step(*args, t_pair), U, cost_fn, y)
+        _, vjp = eqx.filter_vjp(
+            lambda cr, un, uq: _step(cr, un, uq, t_pair, U, running_cost_fn, dt),
+            carry, u_next, u_quad_next)
 
-        # The function step returns the values
-        #
-        #   y_next = Φ(U, consts, y)
-        #   step_cost = ½·dt·(ℓ(t, y, consts) + ℓ(t_next, y_next, consts))
-        #
-        # where consts are constants closed over by cost_fn. If we define
-        #
-        #   λ̃ := g_y_next + ½·dt·g_total_cost·∇_yℓ(t_next, y_next),
-        #
-        # then tracing through one step of vjp, we have
-        #
-        #   g_U_step = (∂Φ/∂U)† λ̃
-        #   g_cost_fn_step = ½·dt·[ ∂ℓ(t, y, consts)/∂consts + ∂ℓ(t_next, y_next, consts)/∂consts ]
-        #   g_y = (∂Φ/∂y)†λ̃ + ½·dt·g_total_cost·∇_yℓ(t,y)
-        #
-        # The last expression is exactly the discrete adjoint dynamics.
-        #
-        # In the case where U is a propagator of the time-varying operator H = H0 + Σₖu_k(t)H_k,
-        # and cost_fn closes over the inputs via ℓ(t, y) = ℓ(t, u(t), y), then the component
-        # of g_U_step holding the control uₖ will approximately compute
-        #
-        #   dt·Σⱼvⱼ·(1/ħ)Im⟨λ(sⱼ), H_k y(sⱼ)⟩,
-        #
-        # where (sⱼ, vⱼ) are Gauss-Legendre quadrature corresponding to the timestepper. The
-        # component of g_cost_fn_step holding the control uₖ will compute:
-        #
-        #   ½·dt·g_total_cost·[∂ℓ(t, uₖ(t), y(t))/∂uₖ + ∂ℓ(t_next, uₖ(t_next), y(t_next))/∂uₖ].
-        #
-        # Summing the previous quantities over all the iterations will approximate the cotangent of the cost
-        # with respect to the inputs.
+        g_carry, g_u_next, g_u_quad_next = vjp(g_carry_next)
 
-        g_U_step, g_cost_fn_step, g_y = vjp((g_y_next, g_total_cost))
+        return (carry, g_carry), (g_u_next, g_u_quad_next)
 
-        return (y, g_y,
-            jax.tree.map(jnp.add, g_U_next, g_U_step),
-            jax.tree.map(jnp.add, g_cost_fn_next, g_cost_fn_step)), None
+    t0, t1 = ts[0], ts[-1]
+    cost1 = running_cost_fn(t1, y1, us[-1])
 
-    ts = U.ts
-    (_, g_y0, g_U, g_cost_fn), _ = jax.lax.scan(
+    ((y0, _, _), (g_y0, g_cost0, _)), (g_us, g_u_quads) = jax.lax.scan(
         bwd_step,
-        (y1, g_y1, _zeros_like(U), _zeros_like(cost_fn)),
-        (ts[:-1], ts[1:]), reverse=True)
+        ((y1, cost1, total), (g_y1, 0.0, g_total)),
+        ((ts[:-1], ts[1:]), (us[:-1], us[1:]), u_quads),
+        reverse=True)
 
-    return (g_U, g_cost_fn, g_y0)
+    _, vjp = eqx.filter_vjp(running_cost_fn, t0, y0, us[0])
+    _, g_y0_step, g_u0 = vjp(g_cost0)
+
+    g_y0 = g_y0 + g_y0_step
+    g_us = jnp.concatenate([g_u0[None], g_us])
+    return g_y0, g_us, g_u_quads
 
 
 class AbstractAdjoint(eqx.Module):

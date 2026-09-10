@@ -6,7 +6,8 @@ from . import plot
 from . import control
 from . import adjoint
 
-from .propagator import propagator
+from .controlled_operator import ControlledOperator
+from .propagator import Propagator
 from .utils import *
 
 
@@ -35,13 +36,14 @@ from .utils import *
 #       b. new spaces
 #           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
 #           ii. Arbitrary meshes
-
+#
 #   5. Misc Utilities 
 #       a. Wigner functions
 #       b. better plotting / visualization?
 #
 #   6. Testing / Validation
 #       a. Rewrite test suite, benchmarking and diagnostic scripts
+#       b. Certain runtime tests should instead be static checks (e.g. palindromic split coefficients)
 #
 #   7. Documentation :/
 #       a. docstrings / makedocs    

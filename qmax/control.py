@@ -57,9 +57,9 @@ type CanMultiply = AbstractInterpolatedControl | ScalarLike | Operator
 
 
 class AbstractInterpolatedControl(AbstractControl):
-    u_range: ArrayLike
     t0: Scalar = eqx.field(static=True, converter=float)
     t1: Scalar = eqx.field(static=True, converter=float)
+    u_range: ArrayLike
 
     @property
     def num_steps(self) -> int:
@@ -69,6 +69,10 @@ class AbstractInterpolatedControl(AbstractControl):
     def dt(self) -> Scalar:
         return (self.t1 - self.t0) / (self.num_steps - 1)
 
+    @property
+    def t_range(self) -> Array:
+        return jnp.linspace(self.t0, self.t1, self.num_steps)
+
     def idx(self, t: ScalarLike) -> int:
         return jnp.clip(jnp.trunc((t - self.t0) / self.dt).astype(int), 0, self.num_steps - 2)
 
@@ -77,16 +81,14 @@ class AbstractInterpolatedControl(AbstractControl):
             return NotImplemented
 
         if not type(self) == type(other):
-            raise ValueError(
-                f"Only controls of the same type may be combined but "
-                f"type(u1)={type(self).__name__} and type(u2)={type(other).__name__}")
+            return NotImplemented
 
-        if not (jnp.allclose(self.t0, other.t0) and jnp.allclose(self.t1, other.t1)):
-            raise ValueError(
-                f"Only controls defined on the same interval may be combined but "
-                f"u1 is defined on ({self.t0}, {self.t1}) and u2 is defined on ({other.t0}, {other.t1})")
+        #if not (jnp.allclose(self.t0, other.t0) and jnp.allclose(self.t1, other.t1)):
+        #    raise ValueError(
+        #        f"Only controls defined on the same interval may be combined but "
+        #        f"u1 is defined on ({self.t0}, {self.t1}) and u2 is defined on ({other.t0}, {other.t1})")
 
-        return type(self)(func(self.u_range, other.u_range), self.t0, self.t1)
+        return type(self)(self.t0, self.t1, func(self.u_range, other.u_range))
         
     def __add__(self, other: AbstractInterpolatedControl) -> AbstractInterpolatedControl:
         return self.binary_op(other, lambda a, b: a + b)
@@ -99,19 +101,22 @@ class AbstractInterpolatedControl(AbstractControl):
             return self.binary_op(other, lambda a, b: a * b)
 
         if jnp.isscalar(other):
-            return type(self)(other * self.u_range, self.t0, self.t1)
+            return type(self)(self.t0, self.t1, other * self.u_range)
 
         return super().__mul__(other)
 
     def __rmul__(self, other: CanMultiply) -> AbstractInterpolatedControl | AbstractTimeVaryingOperator:
+        if isinstance(other, AbstractInterpolatedControl):
+            return self.binary_op(other, lambda a, b: a * b)
+        
         if jnp.isscalar(other):
-            return type(self)(other * self.u_range, self.t0, self.t1)
+            return type(self)(self.t0, self.t1, other * self.u_range)
 
         return super().__rmul__(other)
 
     def __truediv__(self, other: ScalarLike) -> AbstractInterpolatedControl:
         if jnp.isscalar(other):
-            return type(self)(self.u_range / other, self.t0, self.t1)
+            return type(self)(self.t0, self.t1, self.u_range / other)
 
         return NotImplemented
 
@@ -132,3 +137,26 @@ class PiecewiseLinearControl(AbstractInterpolatedControl):
         u_prev = self.u_range[idx]
         u_next = self.u_range[idx + 1]
         return u_prev + (t - t_prev) * (u_next - u_prev) / (t_next - t_prev)
+
+
+def from_function(
+    u_func: Callable[[ScalarLike], Scalar], 
+    t0: ScalarLike, 
+    t1: ScalarLike, 
+    num_samples: int,
+    *,
+    interpolation: str="piecewise_constant") -> AbstractInterpolatedControl:
+
+    t_range = jnp.linspace(t0, t1, num_samples, endpoint=True)
+    u_range = jax.vmap(u_func)(t_range)
+
+    match interpolation:
+        case "piecewise_constant":
+            control = PiecewiseConstantControl(t0, t1, u_range) 
+        case "piecewise_linear":
+            control = PiecewiseLinearControl(t0, t1, u_range) 
+        case _:
+            options = ["piecewise_constant", "piecewise_linear"]
+            raise ValueError(f"Invalid option interpolation: {interpolation}. Must be one of {options}")
+    
+    return control
