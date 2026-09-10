@@ -63,11 +63,14 @@ def _propagate(
     t0, t1 = ts[0], ts[-1]
     cost0 = running_cost_fn(t0, y0, us[0])
 
-    num_blocks = (ts.shape[0] - 1) // save_every
-    args = (
-        (ts[:-1].reshape(-1, save_every), ts[1:].reshape(-1, save_every)),
-        (us[:-1].reshape(num_blocks, save_every, -1), us[1:].reshape(num_blocks, save_every, -1)),
-        u_quads.reshape(num_blocks, save_every, *u_quads.shape[1:]))
+    num_saves = U.num_steps // save_every
+    t_starts = ts[:-1].reshape(-1, save_every)
+    t_ends = ts[1:].reshape(-1, save_every)
+    u_starts = us[:-1].reshape(num_saves, save_every, -1)
+    u_ends = us[1:].reshape(num_saves, save_every, -1)
+    u_quads = u_quads.reshape(num_saves, save_every, *u_quads.shape[1:])
+
+    args = ((t_starts, t_ends), (u_starts, u_ends), u_quads)
 
     (y1, _, running_cost), ys = outer_scan_fn(loop, (y0, cost0, 0.0), args)
 
@@ -86,12 +89,12 @@ def _propagate_fwd(_, vjp_args, *args, **kwargs):
 
 @_propagate.def_bwd
 def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, save_fn, *args, **kwargs):
-    y0, us, u_quads = vjp_args
     y1, total = res
+    g_y1, g_total, g_ys = grad_out
+    y0, us, u_quads = vjp_args
+
     ts, dt = U.ts, U.dt
     t0, t1 = ts[0], ts[-1]
-
-    g_y1, g_total, g_ys = grad_out
 
     if not jax.tree.leaves(g_y1):
         g_y1 = y1.hilbert_space.zeros_like(y1)
@@ -108,6 +111,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
             jax.tree.map(lambda a: a[-1], g_ys),
             jax.tree.map(jnp.zeros_like, out))
 
+        # gradient of last save
         g_y1_step, g_u1_save = vjp(g_save)
         g_y1 = g_y1 + g_y1_step
 
@@ -158,25 +162,28 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
             ((ts[:-1], ts[1:]), (us[:-1], us[1:]), u_quads),
             reverse=True)
     else:
-        num_blocks = (ts.shape[0] - 1) // save_every
         init = ((y1, cost1, total), (g_y1, 0.0, g_total))
-        args = (
-            (ts[:-1].reshape(-1, save_every), ts[1:].reshape(-1, save_every)), 
-            (us[:-1].reshape(num_blocks, save_every, -1), us[1:].reshape(num_blocks, save_every, -1)), 
-            u_quads.reshape(num_blocks, save_every, *u_quads.shape[1:]), 
-            jax.tree.map(lambda a: a[:-1], g_ys))
+
+        num_saves = U.num_steps // save_every
+        t_starts = ts[:-1].reshape(-1, save_every)
+        t_ends = ts[1:].reshape(-1, save_every)
+        u_starts = us[:-1].reshape(num_saves, save_every, -1)
+        u_ends = us[1:].reshape(num_saves, save_every, -1)
+        u_quads = u_quads.reshape(num_saves, save_every, *u_quads.shape[1:])
+
+        args = ((t_starts, t_ends), (u_starts, u_ends), u_quads, jax.tree.map(lambda a: a[:-1], g_ys))
 
         ((y0, _, _), (g_y0, g_cost0, _)), (g_us, g_u_quads, g_u_saves) = jax.lax.scan(
             bwd_loop, init, args, reverse=True)
 
         # Flatten stacked outputs of nested loops
-        num_steps = ts.shape[0] - 1
-        g_us     = g_us.reshape(num_steps, *g_us.shape[2:])
-        g_u_quads = g_u_quads.reshape(num_steps, *g_u_quads.shape[2:])
+        g_us     = g_us.reshape(U.num_steps, *g_us.shape[2:])
+        g_u_quads = g_u_quads.reshape(U.num_steps, *g_u_quads.shape[2:])
 
         # Append last save gradient
         g_u_saves = jnp.concatenate([g_u_saves, g_u1_save[None]])  
 
+    # compute gradient of initial cost w.r.t. u0, y0
     _, vjp = eqx.filter_vjp(running_cost_fn, t0, y0, us[0])
     _, g_y0_step, g_u0 = vjp(g_cost0)
     g_y0 = g_y0 + g_y0_step
@@ -215,8 +222,6 @@ class DirectAdjoint(AbstractAdjoint):
     for high-dimensional systems due to memory use. 
     """
 
-    # Callables stored on a class are bound as methods and called 
-    # with self as the first argument unless marked as static
     outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan) 
     inner_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
     use_custom_vjp: ClassVar[bool] = False
