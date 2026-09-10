@@ -6,11 +6,23 @@ import equinox.internal as eqxi
 import jax
 import jax.numpy as jnp
 
+from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+
+from .hilbert_space import AbstractState
+
 if TYPE_CHECKING:
-    from .propagator import Propagator
+    from .propagator import Propagator, SaveFunction, CostFunction
 
 
-def _step(carry, u_next, u_quad, t_pair, U, running_cost_fn, dt):
+def _step(
+    carry: tuple[ArrayLike, ScalarLike, ScalarLike], 
+    u_next: ArrayLike, 
+    u_quad: ArrayLike, 
+    t_pair: tuple[ScalarLike, ScalarLike], 
+    U: Propagator, 
+    running_cost_fn: CostFunction, 
+    dt: ScalarLike) -> tuple[Array, Scalar, Scalar]:
+    
     y, cost, total = carry
     t, t_next = t_pair
     y_next = U.propagate_stage(t, dt, y, u_quad)
@@ -21,15 +33,15 @@ def _step(carry, u_next, u_quad, t_pair, U, running_cost_fn, dt):
 
 @eqx.filter_custom_vjp
 def _propagate(
-    vjp_args,
-    U: "Propagator",
-    running_cost_fn,
-    save_every,
-    save_fn,
-    callback,
+    vjp_args: tuple[AbstractState, ArrayLike, ArrayLike],
+    U: Propagator,
+    running_cost_fn: CostFunction,
+    save_every: SaveFunction,
+    save_fn: int,
+    callback: Callable,
     *,
     outer_scan_fn=jax.lax.scan,
-    inner_scan_fn=jax.lax.scan):
+    inner_scan_fn=jax.lax.scan) -> tuple[AbstractState, Scalar, PyTree]:
 
     y0, us, u_quads = vjp_args
     ts, dt = U.ts, U.dt
