@@ -39,6 +39,8 @@ class KrylovExponentiator(AbstractExponentiator):
 
         exp(h * A) @ y ~= β_1 * Q @ exp(h * T) @ e_1
 
+    Does not support reverse mode differentiation
+
     References:
         1. Saad, Yousef. "Analysis of some Krylov subspace approximations to the
         matrix exponential operator."

@@ -15,8 +15,8 @@ from .utils import *
 #   1. Time Propagation
 #       a. ControlledPropagator should take proper drift + control form ... DONE
 #       b. Propagator should compute cost functions ... DONE
-#       c. explicit adjoints + checkpointing ... DONE (needs testing)
-#       d. utilities / helpers for optimal control 
+#       c. explicit adjoints + checkpointing ... DONE
+#       d. utilities / helpers for optimal control ... PARTIAL
 #       e. dense solutions?
 #
 #   2. Introspection
@@ -35,7 +35,6 @@ from .utils import *
 #           i. operators and state constructors
 #       b. new spaces
 #           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
-#           ii. Arbitrary meshes
 #
 #   5. Misc Utilities 
 #       a. Wigner functions
@@ -56,4 +55,4 @@ from .utils import *
 #   2. Density matrices
 #   3. Open quantum systems / dissipation / Lindbladians       
 #   4. Dynamic low-rank approximations / tensor trains
-#
+#   5. Arbitrary spatial meshes

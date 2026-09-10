@@ -303,6 +303,8 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
     method identifies the m, s, and μ that minimizes s * m while ensuring that the backward
     error is at most max_tol. 
 
+    Does not support reverse mode differentiation
+
     References:
 
         1. Al-Mohy, Awad H., and Nicholas J. Higham. "Computing the action of the matrix
