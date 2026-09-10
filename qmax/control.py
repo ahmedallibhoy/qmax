@@ -61,6 +61,17 @@ class AbstractInterpolatedControl(AbstractControl):
     t1: Scalar = eqx.field(static=True, converter=float)
     u_range: ArrayLike
 
+    @classmethod
+    def from_function(cls, 
+        u_func: Callable[[ScalarLike], Scalar], 
+        t0: ScalarLike, 
+        t1: ScalarLike, 
+        num_samples: int) -> AbstractInterpolatedControl:
+
+        t_range = jnp.linspace(t0, t1, num_samples)
+        u_range = jax.vmap(u_func)(t_range)
+        return cls(t0, t1, u_range)
+
     @property
     def num_steps(self) -> int:
         return self.u_range.shape[0]
@@ -138,25 +149,3 @@ class PiecewiseLinearControl(AbstractInterpolatedControl):
         u_next = self.u_range[idx + 1]
         return u_prev + (t - t_prev) * (u_next - u_prev) / (t_next - t_prev)
 
-
-def from_function(
-    u_func: Callable[[ScalarLike], Scalar], 
-    t0: ScalarLike, 
-    t1: ScalarLike, 
-    num_samples: int,
-    *,
-    interpolation: str="piecewise_constant") -> AbstractInterpolatedControl:
-
-    t_range = jnp.linspace(t0, t1, num_samples, endpoint=True)
-    u_range = jax.vmap(u_func)(t_range)
-
-    match interpolation:
-        case "piecewise_constant":
-            control = PiecewiseConstantControl(t0, t1, u_range) 
-        case "piecewise_linear":
-            control = PiecewiseLinearControl(t0, t1, u_range) 
-        case _:
-            options = ["piecewise_constant", "piecewise_linear"]
-            raise ValueError(f"Invalid option interpolation: {interpolation}. Must be one of {options}")
-    
-    return control
