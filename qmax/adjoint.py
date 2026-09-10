@@ -143,11 +143,13 @@ class AbstractAdjoint(eqx.Module):
     @property
     def propagate_fn(self) -> Callable:
         if self.use_custom_vjp:
-            return partial(_propagate,
-                outer_scan_fn=self.outer_scan_fn,
+            return partial(
+                _propagate, 
+                outer_scan_fn=self.outer_scan_fn, 
                 inner_scan_fn=self.inner_scan_fn)
 
-        return partial(_propagate.fn,
+        return partial(
+            _propagate.fn,
             outer_scan_fn=self.outer_scan_fn,
             inner_scan_fn=self.inner_scan_fn)
 
