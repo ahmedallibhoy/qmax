@@ -17,7 +17,6 @@ from .utils import *
 #       b. Propagator should compute cost functions ... DONE
 #       c. explicit adjoints + checkpointing ... DONE
 #       d. utilities / helpers for optimal control ... PARTIAL
-#       e. dense solutions?
 #
 #   2. Introspection
 #       a. exponentiators should report backward error estimates?

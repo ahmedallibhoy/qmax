@@ -53,8 +53,8 @@ class ControlledOperator(eqx.Module):
 
     def quadrature(
         self, 
-        u_quad: ArrayLike, 
-        t_quad: ArrayLike, 
+        t_quad: ArrayLike,
+        u_quad: ArrayLike,  
         weights: ArrayLike) -> Operator:
 
         # u_quad.shape == (len(self.controlled_ops), num_nodes)

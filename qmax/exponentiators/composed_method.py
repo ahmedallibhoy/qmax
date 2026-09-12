@@ -60,7 +60,7 @@ class AbstractCompositionMethod(eqx.Module):
 
 class Yoshida(AbstractCompositionMethod):
     """
-    Yoshida triple-jump exponential splitting, see e.g. [1], and [2, Example 4.2]
+    Yoshida triple-jump composition, see e.g. [1], and [2, Example 4.2]
 
         1. Yoshida, Haruo. "Construction of higher order symplectic integrators."
            Physics letters A 150.5-7 (1990): 262-268.
@@ -80,7 +80,7 @@ class Yoshida(AbstractCompositionMethod):
 
 class Suzuki(AbstractCompositionMethod):
     """
-    Suzuki quintuple-jump exponential splitting, see e.g. [1], and [2, Example 4.3]
+    Suzuki quintuple-jump composition, see e.g. [1], and [2, Example 4.3]
 
         1. Suzuki, Masuo. "Fractal decomposition of exponential operators with applications 
            to many-body theories and Monte Carlo simulations." 
@@ -102,9 +102,8 @@ class Symmetric_r6_s7(AbstractCompositionMethod):
     """
     6th order symmetric composition with 7 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric
-        composition methods. McLachlan, Robert I.
-        SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
+        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
 
         2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
         Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
@@ -120,9 +119,8 @@ class Symmetric_r6_s9(AbstractCompositionMethod):
     """
     6th order symmetric composition with 9 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric
-        composition methods. McLachlan, Robert I.
-        SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
+        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
 
         2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
         Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
@@ -138,9 +136,8 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
     """
     8th order symmetric composition with 15 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric
-        composition methods. McLachlan, Robert I.
-        SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
+        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
 
         2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
         Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
@@ -157,10 +154,9 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
 class Symmetric_r8_s17(AbstractCompositionMethod):
     """
     8th order symmetric composition with 17 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
-
-        1. On the numerical integration of ordinary differential equations by symmetric
-        composition methods. McLachlan, Robert I.
-        SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+    
+        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
+        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
 
         2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
         Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.

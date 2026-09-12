@@ -57,7 +57,7 @@ class Propagator(eqx.Module):
         *, 
         num_steps: Optional[int]=None,
         dt_max: Optional[ScalarLike]=None,
-        timestepper: AbstractTimeStepper = Midpoint(), 
+        timestepper: AbstractTimeStepper=Midpoint(), 
         adapt: bool=True):
 
         self.t0 = t0
@@ -122,7 +122,7 @@ class Propagator(eqx.Module):
         t_quad, _ = self.quad_rule
 
         for i in range(self.weights.shape[0]):
-            H = self.op.quadrature(u_quad, t + dt * t_quad, self.weights[i])
+            H = self.op.quadrature(t + dt * t_quad, u_quad, self.weights[i])
             y_next = H.exp((-1j / self.hbar) * dt, y_next)
 
         return y_next
@@ -189,7 +189,7 @@ class Propagator(eqx.Module):
         u_quad = jnp.zeros((self.op.num_controls, self.timestepper.num_nodes))
 
         for i in range(self.weights.shape[0]):
-            H = self.op.quadrature(u_quad, t + dt * t_quad, self.weights[i])            
+            H = self.op.quadrature(t + dt * t_quad, u_quad, self.weights[i])            
             c |= H.exp_count((-1j / self.hbar) * dt)
 
         return c

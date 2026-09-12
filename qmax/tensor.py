@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar, Optional
+from typing import Callable, ClassVar, Optional, Iterable
 from abc import abstractmethod
 from functools import reduce
 
@@ -114,7 +114,7 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         batch_shape = tensor.shape[:tensor.ndim - self.num_factors]
         return self.from_coeffs(tensor.reshape(*batch_shape, self.dim))
 
-    def product_state(self, y_list: tuple[AbstractState, ...]) -> TensorState:
+    def product_state(self, y_list: Iterable[AbstractState]) -> TensorState:
         expanded = [
             y.coeffs.reshape(
                 *y.coeffs.shape[:-1],

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Union, Sequence
+from typing import TYPE_CHECKING, Callable, Union, Sequence, Iterable
 from abc import abstractmethod
 
 import equinox as eqx
@@ -182,7 +182,7 @@ class AbstractState(eqx.Module):
     def contract(
         self, 
         weights: ArrayLike, 
-        axes: int | tuple=(0, 0)) -> AbstractState:
+        axes: int | Iterable[int]=(0, 0)) -> AbstractState:
         """
         Takes a linear combination of states corresponding to batch axes
         """
