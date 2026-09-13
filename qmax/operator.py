@@ -345,14 +345,14 @@ class ShiftScaleOperator(Operator):
     """
     Implements shift * Identity() + scale * op
     """
-    shift: ScalarLike = 0.0
-    scale: ScalarLike = 1.0
+    shift: ScalarLike = 0
+    scale: ScalarLike = 1
 
     def __init__(
         self,
         op: Operator,
-        shift: ScalarLike=0.0,
-        scale: ScalarLike=1.0,
+        shift: ScalarLike=0,
+        scale: ScalarLike=1,
         *,
         exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator(),
         name: Optional[str]=None):
@@ -371,12 +371,13 @@ class ShiftScaleOperator(Operator):
             self.scale = scale
 
         self.exponentiator = exponentiator
-        self.name = name if name is not None else self._default_name()
+        self.name = name
 
-    def _default_name(self) -> Optional[str]:
+    @property
+    def default_name(self) -> str:
         if isinstance(self.shift, jax.core.Tracer) or isinstance(self.scale, jax.core.Tracer):
             # To avoid tracer issues since default name depends on values of shift and scale
-            return None
+            return type(self).__name__
 
         (A,) = self.children
         if self.shift == 0 and self.scale == 0:
@@ -458,7 +459,12 @@ class AddOperator(Operator):
         else:
             self.exponentiator = Strang()
 
-        self.name = name if name is not None else f"({A} + {B})"
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        A, B = self.children
+        return f"({A} + {B})"
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -511,7 +517,12 @@ class MatMulOperator(Operator):
         self.domain = A.domain
         self.children = (A, B)
         self.exponentiator = exponentiator
-        self.name = name if name is not None else f"({A} @ {B})"
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        A, B = self.children
+        return f"({A} @ {B})"
 
     def action(self, y: AbstractState) -> AbstractState:
         A, B = self.children
@@ -553,7 +564,12 @@ class AdjOperator(Operator):
         self.domain = op.domain
         self.children = (op,)
         self.exponentiator = exponentiator
-        self.name = name if name is not None else f"({op})^H"
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        (A,) = self.children
+        return f"({A})^H"
 
     def action(self, y: AbstractState) -> AbstractState:
         (A,) = self.children
@@ -607,6 +623,26 @@ class Identity(AbstractHermitianOperator):
 
     def to_matrix(self) -> Array:
         return jnp.eye(self.domain.dim)
+
+
+class Zero(AbstractHermitianOperator):
+    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
+
+    def action(self, y: AbstractState) -> AbstractState:
+        return self.domain.zeros_like(y)
+
+    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+        return y
+
+    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+        return b / shift
+
+    @property
+    def spectral_bounds(self) -> Array:
+        return jnp.array([0.0, 0.0])
+
+    def to_matrix(self) -> Array:
+        return jnp.zeros((self.domain.dim, self.domain.dim))
 
 
 class AbstractDiagonalOperator(Operator):

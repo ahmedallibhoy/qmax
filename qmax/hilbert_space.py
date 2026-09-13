@@ -100,6 +100,10 @@ class AbstractHilbertSpace(eqx.Module):
         from .operator import Identity
         return Identity(self)
 
+    def zero_operator(self) -> Operator:
+        from .operator import Zero
+        return Zero(self)
+
 
 class AbstractState(eqx.Module):
     coeffs: Array

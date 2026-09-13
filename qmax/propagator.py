@@ -19,6 +19,8 @@ from .controlled_operator import ControlledOperator
 from .timestepper import AbstractTimeStepper, Midpoint
 
 
+# TODO: enforce batch safety of Propagator and adjoints
+
 class PropagateResult(eqx.Module):
     y0: AbstractState
     y1: AbstractState

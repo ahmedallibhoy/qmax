@@ -126,7 +126,13 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
 
     def lift(self, op: Operator, factor_idx: int) -> LiftOperator:
-        return LiftOperator(self, factor_idx, children=(op,))
+        return LiftOperator(self, op, factor_idx)
+
+    def kron_sum(self, op_list: Iterable[Operator]) -> KroneckerSum:
+        return KroneckerSum(self, children=op_list)
+
+    def kron_prod(self, op_list: Iterable[Operator]) -> KroneckerProduct:
+        return KroneckerProduct(self, children=op_list)
 
 
 class TensorProduct(AbstractTensorSpace):
@@ -203,6 +209,20 @@ class LiftExp(DelegatingExponentiator):
 class LiftOperator(AbstractTensorOperator):
     factor_idx: int
     exponentiator: AbstractExponentiator = eqx.field(default=LiftExp(), kw_only=True)
+
+    def __init__(
+        self, 
+        domain: AbstractHilbertSpace, 
+        A: Operator, 
+        factor_idx: int):
+
+        self.domain = domain
+        self.children = (A,)
+
+        if factor_idx < 0:
+            factor_idx = factor_idx % self.num_factors
+
+        self.factor_idx = factor_idx
 
     def __check_init__(self):
         self._check_tensor_domain()

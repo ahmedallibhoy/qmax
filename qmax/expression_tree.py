@@ -15,7 +15,7 @@ class IncompatibleDomainError(TypeError):
 
 class AbstractExpressionTree(eqx.Module):
     domain: AbstractHilbertSpace = eqx.field(static=True)
-    children: tuple[AbstractExpressionTree, ...] = eqx.field(default=(), kw_only=True)
+    children: tuple[AbstractExpressionTree, ...] = eqx.field(default=(), converter=tuple, kw_only=True)
     name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
 
     def _check_compatible(self, other: ScalarLike | AbstractExpressionTree):
@@ -69,9 +69,13 @@ class AbstractExpressionTree(eqx.Module):
     def with_name(self, name: str, path: Path=Path()) -> AbstractExpressionTree:
         return self.set_at_path(lambda op, _, __: _update_field(op, "name", name), path)
 
+    @property 
+    def default_name(self) -> str:
+        return type(self).__name__
+
     @property
     def label(self) -> str:
-        return type(self).__name__ if self.name is None else self.name
+        return self.default_name if self.name is None else self.name
 
     def __repr__(self) -> str:
         return self.label
