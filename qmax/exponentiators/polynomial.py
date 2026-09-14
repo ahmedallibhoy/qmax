@@ -9,6 +9,7 @@ from jaxtyping import ArrayLike, ScalarLike
 
 from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
+from ..chebyshev import chebyshev
 from .base import AbstractExponentiator, Order
 from ..eig import op_spectral_bounds_lanczos
 
@@ -16,38 +17,10 @@ if TYPE_CHECKING:
     from ..operator import Operator
 
 
-__all__ = ["ChebyshevExponentiator", "LaguerreExponentiator"]
+__all__ = ["ChebyshevExponentiator"]
 
 
 N_MAX = 100
-
-
-def _polynomial_recurrence(op, y, init, coeffs, r_params):
-    """
-    Given p_0(A) @ y and p_1(A) @ y, computes sum_{k} c_k * p_k(A) @ y
-    where {p_k} is a family of orthogonal polynomials satisfying the
-    recurrence relation:
-
-        beta_k * p_{k + 1}(x) = (x - alpha_k) * p_k(x) - gamma_k * p_{k - 1}(x)
-    """
-
-    def poly(carry, args):
-        idx, coeff = args
-        (v_prev, v, fv) = carry
-
-        alpha, beta, gamma = r_params(idx)
-        v_next = (op.action(v) - alpha * v  - gamma * v_prev) / beta
-        fv_next = fv + coeff * v_next
-        return (v, v_next, fv_next), None
-
-    v0, v1 = init
-    fv = coeffs[0] * v0 + coeffs[1] * v1
-
-    init = (v0, v1, fv)
-    idx_list = jnp.arange(2, coeffs.shape[0])
-    (_, _, fv), _ = jax.lax.scan(poly, init, (idx_list, coeffs[2:]))
-
-    return fv
 
 
 # only works if jax_enable_x64 is True
@@ -110,7 +83,6 @@ class ChebyshevExponentiator(AbstractExponentiator):
         except NotImplementedError:
             lmin, lmax = op_spectral_bounds_lanczos(op)
 
-
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
         if jax.config.x64_enabled:
@@ -135,53 +107,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
         Is = _modified_bessel(self.num_iterations, h * a)
         coeffs = (2 - (jnp.arange(self.num_iterations) == 0)) * Is[:self.num_iterations]
 
-        def r_params(idx):
-            return (0.0, 0.5, 0.5)
-
-        v0, v1 = y, op_scaled.action(y)
-        p_y = _polynomial_recurrence(op_scaled, y, (v0, v1), coeffs, r_params)
-        exp_y = c * p_y
-
-        return exp_y
-
-    @property
-    def order(self) -> Order:
-        return None
-
-    def count(
-        self, 
-        op: Operator, 
-        h: ScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
-
-        return self.num_iterations * op.interface_count(parent_path, child_idx).action
-
-
-class LaguerreExponentiator(AbstractExponentiator):
-    """
-    Laguerre polynomial method to approximate exp(h * A) @ y. Not recommended
-    due to numerical overflow issues.
-
-    1. Sheehan, Bernard N., Yousef Saad, and Roger B. Sidje. "Computing exp (-τA) b with Laguerre polynomials."
-    Electronic Transactions on Numerical Analysis 37 (2010): 147-165.
-    """
-    num_iterations: int
-
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
-        _, lambda_max = op.spectral_bounds
-
-        op_scaled = lambda_max - op
-        idx_list = jnp.arange(self.num_iterations)
-        coeffs = (h ** idx_list) / (1 + h) ** (idx_list + 1)
-
-        def r_params(idx):
-            return (2 * idx - 1, -idx, -(idx - 1))
-
-        v0, v1 = y, y - op_scaled.action(y)
-        p_y = _polynomial_recurrence(op_scaled, y, (v0, v1), coeffs, r_params)
-        exp_y = jnp.exp(h * lambda_max) * p_y
-
+        exp_y = c * chebyshev(op_scaled, y, coeffs)
         return exp_y
 
     @property
