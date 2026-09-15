@@ -33,7 +33,9 @@ def lanczos(
 
     """
     Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of:
-        Golub, Gene H., and Charles F. Van Loan. Matrix computations. JHU press, 2013.
+
+        [1] G. H. Golub and C. F. Van Loan, Matrix Computations, 4th ed. Baltimore, MD:
+            Johns Hopkins Univ. Press, 2013.
     """
 
     hilbert_space = op.domain
@@ -102,8 +104,10 @@ def restart_lanczos(
 
     """
     Essentially reproduces the method described in:
-        Wu, Kesheng, and Horst Simon. "Thick-restart Lanczos method for large symmetric eigenvalue problems."
-        SIAM Journal on Matrix Analysis and Applications 22.2 (2000): 602-616.
+
+        [1] K. Wu and H. Simon, "Thick-restart Lanczos method for large symmetric
+            eigenvalue problems," SIAM J. Matrix Anal. Appl., vol. 22, no. 2,
+            pp. 602-616, 2000.
     """
 
     # need (max_krylov_dim - num_ritz) ~ num_ritz

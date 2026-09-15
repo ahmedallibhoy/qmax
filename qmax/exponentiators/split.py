@@ -100,8 +100,8 @@ class PRK_r2_s2(AbstractSplitMethod):
     """
     2nd order partitioned Runge-Kutta exponential splitting, c.f. Section 3.7.1 from:
 
-        A Concise Introduction to Geometric Numerical Integration (2nd ed.).
-        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
+        [1] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+            Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     a: ClassVar[Array] = jnp.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
     b: ClassVar[Array] = jnp.array([0.5, 0.5])
@@ -115,9 +115,9 @@ class PRK_r4_s6(AbstractSplitMethod):
     """
     4th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
 
-        Practical symplectic partitioned Runge–Kutta and Runge–Kutta–Nyström methods.
-        Blanes, Sergio, and Per Christian Moan.
-        Journal of Computational and Applied Mathematics 142.2 (2002): 313-330.
+        [1] S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
+            and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
+            no. 2, pp. 313-330, 2002.
     """
     a: ClassVar[Array] = jnp.array(
         [0.0792036964311956, 0.353172906049774, -0.0420650803577195, 0.2193769557534997,
@@ -135,9 +135,9 @@ class PRK_r6_s10(AbstractSplitMethod):
     """
     6th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
 
-        Practical symplectic partitioned Runge–Kutta and Runge–Kutta–Nyström methods.
-        Blanes, Sergio, and Per Christian Moan.
-        Journal of Computational and Applied Mathematics 142.2 (2002): 313-330.
+        [1] S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
+            and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
+            no. 2, pp. 313-330, 2002.
     """
     a: ClassVar[Array] = jnp.array(
         [0.0502627644003922, 0.413514300428344, 0.0450798897943977, -0.188054853819569,

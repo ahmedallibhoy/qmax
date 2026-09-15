@@ -1,5 +1,5 @@
 """
-Generate the theta_m tables from Al-Mohy & Higham (2011), Table 3.1.
+Generate the theta_m tables from A. H. Al-Mohy and N. J. Higham (2011), Table 3.1.
 
 theta_m is the largest theta such that the truncated Taylor series T_m has
 backward error <= tol when applied to a matrix of norm theta:

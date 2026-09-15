@@ -62,11 +62,12 @@ class Yoshida(AbstractCompositionMethod):
     """
     Yoshida triple-jump composition, see e.g. [1], and [2, Example 4.2]
 
-        1. Yoshida, Haruo. "Construction of higher order symplectic integrators."
-           Physics letters A 150.5-7 (1990): 262-268.
+        [1] H. Yoshida, "Construction of higher order symplectic integrators," Phys.
+            Lett. A, vol. 150, no. 5-7, pp. 262-268, 1990.
 
-        2. Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations
-           Hairer, Ernst and Lubich, Christian and Wanner, Gerhard. Springer-Verlag, 2006
+        [2] E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
+            Structure-Preserving Algorithms for Ordinary Differential Equations,
+            2nd ed. New York: Springer, 2006.
     """
 
     composed_order = 4
@@ -82,12 +83,13 @@ class Suzuki(AbstractCompositionMethod):
     """
     Suzuki quintuple-jump composition, see e.g. [1], and [2, Example 4.3]
 
-        1. Suzuki, Masuo. "Fractal decomposition of exponential operators with applications 
-           to many-body theories and Monte Carlo simulations." 
-           Physics Letters A 146.6 (1990): 319-323.
+        [1] M. Suzuki, "Fractal decomposition of exponential operators with
+            applications to many-body theories and Monte Carlo simulations," Phys.
+            Lett. A, vol. 146, no. 6, pp. 319-323, 1990.
 
-        2. Geometric Numerical Integration: Structure-Preserving Algorithms for Ordinary Differential Equations
-           Hairer, Ernst and Lubich, Christian and Wanner, Gerhard. Springer-Verlag, 2006
+        [2] E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
+            Structure-Preserving Algorithms for Ordinary Differential Equations,
+            2nd ed. New York: Springer, 2006.
     """
     composed_order = 4
 
@@ -102,11 +104,12 @@ class Symmetric_r6_s7(AbstractCompositionMethod):
     """
     6th order symmetric composition with 7 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
-        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+            equations by symmetric composition methods," SIAM J. Sci. Comput.,
+            vol. 16, no. 1, pp. 151-168, 1995.
 
-        2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
-        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
+        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+            Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 6
     weights: ClassVar[Array] = jnp.array(
@@ -119,11 +122,12 @@ class Symmetric_r6_s9(AbstractCompositionMethod):
     """
     6th order symmetric composition with 9 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
-        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+            equations by symmetric composition methods," SIAM J. Sci. Comput.,
+            vol. 16, no. 1, pp. 151-168, 1995.
 
-        2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
-        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
+        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+            Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 6
     weights: ClassVar[Array] = jnp.array(
@@ -136,11 +140,12 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
     """
     8th order symmetric composition with 15 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
 
-        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
-        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+            equations by symmetric composition methods," SIAM J. Sci. Comput.,
+            vol. 16, no. 1, pp. 151-168, 1995.
 
-        2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
-        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
+        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+            Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 8
     weights: ClassVar[Array] = jnp.array(
@@ -155,11 +160,12 @@ class Symmetric_r8_s17(AbstractCompositionMethod):
     """
     8th order symmetric composition with 17 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
     
-        1. On the numerical integration of ordinary differential equations by symmetric composition methods. 
-        McLachlan, Robert I. SIAM Journal on Scientific Computing 16.1 (1995): 151-168.
+        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+            equations by symmetric composition methods," SIAM J. Sci. Comput.,
+            vol. 16, no. 1, pp. 151-168, 1995.
 
-        2. A Concise Introduction to Geometric Numerical Integration (2nd ed.).
-        Blanes, Sergio, and Fernando Casas. Chapman and Hall/CRC. 2025.
+        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+            Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 8
     weights: ClassVar[Array] = jnp.array(
@@ -175,8 +181,9 @@ class Symmetric_r10_s31(AbstractCompositionMethod):
     """
     10th order symmetric composition with 31 stages, see Section 4.4:
 
-    "Derivation of symmetric composition constants for symmetric integrators."
-    Sofroniou, Mark, and Giulia Spaletta. Optimization Methods and Software 20.4-5 (2005): 597-613.
+        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+            constants for symmetric integrators," Optim. Methods Softw., vol. 20,
+            no. 4-5, pp. 597-613, 2005.
     """
     composed_order = 10
     weights: ClassVar[Array] = jnp.array(
@@ -197,8 +204,9 @@ class Symmetric_r10_s33(AbstractCompositionMethod):
     """
     10th order symmetric composition with 33 stages, see Section 4.4:
 
-    "Derivation of symmetric composition constants for symmetric integrators."
-    Sofroniou, Mark, and Giulia Spaletta. Optimization Methods and Software 20.4-5 (2005): 597-613.
+        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+            constants for symmetric integrators," Optim. Methods Softw., vol. 20,
+            no. 4-5, pp. 597-613, 2005.
     """
     composed_order = 10
     weights: ClassVar[Array] = jnp.array(
@@ -219,8 +227,9 @@ class Symmetric_r10_s35(AbstractCompositionMethod):
     """
     10th order symmetric composition with 35 stages, see Section 4.4:
 
-    "Derivation of symmetric composition constants for symmetric integrators."
-    Sofroniou, Mark, and Giulia Spaletta. Optimization Methods and Software 20.4-5 (2005): 597-613.
+        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+            constants for symmetric integrators," Optim. Methods Softw., vol. 20,
+            no. 4-5, pp. 597-613, 2005.
     """
     composed_order = 10
     weights: ClassVar[Array] = jnp.array(

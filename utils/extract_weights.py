@@ -10,7 +10,9 @@ def _gl_nodes(n):
 def _build_weights(n, F):
     # Convert expansion coefficients F[i, k] (Omega_i = sum_k F[i,k] A_k, where A_k are
     # the shifted-Legendre time-moments of H) into nodal weights on the n-point
-    # Gauss-Legendre grid. Alvermann & Fehske, J. Comput. Phys. 230:5930 (2011), Eq (60):
+    # Gauss-Legendre grid.  A. Alvermann and H. Fehske, "High-order commutator-free
+    # exponential time-propagation of driven quantum systems," J. Comput. Phys.,
+    # vol. 230, no. 15, pp. 5930-5956, 2011, Eq. (60):
     #   g[i,m] = w_m * sum_k (2k+1) P_k(x_m) f[i,k],   P_k shifted Legendre on [0, 1].
     F = np.asarray(F)
     x, w = np.polynomial.legendre.leggauss(n)

@@ -1,0 +1,21 @@
+site_name: qmax
+site_url: https://docs.qmax.io
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+
+repo_url: https://github.com/ahmedallibhoy/qmax
+repo_name: ahmedallibhoy/qmax
+
+nav:
+  - 'index.md'
+
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
