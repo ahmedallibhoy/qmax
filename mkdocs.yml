@@ -15,16 +15,24 @@ repo_name: ahmedallibhoy/qmax
 plugins:
   - search
   - hippogriffe
+  #- ipynb
   - mkdocstrings:
       handlers:
         python:
           options:
             force_inspection: true
+            heading_level: 4
+            show_bases: false
+            show_root_heading: true
+            show_signature_annotations: false
+            show_source: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
   
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
-  - pymdownx.superfences  # Seems to enable syntax highlighting when used with the Material theme.
+  - pymdownx.superfences  # needed for syntax highlighting
   - pymdownx.details
   - admonition
 

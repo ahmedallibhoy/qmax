@@ -53,6 +53,7 @@ This project is in the early development stage, and the library
 is still unstable, but there are a lot interesting extensions I have planned 
 including
 
+- Density matrices
 - Open quantum systems:
     - Stochastic unraveling schemes of Lindbladians
     - Dynamical low-rank approximations of quantum master equations

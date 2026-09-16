@@ -46,6 +46,9 @@ def _no_term_cost(t, y):
 
 
 class Propagator(eqx.Module):
+    """
+    """
+
     op: ControlledOperator
     t0: Scalar = eqx.field(static=True, converter=float)
     t1: Scalar = eqx.field(static=True, converter=float)
@@ -61,6 +64,8 @@ class Propagator(eqx.Module):
         dt_max: Optional[ScalarLike]=None,
         timestepper: AbstractTimeStepper=Midpoint(), 
         adapt: bool=True):
+        """
+        """
 
         self.t0 = t0
         self.t1 = t1
@@ -140,6 +145,8 @@ class Propagator(eqx.Module):
         save_every: Optional[int]=None,
         progressbar: bool=False, 
         adjoint: AbstractAdjoint=ReversibleAdjoint()) -> PropagateResult:
+        """
+        """
 
         if save_every is None:
             save_every = self.num_steps

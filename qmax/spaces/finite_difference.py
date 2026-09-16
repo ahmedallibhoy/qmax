@@ -141,15 +141,16 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
     state_type: ClassVar[type[AbstractState]] = FiniteDifferenceState
     endpoint: ClassVar[bool] = True
 
-    def __init__(self, x0s: ArrayLike, x1s: ArrayLike, num_steps: int | tuple[int]):
+    def __init__(self, x0: ArrayLike, x1: ArrayLike, num_steps: int | tuple[int]):
         if isinstance(num_steps, int):
-            self.spaces = (_FiniteDifference1D(float(x0s), float(x1s), num_steps),)
+            self.spaces = (_FiniteDifference1D(float(x0), float(x1), num_steps),)
         else:
             self.spaces = tuple(
-                _FiniteDifference1D(float(x0), float(x1), n) for x0, x1, n in zip(x0s, x1s, num_steps))
+                _FiniteDifference1D(float(x0_i), float(x1_i), n) 
+                for x0_i, x1_i, n in zip(x0, x1, num_steps))
 
-        self.x0 = _to_tuple(x0s)
-        self.x1 = _to_tuple(x1s)
+        self.x0 = _to_tuple(x0)
+        self.x1 = _to_tuple(x1)
         self.mesh_size = num_steps
 
     @property
