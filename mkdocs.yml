@@ -1,21 +1,67 @@
-site_name: qmax
-site_url: https://docs.qmax.io
 theme:
   name: material
-  icon:
-    repo: fontawesome/brands/github
+  features:
+      - navigation.sections
+      - toc.integrate
+      - header.autohide
+
+site_name: qmax
+site_author: Ahmed Allibhoy
+site_url: https://docs.qmax.io
 
 repo_url: https://github.com/ahmedallibhoy/qmax
 repo_name: ahmedallibhoy/qmax
 
-nav:
-  - 'index.md'
-
-
+plugins:
+  - search
+  - hippogriffe
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            force_inspection: true
+  
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.superfences  # Seems to enable syntax highlighting when used with the Material theme.
+  - pymdownx.details
+  - admonition
+
+extra_css:
+    - _static/custom.css
 
 extra_javascript:
   - javascripts/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+
+nav:
+  - 'index.md'
+  - Examples:
+    - Quantum Harmonic Oscillator: 'examples/harmonic_oscillator.md'
+    - Hydrogen Atom: 'examples/hydrogen.md'
+    - Driven Quantum Systems: 'examples/controlled_two_level.md'
+    - Quantum Optimal Control: 'examples/optimal_control.md'
+    - Introspection Utilities: 'examples/introspection.md'
+  - API:
+    - Hilbert Spaces:
+      - Base: 'api/hilbert_spaces/base.md'
+      - Finite Difference: 'api/hilbert_spaces/finite_difference.md'
+      - Pseudospectral: 'api/hilbert_spaces/pseudospectral.md'
+      - Spherical: 'api/hilbert_spaces/spherical.md'
+      - Qubits: 'api/hilbert_spaces/qubits.md'
+      - Nlevel: 'api/hilbert_spaces/nlevel.md'
+    - Operators: 'api/operators.md'
+    - Exponentiators:
+      - Base: 'api/exponentiators/base.md'
+      - Euler: 'api/exponentiators/euler.md'
+      - Split: 'api/exponentiators/split.md'
+      - Composed: 'api/exponentiators/composed.md'
+      - Krylov: 'api/exponentiators/krylov.md'
+      - Chebyshev: 'api/exponentiators/chebyshev.md'
+      - Truncated Taylor: 'api/exponentiators/truncated_taylor.md'
+    - Controls: 'api/controls.md'
+    - Timesteppers: 'api/timesteppers.md'
+    - Adjoints: 'api/adjoints.md'
+    - Propagators: 'api/propagator.md'

@@ -37,9 +37,9 @@ class _FiniteDifference1D(SpatialDiscretization):
     state_type: ClassVar = _FiniteDifference1DState
     endpoint: ClassVar[bool] = True
 
-    def __init__(self, x0: ScalarLike, xf: ScalarLike, mesh_size: int):
+    def __init__(self, x0: ScalarLike, x1: ScalarLike, mesh_size: int):
         self.x0 = (float(x0),)
-        self.xf = (float(xf),)
+        self.x1 = (float(x1),)
         self.mesh_size = (mesh_size,)
 
     @property
@@ -141,15 +141,15 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
     state_type: ClassVar[type[AbstractState]] = FiniteDifferenceState
     endpoint: ClassVar[bool] = True
 
-    def __init__(self, x0s: ArrayLike, xfs: ArrayLike, num_steps: int | tuple[int]):
+    def __init__(self, x0s: ArrayLike, x1s: ArrayLike, num_steps: int | tuple[int]):
         if isinstance(num_steps, int):
-            self.spaces = (_FiniteDifference1D(float(x0s), float(xfs), num_steps),)
+            self.spaces = (_FiniteDifference1D(float(x0s), float(x1s), num_steps),)
         else:
             self.spaces = tuple(
-                _FiniteDifference1D(float(x0), float(xf), n) for x0, xf, n in zip(x0s, xfs, num_steps))
+                _FiniteDifference1D(float(x0), float(x1), n) for x0, x1, n in zip(x0s, x1s, num_steps))
 
         self.x0 = _to_tuple(x0s)
-        self.xf = _to_tuple(xfs)
+        self.x1 = _to_tuple(x1s)
         self.mesh_size = num_steps
 
     @property

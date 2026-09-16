@@ -35,7 +35,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
     # To avoid array valued fields which trigger a warning on static hilbert_spaces
     # TODO: I feel like there should be a better workaround for this...
     x0: tuple[float, ...] = eqx.field(converter=_to_tuple)
-    xf: tuple[float, ...] = eqx.field(converter=_to_tuple)
+    x1: tuple[float, ...] = eqx.field(converter=_to_tuple)
     mesh_size: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
 
     @abstractmethod
@@ -81,14 +81,14 @@ class SpatialDiscretization(AbstractHilbertSpace):
     @property
     def x_ranges(self) -> Array:
         return [
-            jnp.linspace(self.x0[i], self.xf[i], self.mesh_size[i], endpoint=self.endpoint) 
+            jnp.linspace(self.x0[i], self.x1[i], self.mesh_size[i], endpoint=self.endpoint) 
             for i in range(self.spatial_dim)
         ]
 
     @property
     def x_range(self) -> Array:
         if self.spatial_dim == 1:
-            return jnp.linspace(self.x0[0], self.xf[0], self.mesh_size[0], endpoint=self.endpoint) 
+            return jnp.linspace(self.x0[0], self.x1[0], self.mesh_size[0], endpoint=self.endpoint) 
         raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.spatial_dim}, did you mean x_ranges?")
 
     @property
@@ -112,7 +112,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         else:
             sizes = jnp.array(self.mesh_size)
 
-        return (jnp.array(self.xf) - jnp.array(self.x0)) / sizes
+        return (jnp.array(self.x1) - jnp.array(self.x0)) / sizes
 
     # These factories are not abstract properties since intermediate classes 
     # like _FiniteDifference1D need to be instantiable without overrides
