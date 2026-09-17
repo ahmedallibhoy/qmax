@@ -70,6 +70,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
         else:
             # Assumes sums are nested on the right (A + (B + (C + ...) ...))
             # This is NOT the case in general: by default A + B + C + ... nests on the left
+            # We implement this for completeness, but generally one should not use nest_left=False
             A, B = add_op.children
 
         def do_step(y, coeffs):
@@ -98,9 +99,11 @@ class Strang(AbstractSplitMethod):
 
 class PRK_r2_s2(AbstractSplitMethod):
     """
-    2nd order partitioned Runge-Kutta exponential splitting, c.f. Section 3.7.1 from:
+    2nd order partitioned Runge-Kutta exponential splitting, c.f. Section 3.7.1 of [1].
 
-        [1] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+    ??? cite "References"
+
+        1. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     a: ClassVar[Array] = jnp.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
@@ -113,9 +116,11 @@ class PRK_r2_s2(AbstractSplitMethod):
 
 class PRK_r4_s6(AbstractSplitMethod):
     """
-    4th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
+    4th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 of [1].
 
-        [1] S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
+    ??? cite "References"
+
+        1. S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """
@@ -133,9 +138,11 @@ class PRK_r4_s6(AbstractSplitMethod):
 
 class PRK_r6_s10(AbstractSplitMethod):
     """
-    6th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 from:
+    6th order partitioned Runge-Kutta exponential splitting, c.f. Table 2 of [1].
 
-        [1] S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
+    ??? cite "References"
+
+        1. S. Blanes and P. C. Moan, "Practical symplectic partitioned Runge-Kutta
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """

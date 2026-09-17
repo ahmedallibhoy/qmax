@@ -65,8 +65,9 @@ class ChebyshevExponentiator(AbstractExponentiator):
     WARNING: The Miller recurrence numerically overflows in 32-bit precision. It is recommend
     to use 64-bit precision or a different exponentiation method at low precision.
 
-    References:
-        [1] B. N. Sheehan, Y. Saad, and R. B. Sidje, "Computing exp(-τA) b with
+    ??? cite "References"
+
+        1. B. N. Sheehan, Y. Saad, and R. B. Sidje, "Computing exp(-τA) b with
             Laguerre polynomials," Electron. Trans. Numer. Anal., vol. 37,
             pp. 147-165, 2010.
     """

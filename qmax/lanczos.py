@@ -32,9 +32,11 @@ def lanczos(
     idx0: int=0) -> tuple[Array, Array, AbstractState]:
 
     """
-    Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of:
+    Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of [1].
 
-        [1] G. H. Golub and C. F. Van Loan, Matrix Computations, 4th ed. Baltimore, MD:
+    ??? cite "References"
+
+        1. G. H. Golub and C. F. Van Loan, Matrix Computations, 4th ed. Baltimore, MD:
             Johns Hopkins Univ. Press, 2013.
     """
 
@@ -103,9 +105,11 @@ def restart_lanczos(
     key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractState, Array]:
 
     """
-    Essentially reproduces the method described in:
+    Essentially reproduces the method described in [1].
 
-        [1] K. Wu and H. Simon, "Thick-restart Lanczos method for large symmetric
+    ??? cite "References"
+
+        1. K. Wu and H. Simon, "Thick-restart Lanczos method for large symmetric
             eigenvalue problems," SIAM J. Matrix Anal. Appl., vol. 22, no. 2,
             pp. 602-616, 2000.
     """

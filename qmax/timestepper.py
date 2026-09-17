@@ -45,7 +45,9 @@ class CFET_r4_e2(AbstractTimeStepper):
     """
     4th-order commutator-free CFET with 2 exponential evaluations
 
-        [1] M. Thalhammer, "A fourth-order commutator-free exponential integrator for
+    ??? cite "References"
+
+        1. M. Thalhammer, "A fourth-order commutator-free exponential integrator for
             nonautonomous differential equations," SIAM J. Numer. Anal., vol. 44,
             no. 2, pp. 851-864, 2006.
     """
@@ -61,7 +63,9 @@ class CFET_r4_e3opt(AbstractTimeStepper):
     """
     Optimized 4th-order CFET with 3 exponential evaluations
 
-        [1] A. Alvermann and H. Fehske, "High-order commutator-free exponential
+    ??? cite "References"
+
+        1. A. Alvermann and H. Fehske, "High-order commutator-free exponential
             time-propagation of driven quantum systems," J. Comput. Phys., vol. 230,
             no. 15, pp. 5930-5956, 2011.
     """
@@ -78,7 +82,9 @@ class CFET_r4_e4opt(AbstractTimeStepper):
     """
     Optimized 4th-order CFET with 4 exponential evaluations
 
-        [1] S. Blanes, F. Casas, and M. Thalhammer, "High-order commutator-free
+    ??? cite "References"
+
+        1. S. Blanes, F. Casas, and M. Thalhammer, "High-order commutator-free
             quasi-Magnus exponential integrators for non-autonomous linear evolution
             equations," Comput. Phys. Commun., vol. 220, pp. 243-262, 2017.
     """
@@ -96,7 +102,9 @@ class CFET_r6_e4opt_cplx(AbstractTimeStepper):
     """
     Optimized 6th-order CFET with complex coefficients and 4 exponential evaluations
 
-        [1] S. Blanes, F. Casas, and M. Thalhammer, "High-order commutator-free
+    ??? cite "References"
+
+        1. S. Blanes, F. Casas, and M. Thalhammer, "High-order commutator-free
             quasi-Magnus exponential integrators for non-autonomous linear evolution
             equations," Comput. Phys. Commun., vol. 220, pp. 243-262, 2017.
     """

@@ -227,10 +227,12 @@ def block_estimate(
     key: PRNGKeyArray=jax.random.key(0)) -> Scalar:
 
     """
-    Simplification of the below referenced method to estimate the 1-norm of the matrix A^p, 
-    skipping convergence / early termination checks. 
+    Simplification of the method in [1] to estimate the 1-norm of the matrix A^p,
+    skipping convergence / early termination checks.
 
-        [1] N. J. Higham and F. Tisseur, "A block algorithm for matrix 1-norm
+    ??? cite "References"
+
+        1. N. J. Higham and F. Tisseur, "A block algorithm for matrix 1-norm
             estimation, with an application to 1-norm pseudospectra," SIAM J. Matrix
             Anal. Appl., vol. 21, no. 4, pp. 1185-1201, 2000.
     """
@@ -305,9 +307,9 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
 
     Does not support reverse mode differentiation
 
-    References:
+    ??? cite "References"
 
-        [1] A. H. Al-Mohy and N. J. Higham, "Computing the action of the matrix
+        1. A. H. Al-Mohy and N. J. Higham, "Computing the action of the matrix
             exponential, with an application to exponential integrators," SIAM J. Sci.
             Comput., vol. 33, no. 2, pp. 488-511, 2011.
     """

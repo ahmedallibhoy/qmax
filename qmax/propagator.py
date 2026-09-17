@@ -53,6 +53,13 @@ class Propagator(eqx.Module):
     $$
     where $H(t, u)$ is a controlled Hamiltonian, and $u(t)$ is a control input. Given $\psi(t_0)=\psi_0$, 
     the solution to the Schrödinger equation at time $t_1$ is $\psi(t_1) = U\big(t_0, t_1; u(\cdot)\big)\psi_0$.
+
+    qmax computes $\psi(t_1)$ using an iteration 
+    $$
+        \psi(t + dt) = \tilde{U}\big(t, t + dt, u(\cdot)\big)\psi(t)
+    $$
+    where $\tilde{U}$ approximates the true propagator using a commutator-free exponential timestepper
+    (c.f. [Timesteppers](timesteppers.md) for details). 
     """
 
     op: ControlledOperator
@@ -175,19 +182,19 @@ class Propagator(eqx.Module):
         Args:
             y0 (AbstractState): initial condition
             controls (tuple[AbstractControl, ...]): Control inputs to apply to the system
-                if Propagator was constructed using a `ControlledOperator` (see [`qmax.ControlledOperator`][] 
-                for more information). The number of provided controls must equal the number of controlled operators. 
+                if `Propagator` was constructed using a `ControlledOperator` (c.f. [Controlled Operator](controlled.md)). 
+                The number of provided controls must equal the number inputs to the controlled Hamiltonian. 
             running_cost_fn (callable): Function with signature `running_cost_fn(t, y, u)` returning 
-                a scalar. Propagator records the integral of this function over the integration interval.  
+                a scalar. `Propagator` records the integral of this function over the integration interval.  
             terminal_cost_fn (callable): Function with signature `terminal_cost_fn(t, y)` returning 
-                a scalar. Propagator records the value `terminal_cost_fn(t1, y1)`.
-            save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. Propagator 
+                a scalar. `Propagator` records the value `terminal_cost_fn(t1, y1)`.
+            save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. `Propagator` 
                 calls the save function every `save_every` steps over the integration interval. 
             save_every (Optional[int]): Number of steps per call to `save_fn`, e.g. if `save_every=2` then 
                 every other step is saved. If `save_every=None` then `save_fn` is called only on the last
                 step of the integration. 
             progressbar (bool): Whether to display a tqdm progress bar. 
-            adjoint (AbstractAdjoint): How to differentatate `propagate`. See [`qmax.Adjoint`][] for more information.
+            adjoint (AbstractAdjoint): How to differentatate `propagate`, c.f. [Adjoints](adjoints.md)
 
         Returns:
             A `PropagateResult` object containing the following fields:

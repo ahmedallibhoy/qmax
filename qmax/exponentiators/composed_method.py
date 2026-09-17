@@ -62,10 +62,12 @@ class Yoshida(AbstractCompositionMethod):
     """
     Yoshida triple-jump composition, see e.g. [1], and [2, Example 4.2]
 
-        [1] H. Yoshida, "Construction of higher order symplectic integrators," Phys.
+    ??? cite "References"
+
+        1. H. Yoshida, "Construction of higher order symplectic integrators," Phys.
             Lett. A, vol. 150, no. 5-7, pp. 262-268, 1990.
 
-        [2] E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
+        2. E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
             Structure-Preserving Algorithms for Ordinary Differential Equations,
             2nd ed. New York: Springer, 2006.
     """
@@ -83,11 +85,13 @@ class Suzuki(AbstractCompositionMethod):
     """
     Suzuki quintuple-jump composition, see e.g. [1], and [2, Example 4.3]
 
-        [1] M. Suzuki, "Fractal decomposition of exponential operators with
+    ??? cite "References"
+
+        1. M. Suzuki, "Fractal decomposition of exponential operators with
             applications to many-body theories and Monte Carlo simulations," Phys.
             Lett. A, vol. 146, no. 6, pp. 319-323, 1990.
 
-        [2] E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
+        2. E. Hairer, C. Lubich, and G. Wanner, Geometric Numerical Integration:
             Structure-Preserving Algorithms for Ordinary Differential Equations,
             2nd ed. New York: Springer, 2006.
     """
@@ -102,13 +106,15 @@ class Suzuki(AbstractCompositionMethod):
 
 class Symmetric_r6_s7(AbstractCompositionMethod):
     """
-    6th order symmetric composition with 7 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
+    6th order symmetric composition with 7 stages, see e.g. [1, Table 2] and [2, 3.7.1]
 
-        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+    ??? cite "References"
+
+        1. R. I. McLachlan, "On the numerical integration of ordinary differential
             equations by symmetric composition methods," SIAM J. Sci. Comput.,
             vol. 16, no. 1, pp. 151-168, 1995.
 
-        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+        2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 6
@@ -120,13 +126,15 @@ class Symmetric_r6_s7(AbstractCompositionMethod):
 
 class Symmetric_r6_s9(AbstractCompositionMethod):
     """
-    6th order symmetric composition with 9 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
+    6th order symmetric composition with 9 stages, see e.g. [1, Table 2] and [2, 3.7.1]
 
-        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+    ??? cite "References"
+
+        1. R. I. McLachlan, "On the numerical integration of ordinary differential
             equations by symmetric composition methods," SIAM J. Sci. Comput.,
             vol. 16, no. 1, pp. 151-168, 1995.
 
-        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+        2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 6
@@ -138,13 +146,15 @@ class Symmetric_r6_s9(AbstractCompositionMethod):
 
 class Symmetric_r8_s15(AbstractCompositionMethod):
     """
-    8th order symmetric composition with 15 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
+    8th order symmetric composition with 15 stages, see e.g. [1, Table 2] and [2, 3.7.1]
 
-        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+    ??? cite "References"
+
+        1. R. I. McLachlan, "On the numerical integration of ordinary differential
             equations by symmetric composition methods," SIAM J. Sci. Comput.,
             vol. 16, no. 1, pp. 151-168, 1995.
 
-        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+        2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 8
@@ -158,13 +168,15 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
 
 class Symmetric_r8_s17(AbstractCompositionMethod):
     """
-    8th order symmetric composition with 17 stages, see e.g. [1, Table 2] and [2, 3.7.1]  
-    
-        [1] R. I. McLachlan, "On the numerical integration of ordinary differential
+    8th order symmetric composition with 17 stages, see e.g. [1, Table 2] and [2, 3.7.1]
+
+    ??? cite "References"
+
+        1. R. I. McLachlan, "On the numerical integration of ordinary differential
             equations by symmetric composition methods," SIAM J. Sci. Comput.,
             vol. 16, no. 1, pp. 151-168, 1995.
 
-        [2] S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
+        2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
     composed_order = 8
@@ -179,9 +191,11 @@ class Symmetric_r8_s17(AbstractCompositionMethod):
 
 class Symmetric_r10_s31(AbstractCompositionMethod):
     """
-    10th order symmetric composition with 31 stages, see Section 4.4:
+    10th order symmetric composition with 31 stages, see Section 4.4 of [1].
 
-        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+    ??? cite "References"
+
+        1. M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """
@@ -202,9 +216,11 @@ class Symmetric_r10_s31(AbstractCompositionMethod):
 
 class Symmetric_r10_s33(AbstractCompositionMethod):
     """
-    10th order symmetric composition with 33 stages, see Section 4.4:
+    10th order symmetric composition with 33 stages, see Section 4.4 of [1].
 
-        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+    ??? cite "References"
+
+        1. M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """
@@ -225,9 +241,11 @@ class Symmetric_r10_s33(AbstractCompositionMethod):
 
 class Symmetric_r10_s35(AbstractCompositionMethod):
     """
-    10th order symmetric composition with 35 stages, see Section 4.4:
+    10th order symmetric composition with 35 stages, see Section 4.4 of [1].
 
-        [1] M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
+    ??? cite "References"
+
+        1. M. Sofroniou and G. Spaletta, "Derivation of symmetric composition
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """

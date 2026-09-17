@@ -41,12 +41,13 @@ class KrylovExponentiator(AbstractExponentiator):
 
     Does not support reverse mode differentiation
 
-    References:
-        [1] Y. Saad, "Analysis of some Krylov subspace approximations to the matrix
+    ??? cite "References"
+
+        1. Y. Saad, "Analysis of some Krylov subspace approximations to the matrix
             exponential operator," SIAM J. Numer. Anal., vol. 29, no. 1, pp. 209-228,
             1992.
 
-        [2] M. Hochbruck and C. Lubich, "On Krylov subspace approximations to the
+        2. M. Hochbruck and C. Lubich, "On Krylov subspace approximations to the
             matrix exponential operator," SIAM J. Numer. Anal., vol. 34, no. 5,
             pp. 1911-1925, 1997.
     """

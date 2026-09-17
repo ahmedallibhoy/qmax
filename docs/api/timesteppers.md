@@ -1,19 +1,19 @@
 # Timesteppers
 
 Consider the Schrödinger equation $i\hbar\dot{\psi} = H(t)\psi$ with time-varying Hamiltonian $H(t)$. 
-Solutions to the equation take the form $\psi(t) = U\big(t_0, t\big)\psi_0$ where $U(t_0, t)$ is 
-called the *propagator* of the system.
+Solutions take the form $\psi(t) = U\big(t_0, t\big)\psi_0$ where $U(t_0, t)$ is 
+the *propagator* of the system.
 
 The propagator can be expressed in closed form using the *Magnus expansion*
-$U(t_0, t_1) = \exp(\Omega(t_0, t_1))$ where $\Omega(t_0, t_1)$ admits the series expansion
+$U(t_0, t_1) = \exp(\Omega(t_0, t_1))$ where $\Omega(t_0, t_1)$ is given by the infinite series
 
 $$
-\Omega(t_0, t_1) = -\frac{i}{\hbar}\int_{t_0}^{t_1}H(s)ds - \frac{i}{2\hbar}\int_{t_0}^{t_1}\int_{t_0}^{s_1}[H(s_1), H(s_2)]ds_2ds_1 + \cdots
+\Omega(t_0, t_1) = -\frac{i}{\hbar}\int_{t_0}^{t_1}H(s)ds - \frac{i}{2\hbar}\int_{t_0}^{t_1}\int_{t_0}^{s_1}[H(s_1), H(s_2)]ds_2ds_1 - \frac{i}{6\hbar}\int_{t_0}^{t_1}\int_{t_0}^{s_1}\int_{t_0}^{s_2}\big([H(s_1), [H(s_2), H(s_3)]] + [H(s_3), [H(s_2), H(s_1)]]\big)ds_3ds_2ds_1 + \cdots
 $$
 
 The series expansion can be efficiently computed using a class of numerical methods 
-called *commutator-free exponential timesteppers* (CFETs). As the name implies, the method approximates 
-the individual terms of the series without directly forming the nested commutators.
+called *commutator-free exponential timesteppers* (CFETs). As the name implies, the method accomplishes
+this without directly forming the nested commutators.
 
 A CFET with $m$ stages and $n$ 
 exponential evaluations is an approximation of the form
