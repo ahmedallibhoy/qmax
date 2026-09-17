@@ -46,7 +46,13 @@ def _no_term_cost(t, y):
 
 
 class Propagator(eqx.Module):
-    """
+    r"""
+    Object representing the propagator $U\big(t_0, t_1; u(\cdot)\big)$ of the Schrödinger equation 
+    $$
+        i\hbar \dot{\psi}(t) = H(t, u(t))\psi(t).
+    $$
+    where $H(t, u)$ is a controlled Hamiltonian, and $u(t)$ is a control input. Given $\psi(t_0)=\psi_0$, 
+    the solution to the Schrödinger equation at time $t_1$ is $\psi(t_1) = U\big(t_0, t_1; u(\cdot)\big)\psi_0$.
     """
 
     op: ControlledOperator
@@ -65,6 +71,19 @@ class Propagator(eqx.Module):
         timestepper: AbstractTimeStepper=Midpoint(), 
         adapt: bool=True):
         """
+        Constructs a Propagator. 
+
+        Args:
+            op (Operator or AbstractTimeVaryingOperator or ControlledOperator): The Hamiltonian
+                of the system.
+            t0 (ScalarLike): The initial time.
+            t1 (ScalarLike): The terminal time.
+            num_steps (Optional[int]): The number of steps the integration method should take. Cannot
+                be used with `dt_max`. If `num_steps=None` and `dt_max=None` then the number of steps is 1.
+            dt_max (Optional[int]):  The maximum stepsize of the integrator. Cannot be used with `num_steps`.
+            timestepper (AbstractTimeStepper): The timestepping method.
+            adapt (bool): Whether the operator should be adapted. This parameter is ignored if the Hamiltonian 
+                is a `AbstractTimeVaryingOperator` or `ControlledOperator`. 
         """
 
         self.t0 = t0
@@ -145,7 +164,47 @@ class Propagator(eqx.Module):
         save_every: Optional[int]=None,
         progressbar: bool=False, 
         adjoint: AbstractAdjoint=ReversibleAdjoint()) -> PropagateResult:
-        """
+        r"""
+        Computes $U(t_0, t_1; u)\psi_0$. This method optionally can 
+        save intermediate values over the integration interval, and computes 
+        a cost function of the form
+        $$
+            J(\psi_0, u) = V(t_1, \psi(t_1)) + \int_{t_0}^{t_1}\ell(t, \psi(t), u(t))dt.
+        $$
+
+        Args:
+            y0 (AbstractState): initial condition
+            controls (tuple[AbstractControl, ...]): Control inputs to apply to the system
+                if Propagator was constructed using a `ControlledOperator` (see [`qmax.ControlledOperator`][] 
+                for more information). The number of provided controls must equal the number of controlled operators. 
+            running_cost_fn (callable): Function with signature `running_cost_fn(t, y, u)` returning 
+                a scalar. Propagator records the integral of this function over the integration interval.  
+            terminal_cost_fn (callable): Function with signature `terminal_cost_fn(t, y)` returning 
+                a scalar. Propagator records the value `terminal_cost_fn(t1, y1)`.
+            save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. Propagator 
+                calls the save function every `save_every` steps over the integration interval. 
+            save_every (Optional[int]): Number of steps per call to `save_fn`, e.g. if `save_every=2` then 
+                every other step is saved. If `save_every=None` then `save_fn` is called only on the last
+                step of the integration. 
+            progressbar (bool): Whether to display a tqdm progress bar. 
+            adjoint (AbstractAdjoint): How to differentatate `propagate`. See [`qmax.Adjoint`][] for more information.
+
+        Returns:
+            A `PropagateResult` object containing the following fields:
+
+                - **`y0`** -- The initial state 
+
+                - **`y1`** -- The terminal state
+
+                - **`ys`** -- PyTree of saved values across the integration interval
+
+                - **`ts`** -- The times of the saved values
+
+                - **`running_cost`** -- The total running cost $\int_{t_0}^{t_1}\ell(t, u(t), \psi(t))dt$
+
+                - **`terminal_cost`** -- The terminal cost $V(t_1, \psi(t_1))$
+
+                - **`total_cost`** -- The sum of running_cost and terminal_cost
         """
 
         if save_every is None:
@@ -192,6 +251,19 @@ class Propagator(eqx.Module):
         self,
         t: ScalarLike,
         dt: ScalarLike) -> CountDict:
+        """
+        Produces a `CountDict` object tabulating the number of matvecs, adjoint matvecs, exponential actions, 
+            and solves required by each operator in the expression tree of the Hamiltonian to compute one 
+            stage of the integration method.
+
+        Args:
+            t (ScalarLike): The time of the stage
+            dt (ScalarLike): The stepsize 
+
+        Returns:
+            A `CountDict` object representing the interface counts of the leaves of the Hamiltonian operator for 
+                one stage of the time integration method at time `t` with stepsize `dt`. 
+        """
 
         c = CountDict()
         t_quad, _ = self.quad_rule

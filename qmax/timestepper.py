@@ -29,6 +29,13 @@ class AbstractTimeStepper(eqx.Module):
 
 
 class Midpoint(AbstractTimeStepper):
+    r"""
+    Second order CFET with 1 exponential evaluation. Uses the following approximation
+    $$
+    U(t, t + dt) \approx \exp\left(H\left(t + \frac{dt}{2}\right)\right)
+    $$
+    """
+
     num_nodes: ClassVar[int] = 1
     order:     ClassVar[int] = 2
     weights:   ClassVar[Array] = jnp.array([[1.]])
@@ -36,7 +43,7 @@ class Midpoint(AbstractTimeStepper):
 
 class CFET_r4_e2(AbstractTimeStepper):
     """
-    Fourth-order commutator-free exponential time-propagator (CFET).
+    4th-order commutator-free CFET with 2 exponential evaluations
 
         [1] M. Thalhammer, "A fourth-order commutator-free exponential integrator for
             nonautonomous differential equations," SIAM J. Numer. Anal., vol. 44,

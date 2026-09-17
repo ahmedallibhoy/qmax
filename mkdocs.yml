@@ -4,6 +4,19 @@ theme:
       - navigation.sections
       - toc.integrate
       - header.autohide
+  palette:
+    - scheme: default
+      primary: white
+      accent: amber
+      toggle:
+          icon: material/weather-night
+          name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: amber
+      toggle:
+          icon: material/weather-sunny
+          name: Switch to light mode
 
 site_name: qmax
 site_author: Ahmed Allibhoy
@@ -12,29 +25,49 @@ site_url: https://docs.qmax.io
 repo_url: https://github.com/ahmedallibhoy/qmax
 repo_name: ahmedallibhoy/qmax
 
+hooks:
+  - utils/mkdocs_hooks.py
+
+exclude_docs: |
+  _templates/
+
 plugins:
   - search
-  - hippogriffe
+  #- hippogriffe:
+  #    show_bases: true
+  #    show_source_links: all
   #- ipynb
   - mkdocstrings:
+      custom_templates: docs/_templates
       handlers:
         python:
           options:
             force_inspection: true
             heading_level: 4
+            inherited_members: true
+            members_order: source
             show_bases: false
+            show_if_no_docstring: false
+            show_overloads: true
             show_root_heading: true
-            show_signature_annotations: false
+            #show_signature_annotations: true
             show_source: false
             show_symbol_type_heading: true
             show_symbol_type_toc: true
+            docstring_section_style: list
+
   
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.superfences  # needed for syntax highlighting
   - pymdownx.details
+  - pymdownx.snippets:  # Include one Markdown file into another
+      base_path: docs
   - admonition
+  - toc:
+      permalink: "¤"  # Adds a clickable permalink to each section heading
+      #toc_depth: 4  # Prevents h5, h6 (i.e. methods) from showing up in the TOC.
 
 extra_css:
     - _static/custom.css
@@ -60,7 +93,10 @@ nav:
       - Spherical: 'api/hilbert_spaces/spherical.md'
       - Qubits: 'api/hilbert_spaces/qubits.md'
       - Nlevel: 'api/hilbert_spaces/nlevel.md'
-    - Operators: 'api/operators.md'
+    - Operators: 
+      - Operator: 'api/operators/operator.md'
+      - Timevarying Operator: 'api/operators/timevarying.md'
+      - Controlled Operator: 'api/operators/controlled.md'
     - Exponentiators:
       - Base: 'api/exponentiators/base.md'
       - Euler: 'api/exponentiators/euler.md'

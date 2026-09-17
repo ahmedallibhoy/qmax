@@ -1,0 +1,8 @@
+{% extends "_base/class.html.jinja" %}
+
+{% block heading %}
+  {{ super() }}
+  {%- if config.extra.source_url and class.lineno and class.endlineno -%}
+    <a class="doc-source-link" href="{{ config.extra.source_url }}/{{ class|source_location }}#L{{ class.lineno }}-L{{ class.endlineno }}">[source]</a>
+  {%- endif -%}
+{% endblock heading %}

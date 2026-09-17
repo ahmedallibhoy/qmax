@@ -217,8 +217,7 @@ class AbstractAdjoint(eqx.Module):
 
 class DirectAdjoint(AbstractAdjoint):
     """
-    Uses plain lax.scan for looping and differentiates directly through it. Supports 
-    both forward and reverse mode differentiation. Stores every residual so not suitable 
+    Differentiates directly through the solver while storing every residual. Likely not suitable 
     for high-dimensional systems due to memory use. 
     """
 
@@ -229,9 +228,9 @@ class DirectAdjoint(AbstractAdjoint):
 
 class ReversibleAdjoint(AbstractAdjoint):
     """
-    Uses plain lax.scan for looping but implements a custom vjp rule which reconstructs 
-    the trajectory by stepping backward through the solver. Similar speed to DirectAdjoint
-    but memory of the adjoint scales like O(1). Only supports reverse-mode differentiation. 
+    Does not store any residuals and instead reconstructs the trajectory by stepping backward 
+    through the solver. Slightly slower than `DirectAdjoint` but memory of the adjoint scales 
+    like O(1). Only supports reverse-mode differentiation. 
     """
 
     outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
@@ -241,10 +240,19 @@ class ReversibleAdjoint(AbstractAdjoint):
 
 class CheckpointedAdjoint(AbstractAdjoint):
     """
-    Uses a checkpointed scan for looping. Memory scales as O(√num_steps) by default, 
+    Uses a binomial checkpointing scheme and reconstructs residuals by computing 
+    the forward pass from the previous checkpoint. Memory scales as O(√num_steps) by default, 
     though the number of checkpoints saved by the outer and inner scans can be adjusted
-    by setting outer_checkpoints and inner_checkpoints respectively. This method only 
-    supports reverse-mode differentiation.
+    by setting `outer_checkpoints` and `inner_checkpoints` respectively. This method only 
+    supports reverse-mode differentiation. Likely noticeably slower than `DirectAdjoint`.
+
+    Attributes:
+        outer_checkpoints (Optional[int]): number of checkpoints saved by the 
+            outer loop. If `outer_checkpoints=None`, the adjoint defaults to 
+            saving the square root of the number of iterations.
+        inner_checkpoints (Optional[int]): number of checkpoints saved by the 
+            inner loop. If `inner_checkpoints=None`, the adjoint defaults to 
+            saving the square root of the number of iterations.
     """
 
     outer_checkpoints: Optional[int] = None
