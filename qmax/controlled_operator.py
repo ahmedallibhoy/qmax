@@ -12,6 +12,18 @@ from .exponentiators import AbstractSplitMethod, Strang
 
 
 class ControlledOperator(eqx.Module):
+    """
+    Controlled operator of the form $H(t, u) = H_0(t) + \sum_{j=1}^{m}u_jH_j(t)$.
+
+    Attributes:
+        drift_op (Operator | AbstractTimeVaryingOperator): The drift operator $H_0(t)$
+        controlled_ops (Iterable[Operator | AbstractTimeVaryingOperator]): An iterable of 
+            controlled operators $H_j(t)$.
+        split_method (Optional[AbstractSplitMethod]): The split method used to exponentiate
+            the sum $H_0(t) + \sum_{j=1}^{m}u_jH_j(t)$, (see [Split](../exponentiators/split.md)
+            for details). If `split_method=None` then [qmax.exponentiators.Strang][] is used.
+    """
+
     drift_op: AbstractTimeVaryingOperator
     controlled_ops: tuple[AbstractTimeVaryingOperator, ...] = eqx.field(default=())
     split_method: AbstractSplitMethod = eqx.field(default=Strang(), kw_only=True)
@@ -68,7 +80,18 @@ class ControlledOperator(eqx.Module):
     def __call__(
         self, 
         t: ScalarLike,
-        controls: ArrayLike) -> Operator | AbstractTimeVaryingOperator:
+        controls: ArrayLike) -> Operator:
+
+        """
+        Evaluates the controlled operator given a time t and an array of control inputs `controls`. 
+
+        Args:
+            t (Scalar): Evaluation time
+            controls (Array): Array of shape `(num_controls,)`
+
+        Returns:
+            the operator $H(t, u)$. 
+        """
 
         op = reduce(
             lambda a, b: (a + b).with_split_method(self.split_method), 

@@ -15,9 +15,23 @@ if TYPE_CHECKING:
     from .timevarying_operator import AbstractTimeVaryingOperator
 
 
+# TODO
+#   1. Add FourierControl
+
+
 class AbstractControl(eqx.Module):
+    """
+    Abstract base class for controls.
+    """
 
     def __call__(self, t: ScalarLike) -> Scalar:
+        """
+        Args:
+            t (Scalar): time at which to evaluate the control 
+        
+        Returns:
+            control input evaluated at time `t`
+        """
         return self.evaluate(t)
 
     def __mul__(self, op: Operator) -> AbstractTimeVaryingOperator:
@@ -40,6 +54,13 @@ class AbstractControl(eqx.Module):
 
 
 class ControlFunction(AbstractControl):
+    """
+    Control input which corresponds to directly evaluating a function `cntrl`
+
+    Attributes:
+        cntrl (callable): Function with signature `cntrl(t)` returning a scalar 
+            which is the control at time t. 
+    """
     cntrl: Callable[[ScalarLike], Scalar]
 
     def evaluate(self, t: ScalarLike) -> Scalar:
@@ -57,6 +78,10 @@ type CanMultiply = AbstractInterpolatedControl | ScalarLike | Operator
 
 
 class AbstractInterpolatedControl(AbstractControl):
+    """
+    Abstract base class for interpolated controls
+    """
+
     t0: Scalar = eqx.field(static=True, converter=float)
     t1: Scalar = eqx.field(static=True, converter=float)
     u_range: ArrayLike
@@ -67,6 +92,16 @@ class AbstractInterpolatedControl(AbstractControl):
         t0: ScalarLike, 
         t1: ScalarLike, 
         num_samples: int) -> AbstractInterpolatedControl:
+        """
+        Creates an instance of the interpolated control object from a callable
+        by sampling it at `num_samples` evenly spaced points in the interval [`t0`, `t1`].
+
+        Args:
+            u_func (callable): Control function to sample
+            t0 (Scalar): initial time of interpolation interval
+            t1 (Scalar): initial time of interpolation interval
+            num_samples (int): number of sample points
+        """
 
         t_range = jnp.linspace(t0, t1, num_samples)
         u_range = jax.vmap(u_func)(t_range)
@@ -87,52 +122,17 @@ class AbstractInterpolatedControl(AbstractControl):
     def idx(self, t: ScalarLike) -> int:
         return jnp.clip(jnp.trunc((t - self.t0) / self.dt).astype(int), 0, self.num_steps - 2)
 
-    def binary_op(self, other: AbstractInterpolatedControl, func: Callable) -> AbstractInterpolatedControl:
-        if not isinstance(other, AbstractInterpolatedControl):
-            return NotImplemented
-
-        if not type(self) == type(other):
-            return NotImplemented
-
-        #if not (jnp.allclose(self.t0, other.t0) and jnp.allclose(self.t1, other.t1)):
-        #    raise ValueError(
-        #        f"Only controls defined on the same interval may be combined but "
-        #        f"u1 is defined on ({self.t0}, {self.t1}) and u2 is defined on ({other.t0}, {other.t1})")
-
-        return type(self)(self.t0, self.t1, func(self.u_range, other.u_range))
-        
-    def __add__(self, other: AbstractInterpolatedControl) -> AbstractInterpolatedControl:
-        return self.binary_op(other, lambda a, b: a + b)
-
-    def __sub__(self, other: AbstractInterpolatedControl) -> AbstractInterpolatedControl:
-        return self.binary_op(other, lambda a, b: a - b)
-
-    def __mul__(self, other: CanMultiply) -> AbstractInterpolatedControl | AbstractTimeVaryingOperator:
-        if isinstance(other, AbstractInterpolatedControl):
-            return self.binary_op(other, lambda a, b: a * b)
-
-        if jnp.isscalar(other):
-            return type(self)(self.t0, self.t1, other * self.u_range)
-
-        return super().__mul__(other)
-
-    def __rmul__(self, other: CanMultiply) -> AbstractInterpolatedControl | AbstractTimeVaryingOperator:
-        if isinstance(other, AbstractInterpolatedControl):
-            return self.binary_op(other, lambda a, b: a * b)
-        
-        if jnp.isscalar(other):
-            return type(self)(self.t0, self.t1, other * self.u_range)
-
-        return super().__rmul__(other)
-
-    def __truediv__(self, other: ScalarLike) -> AbstractInterpolatedControl:
-        if jnp.isscalar(other):
-            return type(self)(self.t0, self.t1, self.u_range / other)
-
-        return NotImplemented
-
 
 class PiecewiseConstantControl(AbstractInterpolatedControl):
+    """
+    Piecewise constant interpolation of control values at evenly spaced points 
+    on the interval [t0, t1]
+
+    Attributes:
+        t0 (Scalar): initial time of interpolation interval
+        t1 (Scalar): final time of interpolation interval
+        u_range (Array): Array of values to interpolate between
+    """
 
     def evaluate(self, t: ScalarLike) -> Scalar:
         idx = self.idx(t)
@@ -140,6 +140,15 @@ class PiecewiseConstantControl(AbstractInterpolatedControl):
 
 
 class PiecewiseLinearControl(AbstractInterpolatedControl):
+    """
+    Piecewise linear interpolation of control values at evenly spaced points 
+    on the interval [t0, t1]
+
+    Attributes:
+        t0 (Scalar): initial time of interpolation interval
+        t1 (Scalar): final time of interpolation interval
+        u_range (Array): Array of values to interpolate between
+    """
 
     def evaluate(self, t: ScalarLike) -> Scalar:
         idx = self.idx(t)

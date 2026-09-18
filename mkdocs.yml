@@ -33,9 +33,7 @@ exclude_docs: |
 
 plugins:
   - search
-  #- hippogriffe:
-  #    show_bases: true
-  #    show_source_links: all
+  #- hippogriffe
   #- ipynb
   - mkdocstrings:
       custom_templates: docs/_templates

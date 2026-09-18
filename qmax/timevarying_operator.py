@@ -19,8 +19,20 @@ from .control import AbstractControl, ConstantControl
 
 
 class AbstractTimeVaryingOperator(AbstractExpressionTree):
+    """
+    A timevarying operator $H(t)$.
+    """
 
     def __call__(self, t: ScalarLike) -> Operator:
+        """
+        Evaluates the timevarying operator at time `t`.
+
+        Args:
+            t (Scalar): Evaluation time
+
+        Returns:
+            the operator $H(t)$. 
+        """
         return self.evaluate(t)
 
     @abstractmethod
