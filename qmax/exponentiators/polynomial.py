@@ -62,8 +62,10 @@ class ChebyshevExponentiator(AbstractExponentiator):
     kth modified Bessel function of the first kind. The latter are evaluated using
     the Miller recurrence algorithm.
 
-    WARNING: The Miller recurrence numerically overflows in 32-bit precision. It is recommend
-    to use 64-bit precision or a different exponentiation method at low precision.
+    !!! warning
+
+        The Miller recurrence numerically overflows in 32-bit precision. It is recommend
+        to use 64-bit precision or a different exponentiation method at low precision.
 
     ??? cite "References"
 

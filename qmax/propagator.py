@@ -54,12 +54,12 @@ class Propagator(eqx.Module):
     where $H(t, u)$ is a controlled Hamiltonian, and $u(t)$ is a control input. Given $\psi(t_0)=\psi_0$, 
     the solution to the Schrödinger equation at time $t_1$ is $\psi(t_1) = U\big(t_0, t_1; u(\cdot)\big)\psi_0$.
 
-    qmax computes $\psi(t_1)$ using an iteration 
+    qmax computes $\psi(t_1)$ using the iteration 
     $$
         \psi(t + dt) = \tilde{U}\big(t, t + dt, u(\cdot)\big)\psi(t)
     $$
-    where $\tilde{U}$ approximates the true propagator using a commutator-free exponential timestepper
-    (c.f. [Timesteppers](timesteppers.md) for details). 
+    where $\tilde{U}$ approximates the true propagator using a commutator-free exponential timestepper (CFET)
+    (see [Timesteppers](timesteppers.md) for details). 
     """
 
     op: ControlledOperator
@@ -81,14 +81,14 @@ class Propagator(eqx.Module):
         Constructs a Propagator. 
 
         Args:
-            op (Operator or AbstractTimeVaryingOperator or ControlledOperator): The Hamiltonian
+            op (Operator | AbstractTimeVaryingOperator | ControlledOperator): The Hamiltonian
                 of the system.
             t0 (ScalarLike): The initial time.
             t1 (ScalarLike): The terminal time.
             num_steps (Optional[int]): The number of steps the integration method should take. Cannot
                 be used with `dt_max`. If `num_steps=None` and `dt_max=None` then the number of steps is 1.
             dt_max (Optional[int]):  The maximum stepsize of the integrator. Cannot be used with `num_steps`.
-            timestepper (AbstractTimeStepper): The timestepping method.
+            timestepper (AbstractTimeStepper): The timestepping method, see [Timesteppers](timesteppers.md)
             adapt (bool): Whether the operator should be adapted. This parameter is ignored if the Hamiltonian 
                 is a `AbstractTimeVaryingOperator` or `ControlledOperator`. 
         """
@@ -182,7 +182,7 @@ class Propagator(eqx.Module):
         Args:
             y0 (AbstractState): initial condition
             controls (tuple[AbstractControl, ...]): Control inputs to apply to the system
-                if `Propagator` was constructed using a `ControlledOperator` (c.f. [Controlled Operator](controlled.md)). 
+                if `Propagator` was constructed using a `ControlledOperator` (see [Controlled Operator](operators/controlled.md)). 
                 The number of provided controls must equal the number inputs to the controlled Hamiltonian. 
             running_cost_fn (callable): Function with signature `running_cost_fn(t, y, u)` returning 
                 a scalar. `Propagator` records the integral of this function over the integration interval.  
@@ -194,24 +194,24 @@ class Propagator(eqx.Module):
                 every other step is saved. If `save_every=None` then `save_fn` is called only on the last
                 step of the integration. 
             progressbar (bool): Whether to display a tqdm progress bar. 
-            adjoint (AbstractAdjoint): How to differentatate `propagate`, c.f. [Adjoints](adjoints.md)
+            adjoint (AbstractAdjoint): How to differentatate `propagate`, see [Adjoints](adjoints.md)
 
         Returns:
             A `PropagateResult` object containing the following fields:
 
-                - **`y0`** -- The initial state 
+                - **`y0`** – The initial state 
 
-                - **`y1`** -- The terminal state
+                - **`y1`** – The terminal state
 
-                - **`ys`** -- PyTree of saved values across the integration interval
+                - **`ys`** – PyTree of saved values across the integration interval
 
-                - **`ts`** -- The times of the saved values
+                - **`ts`** – The times of the saved values
 
-                - **`running_cost`** -- The total running cost $\int_{t_0}^{t_1}\ell(t, u(t), \psi(t))dt$
+                - **`running_cost`** – The total running cost $\int_{t_0}^{t_1}\ell(t, u(t), \psi(t))dt$
 
-                - **`terminal_cost`** -- The terminal cost $V(t_1, \psi(t_1))$
+                - **`terminal_cost`** – The terminal cost $V(t_1, \psi(t_1))$
 
-                - **`total_cost`** -- The sum of running_cost and terminal_cost
+                - **`total_cost`** – The sum of `running_cost` and `terminal_cost`
         """
 
         if save_every is None:
@@ -269,7 +269,31 @@ class Propagator(eqx.Module):
 
         Returns:
             A `CountDict` object representing the interface counts of the leaves of the Hamiltonian operator for 
-                one stage of the time integration method at time `t` with stepsize `dt`. 
+                one stage of the time integration method at time `t` with stepsize `dt`.
+
+        Example:
+        ```python
+        import qmax as qx 
+
+        hilbert_space = qx.spaces.FiniteDifference(x0=-10, x1=10, num_steps=500)
+        L = hilbert_space.laplacian()
+        V = hilbert_space.potential_energy(lambda x: 0.5 * x ** 2)
+        H = -0.5 * L + V
+
+        U = qx.Propagator(H, t0=0.0, t1=1.0, dt_max=0.01)
+        print(U.count_stage(U.t0, U.dt).tree())
+        ``` 
+
+        ```
+        1.0 * (-0.5 * Laplacian + FiniteDifferencePotentialEnergy)
+        └─(-0.5 * Laplacian + FiniteDifferencePotentialEnergy)
+          ├─FiniteDifferencePotentialEnergy ·························  exp_actions=2
+          └─-0.5 * Laplacian
+            └─Laplacian
+              └─Laplacian1D(axis=0) ·································  actions=1, solves=1
+        ─────────────────────────────────────────────────────────────
+        total:                                                         actions=1, solves=1, exp_actions=2
+        ```
         """
 
         c = CountDict()

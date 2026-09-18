@@ -217,8 +217,8 @@ class AbstractAdjoint(eqx.Module):
 
 class DirectAdjoint(AbstractAdjoint):
     """
-    Differentiates directly through the solver while storing every residual. Likely not suitable 
-    for high-dimensional systems due to memory use. 
+    Differentiates directly through the solver while storing every residual. Its fast but 
+    likely not suitable for high-dimensional systems due to memory use. 
     """
 
     outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan) 
@@ -240,9 +240,13 @@ class ReversibleAdjoint(AbstractAdjoint):
 
 class CheckpointedAdjoint(AbstractAdjoint):
     """
-    Uses a binomial checkpointing scheme and reconstructs residuals by computing 
-    the forward pass from the previous checkpoint. Memory scales as O(√num_steps) by default, 
-    though the number of checkpoints saved by the outer and inner scans can be adjusted
+    [qmax.Propagator.propagate][] uses two nested loops the propagate a state over the integration
+    interval: an outer loop of length `num_steps // save_every` that steps across states recorded 
+    by the save function, and an inner loop of length `save_every` that steps between saved states.
+
+    `CheckpointAdjoint` uses a binomial checkpointing scheme for both loops and reconstructs residuals 
+    by recomputing the forward pass from the previous checkpoint. Memory scales as O(√`num_steps`) by default, 
+    though the number of checkpoints saved by the outer and inner loops can be adjusted
     by setting `outer_checkpoints` and `inner_checkpoints` respectively. This method only 
     supports reverse-mode differentiation. Likely noticeably slower than `DirectAdjoint`.
 

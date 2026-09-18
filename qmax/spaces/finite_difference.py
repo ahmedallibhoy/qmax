@@ -11,7 +11,7 @@ from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator, AbstractHermitianOperator
 from ..exponentiators import (
-    AbstractExponentiator, ExactExponentiator, CrankNicolson, NoExponentiator
+    AbstractExponentiator, ExactExponentiator, Cayley, NoExponentiator
 )
 from ..tensor import TensorProduct, TensorState, KroneckerSum, KroneckerSumExp, LiftOperator
 from ..utils import over_batch
@@ -55,7 +55,7 @@ class _FiniteDifference1D(SpatialDiscretization):
 
 
 class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
-    exponentiator: AbstractExponentiator = eqx.field(default=CrankNicolson(), kw_only=True)
+    exponentiator: AbstractExponentiator = eqx.field(default=Cayley(), kw_only=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(

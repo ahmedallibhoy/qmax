@@ -1,6 +1,7 @@
 from typing import ClassVar, Optional
 
 import equinox as eqx
+import numpy as np
 import jax.numpy as jnp
 from jaxtyping import Array, ScalarLike
 
@@ -15,10 +16,10 @@ __all__ = ["TwoLevel", "Qubits"]
 
 
 PAULI_MATRICES = {
-    "i": jnp.eye(2, dtype=complex),
-    "x": jnp.array([[0., 1.], [1., 0.]], dtype=complex),
-    "y": jnp.array([[0., -1j], [1j, 0.]], dtype=complex),
-    "z": jnp.array([[1., 0.], [0., -1.]], dtype=complex)
+    "i": np.eye(2, dtype=complex),
+    "x": np.array([[0., 1.], [1., 0.]], dtype=complex),
+    "y": np.array([[0., -1j], [1j, 0.]], dtype=complex),
+    "z": np.array([[1., 0.], [0., -1.]], dtype=complex)
 }
 
 

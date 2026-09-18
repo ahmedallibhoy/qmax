@@ -5,7 +5,7 @@ from abc import abstractmethod
 
 import equinox as eqx
 import jax
-import jax.numpy as jnp
+import numpy as np
 
 from jaxtyping import Array, Scalar, ScalarLike
 
@@ -38,13 +38,13 @@ class AbstractSplitMethod(DelegatingExponentiator):
         pass
 
     def __check_init__(self):
-        if not (jnp.allclose(jnp.sum(self.a), 1) and jnp.allclose(jnp.sum(self.b), 1)):
+        if not (np.allclose(np.sum(self.a), 1) and np.allclose(np.sum(self.b), 1)):
             raise ValueError("Coefficient arrays a and b must sum to 1")
         if not self.a.shape[0] == self.b.shape[0] + 1:
             raise ValueError(
                 f"Need len(self.a) == len(self.b) + 1 "
                 f"but len(self.a)={self.a.shape[0]} and len(self.b)={self.b.shape[0]}")
-        if not (jnp.allclose(self.a, self.a[::-1]) and jnp.allclose(self.b, self.b[::-1])):
+        if not (np.allclose(self.a, self.a[::-1]) and np.allclose(self.b, self.b[::-1])):
             raise ValueError(f"self.a and self.b must be palindromic sequences")
 
     def schedule(self, op: AddOperator) -> list[tuple[int, Scalar, int]]:
@@ -89,8 +89,12 @@ class AbstractSplitMethod(DelegatingExponentiator):
 
 
 class Strang(AbstractSplitMethod):
-    a: ClassVar[Array] = jnp.array([0.5, 0.5])
-    b: ClassVar[Array] = jnp.array([1.0])
+    r"""
+    Strang splitting: $\exp(h(A + B)) \approx \exp(\frac{h}{2}A)\exp(hB)\exp(\frac{h}{2}A)$. Equivalent 
+    to a 2nd order partitioned Runge-Kutta exponential splitting method. 
+    """
+    a: ClassVar[Array] = np.array([0.5, 0.5])
+    b: ClassVar[Array] = np.array([1.0])
 
     @property
     def order(self) -> Order:
@@ -106,8 +110,8 @@ class PRK_r2_s2(AbstractSplitMethod):
         1. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    a: ClassVar[Array] = jnp.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
-    b: ClassVar[Array] = jnp.array([0.5, 0.5])
+    a: ClassVar[Array] = np.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
+    b: ClassVar[Array] = np.array([0.5, 0.5])
 
     @property
     def order(self) -> Order:
@@ -124,10 +128,10 @@ class PRK_r4_s6(AbstractSplitMethod):
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """
-    a: ClassVar[Array] = jnp.array(
+    a: ClassVar[Array] = np.array(
         [0.0792036964311956, 0.353172906049774, -0.0420650803577195, 0.2193769557534997,
          -0.0420650803577195, 0.353172906049774, 0.0792036964311956])
-    b: ClassVar[Array] = jnp.array(
+    b: ClassVar[Array] = np.array(
         [0.209515106613362, -0.1438517731798181, 0.4343366665664561,
          0.4343366665664561, -0.1438517731798181, 0.209515106613362])
 
@@ -146,11 +150,11 @@ class PRK_r6_s10(AbstractSplitMethod):
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """
-    a: ClassVar[Array] = jnp.array(
+    a: ClassVar[Array] = np.array(
         [0.0502627644003922, 0.413514300428344, 0.0450798897943977, -0.188054853819569,
          0.541960678450780, -0.7255255585086897, 0.541960678450780, -0.188054853819569,
          0.0450798897943977, 0.413514300428344, 0.0502627644003922])
-    b: ClassVar[Array] = jnp.array(
+    b: ClassVar[Array] = np.array(
         [0.148816447901042, -0.132385865767784, 0.067307604692185, 0.432666402578175,
          -0.0164045894036180, -0.0164045894036180, 0.432666402578175, 0.067307604692185,
          -0.132385865767784, 0.148816447901042])

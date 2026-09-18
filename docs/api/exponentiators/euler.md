@@ -9,7 +9,7 @@
         members:
             -
 
-::: qmax.exponentiators.CrankNicolson 
+::: qmax.exponentiators.Cayley 
     options:
         members:
             -

@@ -26,7 +26,7 @@ def lanczos(
     num_iterations: int,
     *,
     orthogonalize: bool=True,
-    key: PRNGKeyArray=jax.random.key(0),
+    key: Optional[PRNGKeyArray]=None,
     w0: Optional[AbstractState]=None,
     Q0: Optional[AbstractState]=None,
     idx0: int=0) -> tuple[Array, Array, AbstractState]:
@@ -72,6 +72,8 @@ def lanczos(
         return carry_next, (alpha_next, beta_next) 
 
     if w0 is None:
+        if key is None:
+            key = jax.random.key(0)
         w0 = hilbert_space.random(key)
 
     if Q0 is None:
@@ -102,7 +104,7 @@ def restart_lanczos(
     max_krylov_dim: int=100,
     num_restarts: int=4,
     select: str="smallest",
-    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractState, Array]:
+    key: Optional[PRNGKeyArray]=None) -> tuple[Array, AbstractState, Array]:
 
     """
     Essentially reproduces the method described in [1].

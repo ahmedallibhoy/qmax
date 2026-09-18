@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
@@ -33,7 +33,7 @@ def op_eigh_lanczos(
     num_iterations: int,
     *,
     orthogonalize: bool=True,
-    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Array, AbstractState, Array]:
+    key: Optional[PRNGKeyArray]=None) -> tuple[Array, AbstractState, Array]:
 
     alpha, beta, Q, _ = lanczos(
         op, num_iterations, orthogonalize=orthogonalize, key=key)
@@ -49,7 +49,7 @@ def op_spectral_bounds_lanczos(
     num_iterations: int=25,
     *,
     orthogonalize: bool=False,
-    key: PRNGKeyArray=jax.random.key(0)) -> tuple[Scalar, Scalar]:
+    key: Optional[PRNGKeyArray]=None) -> tuple[Scalar, Scalar]:
 
     alpha, beta, _, _ = lanczos(
         op, num_iterations, orthogonalize=orthogonalize, key=key)

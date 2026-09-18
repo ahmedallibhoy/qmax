@@ -1,7 +1,7 @@
 # Timesteppers
 
 Consider the Schrödinger equation $i\hbar\dot{\psi} = H(t)\psi$ with time-varying Hamiltonian $H(t)$. 
-Solutions take the form $\psi(t) = U\big(t_0, t\big)\psi_0$ where $U(t_0, t)$ is 
+Solutions are $\psi(t) = U\big(t_0, t\big)\psi_0$ where the operator $U(t_0, t)$ is 
 the *propagator* of the system.
 
 The propagator can be expressed in closed form using the *Magnus expansion*
@@ -12,19 +12,27 @@ $$
 $$
 
 The series expansion can be efficiently computed using a class of numerical methods 
-called *commutator-free exponential timesteppers* (CFETs). As the name implies, the method accomplishes
+called *commutator-free exponential timesteppers* (CFETs). As the name implies, they accomplish
 this without directly forming the nested commutators.
 
 A CFET with $m$ stages and $n$ 
 exponential evaluations is an approximation of the form
 
 $$
-\exp(\Omega(t, t + dt)) \approx \exp(\tilde{B}_n)\exp(\tilde{B}_{n-1}) \cdots \exp(\tilde{B}_1)
+\exp(\Omega(t, t + dt)) \approx \exp(\tilde{\Omega}_n)\exp(\tilde{\Omega}_{n-1}) \cdots \exp(\tilde{\Omega}_1)
 $$
 
-where $\tilde{B}_k = -\frac{i}{\hbar}dt\sum_{j=1}^{m}w_{kj}H(t + c_{j}dt)$. The CFET has order $r$
-if $\psi(t + dt) = \psi_1 + O(dt^{r + 1})$ where $\psi_1$ is the state produced by the approximate 
-propagator. 
+where $\tilde{\Omega}_k = -\frac{i}{\hbar}\sum_{j=1}^{m}w_{kj}H(t + c_{j}dt)dt$. The CFET has order $r$
+if the approximation error scales like $O(dt^{r + 1})$. 
+Identifying the weights $w_{kj}$ so that the approximation achieves a given order involves 
+solving a set of algebraic equations called *order conditions*. Modern schemes are derived using 
+numerical optimization techniques, by minimizing the approximation error over the set of weights such that the 
+order conditions hold.
+
+Unlike conventional ODE integrators, CFETs preserve the geometric structure of the 
+exact solution. In the context of quantum mechanics, the approximate state is guaranteed to be
+unitary even in the presence of truncation errors, making these methods ideal for accurate long-time 
+simulation of quantum systems. 
 
 ::: qmax.timestepper.Midpoint 
     options:

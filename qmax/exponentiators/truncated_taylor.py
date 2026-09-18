@@ -4,6 +4,7 @@ from typing import Optional, TYPE_CHECKING
 
 import math
 
+import numpy as np
 import jax
 import jax.numpy as jnp
 import equinox as eqx
@@ -38,7 +39,7 @@ NUM_BLOCK_ITERATIONS = 3
 
 
 THETA_TABLES = {
-    2.0**-53: jnp.array([
+    2.0**-53: np.array([
         2.220446e-16, 2.5809568e-8, 1.3863479e-5, 0.00033971688, 0.0024008764,
         0.0090656564, 0.023844555, 0.049912289, 0.089577602, 0.14418298,
         0.21423581, 0.29961589, 0.39977753, 0.51391469, 0.64108352,
@@ -51,7 +52,7 @@ THETA_TABLES = {
         7.5036467, 7.7631747, 8.0235947, 8.2848536, 8.546902,
         8.8096943, 9.0731879, 9.3373435, 9.6021245, 9.8674967,
     ]),
-    1e-14: jnp.array([
+    1e-14: np.array([
         2.0e-14, 2.4494895e-7, 6.214362e-5, 0.001046407, 0.0059023783,
         0.019165688, 0.045231028, 0.087238141, 0.14684582, 0.22447743,
         0.31969303, 0.43152581, 0.5587345, 0.69997391, 0.85390127,
@@ -64,7 +65,7 @@ THETA_TABLES = {
         8.1598095, 8.4258023, 8.692449, 8.9597087, 9.2275436,
         9.4959188, 9.764802, 10.034163, 10.303975, 10.574211,
     ]),
-    1e-12: jnp.array([
+    1e-12: np.array([
         2.0e-12, 2.4494875e-6, 0.00028842773, 0.003307471, 0.014803494,
         0.041158944, 0.08686662, 0.15397221, 0.24259255, 0.35164222,
         0.47942167, 0.6240065, 0.78347522, 0.95602796, 1.1400385,
@@ -77,7 +78,7 @@ THETA_TABLES = {
         8.8811483, 9.1529708, 9.4252236, 9.6978779, 9.9709073,
         10.244287, 10.517996, 10.792012, 11.066316, 11.340892,
     ]),
-    1e-10: jnp.array([
+    1e-10: np.array([
         2.0e-10, 2.4494672e-5, 0.0013383881, 0.010443601, 0.037043133,
         0.088069163, 0.1660333, 0.27024079, 0.3983375, 0.54737742,
         0.71440562, 0.89672428, 1.0919839, 1.2981888, 1.5136659,
@@ -90,7 +91,7 @@ THETA_TABLES = {
         9.6553193, 9.9320707, 10.209056, 10.486257, 10.763659,
         11.041246, 11.319005, 11.596923, 11.87499, 12.153194,
     ]),
-    1e-8: jnp.array([
+    1e-8: np.array([
         2.0e-8, 0.00024492648, 0.0062041909, 0.032871536, 0.09217192,
         0.18701593, 0.31455546, 0.46985733, 0.64786588, 0.84415377,
         1.0550902, 1.277783, 1.5099544, 1.7498155, 1.9959578,
@@ -103,7 +104,7 @@ THETA_TABLES = {
         10.484586, 10.765261, 11.046007, 11.326816, 11.607682,
         11.888597, 12.169557, 12.450555, 12.731586, 13.012647,
     ]),
-    2.0**-24: jnp.array([
+    2.0**-24: np.array([
         1.1920928e-7, 0.00059788589, 0.011233865, 0.051166194, 0.13084872,
         0.24952893, 0.40145824, 0.58005246, 0.77951134, 0.99518408,
         1.2234795, 1.4616615, 1.7076485, 1.9598506, 2.2170444,
@@ -116,7 +117,7 @@ THETA_TABLES = {
         10.821326, 11.10323, 11.385153, 11.66709, 11.949037,
         12.23099, 12.512945, 12.794901, 13.076854, 13.358801,
     ]),
-    1e-6: jnp.array([
+    1e-6: np.array([
         1.9999973e-6, 0.0024472427, 0.028625538, 0.10245061, 0.22624993,
         0.39105554, 0.58659231, 0.80449864, 1.0386311, 1.2846184,
         1.5393652, 1.8006649, 2.0669268, 2.3369885, 2.6099898,
@@ -129,7 +130,7 @@ THETA_TABLES = {
         11.371104, 11.654597, 11.93804, 12.221432, 12.504772,
         12.788061, 13.071299, 13.354486, 13.637621, 13.920706,
     ]),
-    1e-4: jnp.array([
+    1e-4: np.array([
         0.00019997334, 0.024272829, 0.12933773, 0.31019046, 0.53849941,
         0.79404743, 1.0651857, 1.3454084, 1.6309927, 1.9197662,
         2.2104085, 2.5021096, 2.7943542, 3.086816, 3.3792826,
@@ -163,11 +164,14 @@ def _theta_table(max_tol: Optional[float]) -> Array:
 def hutchinson(
     operator: Operator,
     num_samples: int=10,
-    key: PRNGKeyArray=jax.random.key(0)) -> Scalar:
+    key: Optional[PRNGKeyArray]=None) -> Scalar:
     """
-    Hutchinson's stochastic trace estimator: approximates the trace of an operator 
-    as the expected value of <y, Ay>, where y is a random vector with i.i.d +/-1 entries. 
+    Hutchinson's stochastic trace estimator: approximates the trace of an operator
+    as the expected value of <y, Ay>, where y is a random vector with i.i.d +/-1 entries.
     """
+    if key is None:
+        key = jax.random.key(0)
+
     hilbert_space = operator.domain
     sign_coeffs = 1 - 2 * jax.random.bernoulli(key, shape=(num_samples, hilbert_space.dim))
     y = hilbert_space.from_coeffs(sign_coeffs)
@@ -224,7 +228,7 @@ def block_estimate(
     p: int=1,
     num_samples: int=2,
     num_iterations: int=3,
-    key: PRNGKeyArray=jax.random.key(0)) -> Scalar:
+    key: Optional[PRNGKeyArray]=None) -> Scalar:
 
     """
     Simplification of the method in [1] to estimate the 1-norm of the matrix A^p,
@@ -236,6 +240,9 @@ def block_estimate(
             estimation, with an application to 1-norm pseudospectra," SIAM J. Matrix
             Anal. Appl., vol. 21, no. 4, pp. 1185-1201, 2000.
     """
+
+    if key is None:
+        key = jax.random.key(0)
 
     hilbert_space = operator.domain
 
@@ -289,21 +296,25 @@ def _taylor_expm(
 
 
 class TruncatedTaylorExponentiator(AbstractExponentiator):
-    """
-    Approximates exp(hA) @ y using a matrix-free adaption of the scaling + Taylor expansion
-    method introduced by Mohy and Higham. For any μ and integer s,
+    r"""
+    Approximates $\exp(hA)y$ using a matrix-free adaption of the scaling and Taylor expansion
+    method introduced by Mohy and Higham. For any $\mu$ and integer $s$,
 
-        exp(hA) @ y = e^(hμ / s) * exp(h(A - μ * I) / s)^s @ y
+    $$
+        \exp(hA)y = e^{\frac{h}{s}\mu}\,\exp\left(\frac{h}{s}(A - \mu I)\right)^s y
+    $$
 
-    Let T_m be the mth order Taylor approximation of exp(X). Then the approximation is 
-    computed by performing s steps of the iteration
+    Let $T_m$ be the mth order Taylor approximation of $\exp(X)$. Then the approximation is 
+    computed by performing $s$ steps of the iteration
 
-        y_{k + 1} = e^(hμ / s) * T_m(h(A - μ * I) / s) @ y_{k}, y_0 = y
+    $$
+        y_{k + 1} = e^{\frac{h}{s}\mu}\,T_m\left(\frac{h}{s}(A - \mu I)\right)y_k \qquad y_0 = y
+    $$
 
     Since the Taylor expansion has m terms, and is computed s times, the total amount 
-    of computational effort required by this method can be approximated by s * m. The adapt 
-    method identifies the m, s, and μ that minimizes s * m while ensuring that the backward
-    error is at most max_tol. 
+    of computational effort required by this method can be approximated by $s\cdot m$. The adapt 
+    method identifies the $m$, $s$, and $\mu$ that minimizes $s \cdot m$ while ensuring that the 
+    backward error is at most `max_tol`. 
 
     Does not support reverse mode differentiation
 

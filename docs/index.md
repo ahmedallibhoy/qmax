@@ -40,7 +40,7 @@ H = -0.5 * L + V
 
 U = qx.Propagator(H, t0=0.0, t1=2 * jnp.pi, dt_max=0.01)
 
-y0 = hilbert_space.from_function(lambda x: jnp.exp(-(x - 1) ** 2))
+y0 = hilbert_space.from_function(lambda x: jnp.exp(-0.5 * (x - 1) ** 2))
 y0 = y0 / y0.norm()
 
 result = U.propagate(y0)
