@@ -6,3 +6,7 @@ build-backend = "hatchling.build"
 name = "qmax"
 requires-python = ">=3.11"
 version = "0.01"
+
+[tool.ruff]
+# The minimum Python version that should be supported
+target-version = "py314"

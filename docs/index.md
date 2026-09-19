@@ -49,16 +49,25 @@ y1 = result.y1
 
 ## Road map
 
-This project is in the early development stage, and the library 
-is still unstable, but there are a lot interesting extensions I have planned 
-including
+This project is in the early development stage, and for now the features 
+are somewhat narrowly scoped. The API is unstable and 
+it is likely that future updates will introduce backward-incompatible changes. 
+For something more mature, I recommend 
+[QuTiP](https://qutip.org/). Also check out [dynamiqs](https://www.dynamiqs.org/stable/)
+which is another JAX-based library for quantum mechanics and 
+the closest "competitor" to qmax.  
+
+That being said, I encourage you take a look at this project, perhaps contribute, 
+if you are interested in geometric numerical methods and the unique approach 
+adopted by qmax. There are a lot interesting extensions I have planned in the medium term 
+including:
 
 - Density matrices
 - Open quantum systems:
     - Stochastic unraveling schemes of Lindbladians
     - Dynamical low-rank approximations of quantum master equations
-- Nonlinear and quasi-linear Schrodinger equations
+- Nonlinear and quasi-linear Schrödinger equations
 - Support for arbitrary / user-generated spatial meshes
 
-If you have specific need or you have an idea for an interesting feature, 
+If you have specific need or an idea for an interesting feature, 
 please contact me!

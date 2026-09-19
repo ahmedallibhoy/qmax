@@ -6,17 +6,20 @@ theme:
       - header.autohide
   palette:
     - scheme: default
-      primary: white
+      primary: indigo
       accent: amber
       toggle:
           icon: material/weather-night
           name: Switch to dark mode
     - scheme: slate
-      primary: black
+      primary: indigo
       accent: amber
       toggle:
           icon: material/weather-sunny
           name: Switch to light mode
+  icon:
+    logo: material/sine-wave
+  favicon: _static/sine-wave.svg
 
 site_name: qmax
 site_author: Ahmed Allibhoy
@@ -80,7 +83,7 @@ nav:
   - Examples:
     - Quantum Harmonic Oscillator: 'examples/harmonic_oscillator.md'
     - Hydrogen Atom: 'examples/hydrogen.md'
-    - Driven Quantum Systems: 'examples/controlled_two_level.md'
+    - Driven Two Level System: 'examples/controlled_two_level.md'
     - Quantum Optimal Control: 'examples/optimal_control.md'
     - Introspection Utilities: 'examples/introspection.md'
   - API:

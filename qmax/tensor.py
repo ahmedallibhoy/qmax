@@ -360,7 +360,6 @@ class KroneckerSumExp(DelegatingExponentiator):
     @property
     def order(self) -> Order:
         return None
-        return c
 
 
 class KroneckerSum(KroneckerProductMixin):

@@ -5,8 +5,8 @@ import dataclasses
 T = TypeVar("T")
 
 def _update_fields(obj: T, **updates: Any) -> T:
-    # workaround for eqx.Modules where eqx.tree_at would normally break
-    #   see e.g. Operator.with_exponential
+    # workaround for eqx.Modules since eqx.tree_at normally breaks
+    # on objects without leafs
     new_obj = object.__new__(type(obj))
     for field in dataclasses.fields(obj):
         value = updates.get(field.name, getattr(obj, field.name))

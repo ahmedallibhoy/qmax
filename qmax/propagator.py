@@ -88,7 +88,7 @@ class Propagator(eqx.Module):
             num_steps (Optional[int]): The number of steps the integration method should take. Cannot
                 be used with `dt_max`. If `num_steps=None` and `dt_max=None` then the number of steps is 1.
             dt_max (Optional[int]):  The maximum stepsize of the integrator. Cannot be used with `num_steps`.
-            timestepper (AbstractTimeStepper): The timestepping method, see [Timesteppers](timesteppers.md)
+            timestepper (AbstractTimeStepper): The timestepping method, see [Timesteppers](timesteppers.md).
             adapt (bool): Whether the operator should be adapted. This parameter is ignored if the Hamiltonian 
                 is a `AbstractTimeVaryingOperator` or `ControlledOperator`. 
         """
@@ -189,12 +189,12 @@ class Propagator(eqx.Module):
             terminal_cost_fn (callable): Function with signature `terminal_cost_fn(t, y)` returning 
                 a scalar. `Propagator` records the value `terminal_cost_fn(t1, y1)`.
             save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. `Propagator` 
-                calls the save function every `save_every` steps over the integration interval. 
+                records `save_function(t, y, u)` every `save_every` steps over the integration interval. 
             save_every (Optional[int]): Number of steps per call to `save_fn`, e.g. if `save_every=2` then 
-                every other step is saved. If `save_every=None` then `save_fn` is called only on the last
-                step of the integration. 
+                every other step is saved. If `save_every=None` then `save_fn` is called only on the first 
+                and last steps of the integration. 
             progressbar (bool): Whether to display a tqdm progress bar. 
-            adjoint (AbstractAdjoint): How to differentatate `propagate`, see [Adjoints](adjoints.md)
+            adjoint (AbstractAdjoint): How to differentatate `propagate`, see [Adjoints](adjoints.md).
 
         Returns:
             A `PropagateResult` object containing the following fields:
