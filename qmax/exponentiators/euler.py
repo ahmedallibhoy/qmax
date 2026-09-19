@@ -73,6 +73,10 @@ class Cayley(AbstractExponentiator):
     $\exp(hA)y \approx (I - \frac{h}{2}A)^{-1}(I + \frac{h}{2}A)y$. 
     This equivalent to a half step of the forward Euler method, followed by a 
     half step of the implicit Euler method.
+
+    !!! info 
+        Since the method is implicit, this exponentiator is best paired with operators 
+        that have an efficient `solve` override. 
     """
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:

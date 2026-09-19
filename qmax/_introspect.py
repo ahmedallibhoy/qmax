@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Union, Optional, TYPE_CHECKING
+from typing import Any, Union, Optional, Callable, TYPE_CHECKING
 
 import dataclasses
 from functools import reduce
@@ -33,7 +33,8 @@ def _rows(
     node: RenderTree | Operator, 
     prefix: str="", 
     is_last: bool=True, 
-    is_root: bool=True) -> list[tuple[str, Optional[Count]]]:
+    is_root: bool=True, 
+    get_data: Callable=lambda n: None) -> list[tuple[str, Optional[Count]]]:
 
     if is_root:
         line, child_prefix = node.label, ""
@@ -44,13 +45,11 @@ def _rows(
         line = f"{prefix}{PAD + BRANCH}{DASH}{node.label}"
         child_prefix = prefix + PAD + PIPE
 
-    if isinstance(node, RenderTree):
-        rows = [(line, node.count)]
-    else:
-        rows = [(line, None)]
+    rows = [(line, get_data(node))]
 
     for idx, child in enumerate(node.children):
-        rows += _rows(child, child_prefix, idx == len(node.children) - 1, False)
+        rows += _rows(
+            child, child_prefix, idx == (len(node.children) - 1), False, get_data=get_data)
     return rows
 
 
@@ -213,7 +212,7 @@ class CountDict:
         width = 0
 
         for tree in self.render_trees():
-            rows = _rows(tree)
+            rows = _rows(tree, get_data=lambda node: node.count)
             width = max(width, max(len(line) + 4 for line, _ in rows))
             all_rows += rows
 

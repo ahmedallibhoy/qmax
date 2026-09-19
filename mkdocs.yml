@@ -19,7 +19,7 @@ theme:
           name: Switch to light mode
   icon:
     logo: material/sine-wave
-  favicon: _static/sine-wave.svg
+  favicon: assets/sine-wave.svg
 
 site_name: qmax
 site_author: Ahmed Allibhoy
@@ -74,12 +74,14 @@ extra_css:
     - _static/custom.css
 
 extra_javascript:
-  - javascripts/mathjax.js
+  - javascript/mathjax.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 
 nav:
   - 'index.md'
+  - Philosophy of qmax: approach.md
+  - About the author: about.md
   - Examples:
     - Quantum Harmonic Oscillator: 'examples/harmonic_oscillator.md'
     - Hydrogen Atom: 'examples/hydrogen.md'

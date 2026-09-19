@@ -47,19 +47,7 @@ def _no_term_cost(t, y):
 
 class Propagator(eqx.Module):
     r"""
-    Object representing the propagator $U\big(t_0, t_1; u(\cdot)\big)$ of the Schrödinger equation 
-    $$
-        i\hbar \dot{\psi}(t) = H(t, u(t))\psi(t).
-    $$
-    where $H(t, u)$ is a controlled Hamiltonian, and $u(t)$ is a control input. Given $\psi(t_0)=\psi_0$, 
-    the solution to the Schrödinger equation at time $t_1$ is $\psi(t_1) = U\big(t_0, t_1; u(\cdot)\big)\psi_0$.
-
-    qmax computes $\psi(t_1)$ using the iteration 
-    $$
-        \psi(t + dt) = \tilde{U}\big(t, t + dt, u(\cdot)\big)\psi(t)
-    $$
-    where $\tilde{U}$ approximates the true propagator using a commutator-free exponential timestepper (CFET)
-    (see [Timesteppers](timesteppers.md) for details). 
+    Object representing the propagator $U\big(t_0, t_1; u(\cdot)\big)$ of the Schrödinger equation. 
     """
 
     op: ControlledOperator
@@ -175,9 +163,7 @@ class Propagator(eqx.Module):
         Computes $U(t_0, t_1; u)\psi_0$. This method optionally can 
         save intermediate values over the integration interval, and computes 
         a cost function of the form
-        $$
-            J(\psi_0, u) = V(t_1, \psi(t_1)) + \int_{t_0}^{t_1}\ell(t, \psi(t), u(t))dt.
-        $$
+        $J(\psi_0, u) = V(t_1, \psi(t_1)) + \int_{t_0}^{t_1}\ell(t, \psi(t), u(t))dt$.
 
         Args:
             y0 (AbstractState): initial condition

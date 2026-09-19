@@ -308,6 +308,25 @@ class Operator(AbstractExpressionTree):
     # Introspection
     # --------------------------------------------------------------------------------------------
 
+    def tree(self, show_exp=False) -> str:
+        all_rows = []
+        width = 0
+
+        if show_exp:
+            rows = _rows(self, get_data=lambda A: A.exponentiator)
+        else:
+            rows = _rows(self) 
+            
+        width = max(width, max(len(line) + 4 for line, _ in rows))
+        all_rows += rows
+
+        out = [
+            line if c is None else f"{line} {"-" * (width - len(line) - 2)}  exponentiator={c}"
+            for line, c in all_rows
+        ]
+
+        return "\n".join(out)
+
     @property
     def overrides_exp_action(self) -> bool:
         return _overrides(type(self), "exp_action", Operator)

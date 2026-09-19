@@ -47,20 +47,26 @@ result = U.propagate(y0)
 y1 = result.y1
 ```
 
+## Related projects
+
+Other excellent projects include
+
+1. [QuTiP](https://qutip.org/) - mature, well-featured library for simulating 
+    dynamics of quantum systems.
+2. [dynamiqs](https://www.dynamiqs.org/stable/) - JAX-based library with 
+    differentiable solvers for the Schrödinger equation and Lindblad master 
+    equation. The closest "competitor" to qmax. 
+
+
 ## Road map
 
-This project is in the early development stage, and for now the features 
-are somewhat narrowly scoped. The API is unstable and 
+This project is in the early development stage, so the API is unstable and 
 it is likely that future updates will introduce backward-incompatible changes. 
-For something more mature, I recommend 
-[QuTiP](https://qutip.org/). Also check out [dynamiqs](https://www.dynamiqs.org/stable/)
-which is another JAX-based library for quantum mechanics and 
-the closest "competitor" to qmax.  
+If you need something more mature or stable, I recommend the related projects.  
 
-That being said, I encourage you take a look at this project, perhaps contribute, 
-if you are interested in geometric numerical methods and the unique approach 
-adopted by qmax. There are a lot interesting extensions I have planned in the medium term 
-including:
+That being said, if you are interested in geometric numerical methods and the unique approach 
+adopted by qmax, please try it out. I also welcome any contributions. 
+There are a lot interesting extensions I have planned in the medium term including:
 
 - Density matrices
 - Open quantum systems:
