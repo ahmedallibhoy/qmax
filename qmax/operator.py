@@ -321,7 +321,7 @@ class Operator(AbstractExpressionTree):
         all_rows += rows
 
         out = [
-            line if c is None else f"{line} {"-" * (width - len(line) - 2)}  exponentiator={c}"
+            line if c is None else f"{line} {" " * (width - len(line) - 2)}  exponentiator={c}"
             for line, c in all_rows
         ]
 
