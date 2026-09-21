@@ -1,27 +1,22 @@
-from typing import Callable, ClassVar, Union, Optional
-
 from functools import reduce
+from typing import Callable, ClassVar, Optional
 
 import equinox as eqx
-import jax
 import jax.numpy as jnp
 import lineax as lx
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike, ScalarLike
 
-from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator, AbstractHermitianOperator
-from ..exponentiators import (
-    AbstractExponentiator, ExactExponentiator, Cayley, NoExponentiator
-)
-from ..tensor import TensorProduct, TensorState, KroneckerSum, KroneckerSumExp, LiftOperator
+from ..exponentiators import AbstractExponentiator, Cayley, ExactExponentiator, NoExponentiator
+from ..hilbert_space import AbstractState
+from ..operator import AbstractHermitianOperator, Operator
+from ..tensor import KroneckerSum, KroneckerSumExp, LiftOperator, TensorProduct, TensorState
 from ..utils import over_batch
 from .spatial_discretization import (
-    SpatialDiscretization, 
-    SpatiallyDiscretizedState, 
     AbstractPotentialEnergy,
-    _to_tuple
+    SpatialDiscretization,
+    SpatiallyDiscretizedState,
+    _to_tuple,
 )
-
 
 __all__ = ["FiniteDifference"]
 

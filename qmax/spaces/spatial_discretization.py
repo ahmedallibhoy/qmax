@@ -1,17 +1,14 @@
-from typing import ClassVar, Callable, Optional
 from abc import abstractmethod
 from functools import partial
-
-import numpy as np
+from typing import Callable, Optional
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-
-from jaxtyping import ScalarLike, Array, ArrayLike
+from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator, AbstractHermitianOperator
+from ..operator import AbstractHermitianOperator, Operator
 
 
 def _to_tuple(x, dtype=float):

@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-from typing import Optional
 from abc import abstractmethod
+from typing import Optional
 
-import equinox as eqx
 import jax
 import jax.numpy as jnp
-
 from jaxtyping import ArrayLike, ScalarLike
 
 from ._internal import _update_field
-from ._introspect import _rows
-from .expression_tree import AbstractExpressionTree
-from .hilbert_space import AbstractHilbertSpace
-from .operator import Operator, AddOperator, IncompatibleDomainError
-from .exponentiators import AbstractSplitMethod, Strang
 from .control import AbstractControl, ConstantControl
+from .exponentiators import AbstractSplitMethod, Strang
+from .expression_tree import AbstractExpressionTree
+from .operator import AddOperator, IncompatibleDomainError, Operator
 
 
 class AbstractTimeVaryingOperator(AbstractExpressionTree):

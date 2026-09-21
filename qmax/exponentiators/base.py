@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-from dataclasses import dataclass
-
 from abc import abstractmethod
+from typing import TYPE_CHECKING, Optional
 
-import jax.numpy as jnp
 import equinox as eqx
-from jaxtyping import ScalarLike, Scalar
+import jax.numpy as jnp
+from jaxtyping import Scalar, ScalarLike
 
-from .._introspect import CountDict, Path
 from .._internal import _update_field
-from ..hilbert_space import AbstractHilbertSpace, AbstractState
+from .._introspect import CountDict, Path
+from ..hilbert_space import AbstractState
 
 if TYPE_CHECKING:
     from ..operator import Operator
@@ -334,5 +332,5 @@ class NoExponentiator(AbstractExponentiator):
 
     @property
     def order(self) -> Order:
-        raise NotExponentiableError(f"Cannot compute order of NoExponentatiator")
+        raise NotExponentiableError("Cannot compute order of NoExponentatiator")
 

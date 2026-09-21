@@ -1,23 +1,19 @@
-from typing import Callable, ClassVar, Optional
-
 from functools import partial, reduce
+from typing import Callable, ClassVar
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike, ScalarLike
 
-from .._introspect import Path, CountDict
-from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from ..operator import Operator, AbstractDiagonalOperator
-from ..exponentiators import Order, AbstractExponentiator, ExactExponentiator
+from ..exponentiators import AbstractExponentiator, ExactExponentiator, Order
+from ..operator import AbstractDiagonalOperator, Operator
 from .spatial_discretization import (
-    SpatialDiscretization, 
-    SpatiallyDiscretizedState, 
-    AbstractPotentialEnergy, 
-    _to_tuple
+    AbstractPotentialEnergy,
+    SpatialDiscretization,
+    SpatiallyDiscretizedState,
+    _to_tuple,
 )
-
 
 __all__ = ["PseudoSpectral"]
 

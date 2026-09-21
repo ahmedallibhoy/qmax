@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import ArrayLike, ScalarLike
 
 from .._introspect import CountDict, Path
-from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..chebyshev import chebyshev
-from .base import AbstractExponentiator, Order
 from ..eig import op_spectral_bounds_lanczos
+from ..hilbert_space import AbstractState
+from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import Operator

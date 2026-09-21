@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from typing import ClassVar, Optional, TYPE_CHECKING
 from abc import abstractmethod
 from functools import reduce
+from typing import TYPE_CHECKING, ClassVar, Optional
 
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import numpy as np
-import equinox as eqx
 from jaxtyping import Array, ScalarLike
 
-from .._introspect import CountDict, Path
 from .._internal import _update_field
+from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractState
-from .base import Order, AbstractExponentiator, NotExponentiableError
+from .base import AbstractExponentiator, NotExponentiableError, Order
 from .split import AbstractSplitMethod
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ class AbstractCompositionMethod(eqx.Module):
         if not np.allclose(np.sum(self.weights), 1):
             raise ValueError("Composition weights must sum to 1")
         if not np.allclose(self.weights, self.weights[::-1]):
-            raise ValueError(f"Composition weights must be a palindromic sequence")
+            raise ValueError("Composition weights must be a palindromic sequence")
 
     @property
     @abstractmethod

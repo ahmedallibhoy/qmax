@@ -1,6 +1,5 @@
-from typing import Any, TypeVar
-
 import dataclasses
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-import equinox as eqx 
+import equinox as eqx
+from jaxtyping import ScalarLike
 
-from ._introspect import Path, _rows
 from ._internal import _update_field
+from ._introspect import Path, _rows
 from .hilbert_space import AbstractHilbertSpace
 
 

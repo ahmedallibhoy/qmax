@@ -1,14 +1,14 @@
-from typing import Iterable
 from functools import reduce
+from typing import Iterable
 
 import equinox as eqx
 from jaxtyping import ArrayLike, ScalarLike
 
 from ._internal import _update_field
-from .hilbert_space import AbstractHilbertSpace
-from .operator import Operator, AddOperator
-from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
 from .exponentiators import AbstractSplitMethod, Strang
+from .hilbert_space import AbstractHilbertSpace
+from .operator import AddOperator, Operator
+from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
 
 
 class ControlledOperator(eqx.Module):

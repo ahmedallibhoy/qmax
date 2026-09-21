@@ -1,25 +1,19 @@
 from __future__ import annotations
 
-from typing import Callable, ClassVar, Optional, Iterable
+import math
 from abc import abstractmethod
 from functools import reduce
-
-import math
+from typing import Callable, ClassVar, Iterable, Optional
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-
 from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
-from ._introspect import (
-    Count, InterfaceCount, Path
-)
+from ._introspect import Count, InterfaceCount, Path
+from .exponentiators import AbstractExponentiator, DelegatingExponentiator, Order
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Operator, Identity, IncompatibleDomainError
-from .exponentiators import (
-    Order, AbstractExponentiator, DelegatingExponentiator, Count
-)
+from .operator import Identity, IncompatibleDomainError, Operator
 
 
 def apply_along_tensor(

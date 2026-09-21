@@ -1,11 +1,4 @@
-from . import spaces
-from . import timestepper
-from . import eig
-from . import exponentiators
-from . import plot
-from . import control
-from . import adjoint
-
+from . import adjoint, control, eig, exponentiators, plot, spaces, timestepper
 from .controlled_operator import ControlledOperator
 from .propagator import Propagator
 from .utils import *

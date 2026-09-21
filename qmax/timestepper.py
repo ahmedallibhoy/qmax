@@ -3,7 +3,6 @@ from typing import ClassVar
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
-
 from jaxtyping import Array, ArrayLike
 
 

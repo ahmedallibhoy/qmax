@@ -3,8 +3,7 @@ from typing import Callable
 import jax
 import jax.numpy as jnp
 
-from .hilbert_space import AbstractHilbertSpace, AbstractState
-
+from .hilbert_space import AbstractState
 
 __all__ = ["zeros_like", "stack", "unstack", "over_batch"]
 

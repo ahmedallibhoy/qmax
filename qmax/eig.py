@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array, PRNGKeyArray, Scalar
 
-from jaxtyping import PRNGKeyArray, Array, Scalar
-
-from .hilbert_space import AbstractHilbertSpace, AbstractState
+from .hilbert_space import AbstractState
 from .lanczos import lanczos
 
 if TYPE_CHECKING:

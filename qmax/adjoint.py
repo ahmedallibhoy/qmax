@@ -1,17 +1,16 @@
-from typing import Callable, ClassVar, Optional, TYPE_CHECKING
 from functools import partial
+from typing import TYPE_CHECKING, Callable, ClassVar, Optional
 
 import equinox as eqx
 import equinox.internal as eqxi
 import jax
 import jax.numpy as jnp
-
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike, PyTree, Scalar, ScalarLike
 
 from .hilbert_space import AbstractState
 
 if TYPE_CHECKING:
-    from .propagator import Propagator, SaveFunction, CostFunction
+    from .propagator import CostFunction, Propagator, SaveFunction
 
 
 def _step(

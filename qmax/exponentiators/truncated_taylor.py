@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-
 import math
+from typing import TYPE_CHECKING, Optional
 
-import numpy as np
+import equinox as eqx
 import jax
 import jax.numpy as jnp
-import equinox as eqx
-from jaxtyping import Array, Scalar, ScalarLike, PRNGKeyArray
+import numpy as np
+from jaxtyping import Array, PRNGKeyArray, Scalar, ScalarLike
 
 from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
-from .base import AbstractExponentiator, NotExponentiableError, Order
-from ..eig import op_spectral_bounds_lanczos
+from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import Operator

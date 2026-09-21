@@ -1,9 +1,7 @@
-from typing import Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-import jax 
-import jax.numpy as jnp
-
-from jaxtyping import Array, ArrayLike
+import jax
+from jaxtyping import Array
 
 from .hilbert_space import AbstractState
 

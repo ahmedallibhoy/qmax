@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Union, Sequence, Iterable
 from abc import abstractmethod
+from typing import TYPE_CHECKING, Callable, Iterable, Sequence
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-
-from jaxtyping import Array, ArrayLike, ScalarLike, PRNGKeyArray
+from jaxtyping import Array, ArrayLike, PRNGKeyArray, ScalarLike
 
 if TYPE_CHECKING:
     from .operator import Operator

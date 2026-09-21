@@ -1,23 +1,20 @@
-from typing import Optional, Callable, Iterable
 from math import ceil
+from typing import Callable, Iterable, Optional
 
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-
 import tqdm
-
-from jaxtyping import Scalar, ScalarLike, ArrayLike, PyTree, Array
+from jaxtyping import Array, ArrayLike, PyTree, Scalar, ScalarLike
 
 from ._introspect import CountDict
 from .adjoint import AbstractAdjoint, ReversibleAdjoint
 from .control import AbstractControl
-from .hilbert_space import AbstractState, AbstractHilbertSpace
-from .operator import Operator
-from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
 from .controlled_operator import ControlledOperator
+from .hilbert_space import AbstractHilbertSpace, AbstractState
+from .operator import Operator
 from .timestepper import AbstractTimeStepper, Midpoint
-
+from .timevarying_operator import AbstractTimeVaryingOperator
 
 # TODO: enforce batch safety of Propagator and adjoints
 
@@ -86,7 +83,7 @@ class Propagator(eqx.Module):
         self.timestepper = timestepper
 
         if dt_max is not None and num_steps is not None:
-            raise ValueError(f"Only one of dt_max or num_steps may not be None")
+            raise ValueError("Only one of dt_max or num_steps may not be None")
 
         if num_steps is None and dt_max is None:
             self.num_steps = 1

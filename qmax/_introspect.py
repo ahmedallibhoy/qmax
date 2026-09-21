@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Union, Optional, Callable, TYPE_CHECKING
-
 import dataclasses
 from functools import reduce
-
-from ._internal import _update_field
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 if TYPE_CHECKING:
     from .operator import Operator

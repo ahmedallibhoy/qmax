@@ -1,13 +1,14 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Optional
+
 import warnings
+from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
+from jaxtyping import Array, PRNGKeyArray
 
-from jaxtyping import PRNGKeyArray, Array
+from .hilbert_space import AbstractState
 
-from .hilbert_space import AbstractHilbertSpace, AbstractState
 if TYPE_CHECKING:
     from .operator import Operator
 

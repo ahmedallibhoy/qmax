@@ -1,16 +1,15 @@
 from __future__ import annotations
-from typing import ClassVar, TYPE_CHECKING
 
 from abc import abstractmethod
+from typing import TYPE_CHECKING, ClassVar
 
 import equinox as eqx
 import jax
 import numpy as np
-
 from jaxtyping import Array, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractState
-from .base import Order, DelegatingExponentiator
+from .base import DelegatingExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import AddOperator
@@ -45,7 +44,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
                 f"Need len(self.a) == len(self.b) + 1 "
                 f"but len(self.a)={self.a.shape[0]} and len(self.b)={self.b.shape[0]}")
         if not (np.allclose(self.a, self.a[::-1]) and np.allclose(self.b, self.b[::-1])):
-            raise ValueError(f"self.a and self.b must be palindromic sequences")
+            raise ValueError("self.a and self.b must be palindromic sequences")
 
     def schedule(self, op: AddOperator) -> list[tuple[int, Scalar, int]]:
         if self.nest_left:
@@ -90,8 +89,8 @@ class AbstractSplitMethod(DelegatingExponentiator):
 
 class Strang(AbstractSplitMethod):
     r"""
-    Strang splitting: $\exp(h(A + B)) \approx \exp(\frac{h}{2}A)\exp(hB)\exp(\frac{h}{2}A)$. Equivalent 
-    to a 2nd order partitioned Runge-Kutta exponential splitting method. 
+    Strang splitting: $\exp(h(A + B)) \approx \exp(\frac{h}{2}A)\exp(hB)\exp(\frac{h}{2}A)$. 
+    Equivalent to a 2nd order partitioned Runge-Kutta exponential splitting method. 
     """
     a: ClassVar[Array] = np.array([0.5, 0.5])
     b: ClassVar[Array] = np.array([1.0])

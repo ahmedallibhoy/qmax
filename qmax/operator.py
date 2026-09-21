@@ -1,33 +1,36 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from dataclasses import dataclass
-from typing import Callable, Union, Optional, TypeVar
+from typing import Callable, Optional
 
 import equinox as eqx
-import jax 
+import jax
 import jax.numpy as jnp
 import lineax as lx
+from jaxtyping import Array, ScalarLike
 
-from jaxtyping import ScalarLike, Array
-
-from ._internal import _update_field, _overrides
+from ._internal import _overrides, _update_field
 from ._introspect import (
-    Count, CountDict, CountType, InterfaceCount, Path, RenderTree, _rows
+    Count,
+    CountDict,
+    CountType,
+    InterfaceCount,
+    Path,
+    _rows,
 )
-from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .expression_tree import AbstractExpressionTree, IncompatibleDomainError
 from .exponentiators import (
-    Order, 
-    AbstractExponentiator, 
     AbstractCompositionMethod,
-    ExactExponentiator, 
+    AbstractExponentiator,
+    ExactExponentiator,
     NoExponentiator,
-    ShiftScaleExponentiator, 
     NotExponentiableError,
-    Strang, 
-    compose
+    Order,
+    ShiftScaleExponentiator,
+    Strang,
+    compose,
 )
+from .expression_tree import AbstractExpressionTree, IncompatibleDomainError
+from .hilbert_space import AbstractState
 from .utils import over_batch
 
 
@@ -70,7 +73,8 @@ class Operator(AbstractExpressionTree):
         def update(op, parent_path, child_idx):
             exponentiator = make_exponentiator(op)
 
-            if validate and not isinstance(exponentiator, NoExponentiator): # NoExponentiator will raise but is assignable
+            if validate and not isinstance(exponentiator, NoExponentiator): 
+                # NoExponentiator will raise but is assignable
                 exponentiator.check_exponentiable_tree(op, parent_path, child_idx)
 
             # The usual eqx.tree_at breaks on eqx.Module with fields that have no leaves

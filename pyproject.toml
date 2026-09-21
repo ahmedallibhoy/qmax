@@ -3,10 +3,21 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
+authors = [
+    {name = "Ahmed Allibhoy"}
+]
 name = "qmax"
-requires-python = ">=3.11"
+readme = "README.md"
+requires-python = ">=3.14"
 version = "0.01"
 
 [tool.ruff]
 # The minimum Python version that should be supported
 target-version = "py314"
+extend-exclude = ["*.ipynb"]
+line-length = 100
+
+[tool.ruff.lint]
+fixable = ["I001", "F401", "F541"]
+ignore = ["E402", "E731", "B008"]
+select = ["E", "F", "I"]

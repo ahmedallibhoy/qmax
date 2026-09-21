@@ -1,16 +1,14 @@
 from typing import ClassVar, Optional
 
 import equinox as eqx
-import numpy as np
 import jax.numpy as jnp
+import numpy as np
 from jaxtyping import Array, ScalarLike
 
-from ..hilbert_space import AbstractState, AbstractHilbertSpace
-from ..operator import Operator, Identity, AbstractHermitianOperator
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
-from ..tensor import TensorState, TensorPower, KroneckerProduct
+from ..operator import AbstractHermitianOperator
+from ..tensor import KroneckerProduct, TensorPower, TensorState
 from .nlevel import NLevel, NLevelState
-
 
 __all__ = ["TwoLevel", "Qubits"]
 

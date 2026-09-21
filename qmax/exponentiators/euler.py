@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, TYPE_CHECKING
-
-import jax.numpy as jnp
+from typing import TYPE_CHECKING, Optional
 
 from jaxtyping import ScalarLike
 

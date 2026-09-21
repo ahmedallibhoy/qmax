@@ -1,13 +1,9 @@
-from typing import Union
 
 import jax.numpy as jnp
-
 import matplotlib as mpl
-import matplotlib.pyplot as plt
+from jaxtyping import Array, ScalarLike
 from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap
-
-from jaxtyping import Array, ScalarLike
 
 from .spaces.spatial_discretization import SpatiallyDiscretizedState
 
