@@ -128,26 +128,23 @@ class AbstractExponentiator(eqx.Module):
         pass
 
     @property
-    @abstractmethod
-    def order(self) -> Order:
+    def operator_type(self) -> type[Operator]:
         """
-        The intrinsic order of the method itself, independent of any operator. None means the
-        method contributes no truncation error of its own.
+        Type of operator this exponentiator is compatible with
         """
+        from ..operator import Operator
+        return Operator
 
-    @abstractmethod
-    def count(
+    def check_exponentiable(
         self, 
         op: Operator, 
-        h: ScalarLike, 
         parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        child_idx: Optional[int]=None):
         """
-        Counts number of calls to each interface of op required by one call 
-        to self.exp(op, h, y) recursing into children of op, if necessary,  
-        via op_child.exp_count for each child of op.
+        Validates exponentiability by recursing into a composite operators tree via 
+        op_child.check_exponentiable_tree for each child of op
         """
-        return CountDict()
+        pass
 
     def adapt(
         self,
@@ -173,24 +170,27 @@ class AbstractExponentiator(eqx.Module):
         """
         return op
 
-    @property
-    def operator_type(self) -> type[Operator]:
-        """
-        Type of operator this exponentiator is compatible with
-        """
-        from ..operator import Operator
-        return Operator
-
-    def check_exponentiable(
+    @abstractmethod
+    def count(
         self, 
         op: Operator, 
+        h: ScalarLike, 
         parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None):
+        child_idx: Optional[int]=None) -> CountDict:
         """
-        Validates exponentiability by recursing into a composite operators tree via 
-        op_child.check_exponentiable_tree for each child of op
+        Counts number of calls to each interface of op required by one call 
+        to self.exp(op, h, y) recursing into children of op, if necessary,  
+        via op_child.exp_count for each child of op.
         """
-        pass
+        return CountDict()
+
+    @property
+    @abstractmethod
+    def order(self) -> Order:
+        """
+        The intrinsic order of the method itself, independent of any operator. None means the
+        method contributes no truncation error of its own.
+        """
 
     def effective_order(self, op: Operator) -> Order:
         """
@@ -203,7 +203,7 @@ class AbstractExponentiator(eqx.Module):
 class DelegatingExponentiator(AbstractExponentiator):
     """
     Base class for exponentiators that delegate to children of an operator, e.g. splitting
-    exponentiators or exponentiators acting on tensor products
+    exponentiators that act on `AddOperator`. 
     """
 
     @abstractmethod
@@ -249,6 +249,10 @@ class DelegatingExponentiator(AbstractExponentiator):
 
 
 class ExactExponentiator(AbstractExponentiator):
+    """
+    Exponentiator which produces the closed-form exponential action of an operator. Only works 
+    on operators which override `exp_action`, otherwise raises `NotExponentiableError`. 
+    """
 
     def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
         return op.exp_action(h, y)

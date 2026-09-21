@@ -18,7 +18,7 @@ which are all based on the *Magnus expansion* (see the following reference for d
 **The Magnus Expansion**: The propagator can be expressed analytically in terms of the *Magnus expansion*. Using the 
 *ansatz* that $U(t_0, t_1) = \exp(\Omega(t_0, t_1))$ for some $\Omega(t_0, t_1)$,
 we can show that $\Omega$ is given by the infinite series $\Omega(t_0, t_1) = \sum_{k=1}^{\infty}\Omega_k$, 
-where the first three terms in the series are
+where the first three terms are
 
 $$
 \begin{aligned}

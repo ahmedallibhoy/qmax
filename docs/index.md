@@ -1,10 +1,9 @@
 # Overview
 qmax is a JAX-based library for simulating quantum mechanical systems. 
 
-The library aims to provide a convenient interface to define complex Hamiltonians 
-and compose numerical methods to compute their spectra and exponential actions, 
-as well as a comprehensive suite of geometric numerical integration schemes for 
-fast and efficient simulation of the Schrödinger equation 
+The library aims to provide a convenient interface to define complicated Hamiltonians 
+and provides a comprehensive suite of geometric numerical integration schemes for 
+fast and efficient simulation of the Schrödinger equation. 
 
 Features include:
 
@@ -14,8 +13,7 @@ Features include:
     - Krylov subspace approximations
     - Chebyshev polynomial approximations
     - Scaled and truncated Taylor expansions
-- Commutator-free quasi-Magnus expansions for time-varying Hamiltonians
-- Memory efficient matrix-free eigensolvers
+- Exponential timesteppers based on the commutator-free quasi-Magnus expansion
 - Adjoint methods for solving optimal control problems
 - Tools for static analysis of numerical methods
 - Full compatibility with JAX transformations (JIT, vmap, autodiff)
@@ -64,16 +62,17 @@ This project is in the early development stage, so the API is unstable and
 it is likely that future updates will introduce backward-incompatible changes. 
 If you need something more mature or stable, I recommend the related projects.  
 
-That being said, if you are interested in geometric numerical methods and the unique approach 
-adopted by qmax, please try it out. I also welcome any contributions. 
-There are a lot interesting extensions I have planned in the medium term including:
+However, if you are interested in geometric numerical methods and the unique approach 
+adopted by qmax, please check it out! I also welcome any contributions. 
+There are a lot interesting extensions I have planned in the medium-to-long term including:
 
-- Density matrices
+- Memory efficient matrix-free eigensolvers
 - Open quantum systems:
+    - Density matrices
     - Stochastic unraveling schemes of Lindbladians
     - Dynamical low-rank approximations of quantum master equations
 - Nonlinear and quasi-linear Schrödinger equations
 - Support for arbitrary / user-generated spatial meshes
 
-If you have specific need or an idea for an interesting feature, 
+If you have a specific need or an idea for an interesting feature, 
 please contact me!

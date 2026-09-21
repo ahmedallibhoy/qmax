@@ -425,5 +425,3 @@ class KroneckerProduct(KroneckerProductMixin):
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
-    def adjoint(self) -> Operator:
-        return KroneckerProduct(self.domain, tuple(op.adjoint() for op in self.children))

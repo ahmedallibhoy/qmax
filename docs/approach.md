@@ -4,9 +4,9 @@ Given the number of software packages available for simulating quantum mechanica
 one might ask why the world needs another? While this is a fair question, my knee-jerk 
 response would be that qmax started out mainly as an educational project for me to 
 learn more about quantum mechanics and geometric numerical integrators, and is not intended to 
-displace any of the industry standard solutions. However, I also think that qmax has a 
+displace any of the industry standard solutions. However, I also think that qmax
 earns its place within the larger scientific computing / comptuational 
-physics ecosystem with a unique design philosophy which I will elaborate on here.
+physics ecosystem with a unique design philosophy that I will elaborate on here.
 Though other libraries may incorporate certain parts of these concepts, 
 to the best of my knowledge, qmax is the only to do all of these at once. 
 
@@ -22,7 +22,7 @@ Rather than relying on standard ODE integrators, qmax uses exponential timestepp
 where the solution $\psi(t)$ is expressed in terms of the exponential action $\psi \mapsto \exp(\tau H(t, u(t)))\psi$
 evaluated at various quadrature points. Unlike other libraries for solving differential equations, 
 the solver does not view the operator $H$ as a blackbox. Instead, the 
-numerical routines for approximating the exponential actions of operators are built up and composed hiearchically.
+numerical routines for approximating the exponential actions of operators are built up and composed hierarchically.
 
 In qmax, every operator has an `exponentiator`, which is an object that 
 approximates the exponential action $\psi \mapsto \exp(\tau A)\psi$ of the operator $A$. For some 

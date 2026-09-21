@@ -14,6 +14,7 @@ from test_operator import action_agrees, adj_action_agrees
 fd = SPACES["finite_difference_1d"]
 ps = SPACES["pseudospectral_1d"]
 qubits = SPACES["qubits"]
+twolevel = SPACES["twolevel"]
 nlevel = SPACES["nlevel"]
 
 fd_times_ps = qx.tensor.TensorProduct([fd, ps])
@@ -23,7 +24,8 @@ nlevel5 = qx.tensor.TensorPower(nlevel, 5)
 
 TENSOR_PROD_CASES = {
     "fd times ps": (fd, ps), 
-    "qubits times nlevel": (qubits, nlevel)
+    "qubits times nlevel": (qubits, nlevel), 
+    "fd times 2level": (fd, twolevel)
 }
 
 @pytest.mark.parametrize("space1,space2", TENSOR_PROD_CASES.values(), ids=TENSOR_PROD_CASES.keys())

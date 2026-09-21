@@ -4,10 +4,9 @@ qmax
 ## Overview
 qmax is a JAX-based library for simulating quantum mechanical systems. 
 
-The library aims to provide a convenient interface to define complex Hamiltonians 
-and compose numerical methods to compute their exponentials, as well as a 
-comprehensive suite of geometric numerical integration schemes for fast and efficient 
-simulation of the Schrödinger equation 
+The library aims to provide a convenient interface to define complicated Hamiltonians 
+and provides a comprehensive suite of geometric numerical integration schemes for 
+fast and efficient simulation of the Schrödinger equation. 
 
 Features include:
 
@@ -17,11 +16,12 @@ Features include:
     - Krylov subspace approximations
     - Chebyshev polynomial approximations
     - Scaled and truncated Taylor expansions
-- Commutator-free quasi-Magnus expansions for time-varying Hamiltonians
-- Memory efficient, matrix-free eigensolvers
+- Exponential timesteppers based on the commutator-free quasi-Magnus expansion
 - Adjoint methods for solving optimal control problems
+- Memory efficient matrix-free eigensolvers
 - Tools for static analysis of numerical methods
 - Full compatibility with JAX transformations (JIT, vmap, autodiff)
+
 
 <!--
 ## Documentation
