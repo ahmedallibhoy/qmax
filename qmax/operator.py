@@ -60,7 +60,7 @@ class Operator(AbstractExpressionTree):
     def _check_domain(self, y: AbstractState):
         if self.domain != y.hilbert_space:
             raise IncompatibleDomainError(
-                f"{type(self).__name__} acts on {self.domain}, "
+                f"{self} acts on {self.domain}, "
                 f"but received a state on {y.hilbert_space}"
             )
 
@@ -152,7 +152,7 @@ class Operator(AbstractExpressionTree):
 
     def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
         raise NoExactExponentialError(
-            f"Exact exponential cannot be computed: {type(self).__name__} does not override base exp_action"
+            f"Exact exponential cannot be computed: {self} does not override base exp_action"
         )
 
     def _exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
@@ -429,7 +429,7 @@ class ShiftScaleOperator(Operator):
         (A,) = self.children
         if jnp.iscomplexobj(self.shift) or jnp.iscomplexobj(self.scale):
             raise NoRealSpectrumError(
-                f"scale * {type(A).__name__} + shift * Identity() does not have a real spectrum "
+                f"scale * {A} + shift * Identity() does not have a real spectrum "
                 f"since shift={self.shift} or scale={self.scale} is complex"
             )
 
@@ -468,8 +468,8 @@ class AddOperator(Operator):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
-                f"Cannot add operators on different domains: A={type(A).__name__} acts on {A.domain}, "
-                f"but B={type(B).__name__} acts on {B.domain},"
+                f"Cannot add operators on different domains: A={A} acts on {A.domain}, "
+                f"but B={B} acts on {B.domain},"
             )
 
         self.domain = A.domain
@@ -533,8 +533,8 @@ class MatMulOperator(Operator):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
-                f"Cannot compose operators on different domains: A={type(A).__name__} acts on {A.domain}, "
-                f"but B={type(B).__name__} acts on {B.domain},"
+                f"Cannot compose operators on different domains: A={A} acts on {A.domain}, "
+                f"but B={B} acts on {B.domain},"
             )
 
         self.domain = A.domain
