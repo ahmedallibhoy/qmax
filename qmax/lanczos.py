@@ -30,7 +30,7 @@ def lanczos(
     key: Optional[PRNGKeyArray]=None,
     w0: Optional[AbstractState]=None,
     Q0: Optional[AbstractState]=None,
-    idx0: int=0) -> tuple[Array, Array, AbstractState]:
+    idx0: int=0) -> tuple[Array, Array, AbstractState, AbstractState]:
 
     """
     Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of [1].
@@ -96,6 +96,10 @@ def _select_indices(select, theta, num):
             key = -theta
         case "largest_magnitude":
             key = -jnp.abs(theta)
+        case _:
+            raise ValueError(
+                f"Invalid option select={select}, must be one of 'smallest', "
+                "'largest', or 'largest-magnitude'")
     return jnp.argsort(key)[:num]
 
 

@@ -52,7 +52,7 @@ class AbstractHilbertSpace(eqx.Module):
         return self.innerp(y, op(y))
 
     def from_coeffs(self, coeffs: ArrayLike) -> AbstractState:
-        return self.state_type(coeffs, self)
+        return self.state_type(coeffs, hilbert_space=self)
 
     def zeros(self, shape: Shape=()) -> AbstractState:
         batch_shape = self.batch_shape(shape)
@@ -106,7 +106,7 @@ class AbstractHilbertSpace(eqx.Module):
 
 class AbstractState(eqx.Module):
     coeffs: Array
-    hilbert_space: AbstractHilbertSpace = eqx.field(static=True)
+    hilbert_space: AbstractHilbertSpace = eqx.field(static=True, kw_only=True)
 
     def __init__(self, coeffs, hilbert_space):
         self.coeffs = jnp.asarray(coeffs, dtype=complex)

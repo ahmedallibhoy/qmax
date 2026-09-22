@@ -12,7 +12,7 @@ from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryi
 
 
 class ControlledOperator(eqx.Module):
-    """
+    r"""
     Controlled operator of the form $H(t, u) = H_0(t) + \sum_{j=1}^{m}u_jH_j(t)$.
 
     Attributes:

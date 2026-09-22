@@ -1,4 +1,5 @@
 
+::: qmax.exponentiators.compose
 
 ::: qmax.exponentiators.Yoshida 
     options:

@@ -14,7 +14,7 @@ from .expression_tree import AbstractExpressionTree
 from .operator import AddOperator, IncompatibleDomainError, Operator
 
 
-class AbstractTimeVaryingOperator(AbstractExpressionTree):
+class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOperator"]):
     """
     A timevarying operator $H(t)$.
     """

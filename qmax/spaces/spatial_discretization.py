@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from functools import partial
 from typing import Callable, Optional
@@ -18,6 +20,7 @@ def _to_tuple(x, dtype=float):
 
 
 class SpatiallyDiscretizedState(AbstractState):
+    hilbert_space: SpatialDiscretization = eqx.field(static=True, kw_only=True)
 
     @property
     @abstractmethod

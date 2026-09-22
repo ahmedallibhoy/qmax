@@ -2,6 +2,25 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.7",
+    "mkdocstrings[python]>=1.0.6",
+    "pymdown-extensions>=12.0.1",
+]
+tests = [
+    "pytest>=9.1.1",
+]
+utils = [
+    "mpmath>=1.3.0",
+]
+dev = [
+    "qmax[docs,tests,utils]",
+    "ruff",
+    "pyright",
+]
+
 [project]
 authors = [
     {name = "Ahmed Allibhoy"}
@@ -10,6 +29,15 @@ name = "qmax"
 readme = "README.md"
 requires-python = ">=3.14"
 version = "0.01"
+dependencies = [
+    "jax>=0.11.1",
+    "jaxtyping>=0.3.9",
+    "equinox>=0.13.6",
+    "lineax>=0.1.0",
+    "numpy>=2.4.4",
+    "matplotlib>=3.10.8",
+    "tqdm>=4.70.0",
+]
 
 [tool.ruff]
 # The minimum Python version that should be supported
@@ -21,3 +49,9 @@ line-length = 100
 fixable = ["I001", "F401", "F541"]
 ignore = ["E402", "E731", "B008"]
 select = ["E", "F", "I"]
+
+[tool.pyright]
+include = ["qmax"]
+#reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = false # Incompatible with eqx.AbstractVar
+#reportUnnecessaryTypeIgnoreComment = true

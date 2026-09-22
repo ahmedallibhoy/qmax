@@ -54,7 +54,7 @@ def _as_shift(x: Operator | ScalarLike) -> Optional[ScalarLike]:
     return None
 
 
-class Operator(AbstractExpressionTree):
+class Operator(AbstractExpressionTree["Operator"]):
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
 
     def _check_domain(self, y: AbstractState):

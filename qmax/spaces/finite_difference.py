@@ -50,6 +50,7 @@ class _FiniteDifference1D(SpatialDiscretization):
 
 
 class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
+    domain: _FiniteDifference1D = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=Cayley(), kw_only=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
@@ -97,6 +98,7 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
 
 
 class _FiniteDifference1DMomentum(Operator):
+    domain: _FiniteDifference1D = eqx.field(static=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(
@@ -169,6 +171,7 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
 
 
 class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
+    domain: FiniteDifference = eqx.field(static=True)
 
     def __init__(
         self,
@@ -185,6 +188,7 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
 
 class FiniteDifferenceMomentum(LiftOperator):
+    domain: FiniteDifference = eqx.field(static=True)
 
     def __init__(
         self,
@@ -205,6 +209,7 @@ class FiniteDifferenceMomentum(LiftOperator):
 
 
 class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy):
+    domain: FiniteDifference = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def to_matrix(self) -> Array:

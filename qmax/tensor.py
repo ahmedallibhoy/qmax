@@ -72,7 +72,7 @@ def apply_along_state(
 
 
 class TensorState(AbstractState):
-    hilbert_space: AbstractTensorSpace = eqx.field(static=True)
+    hilbert_space: AbstractTensorSpace = eqx.field(static=True, kw_only=True)
 
     @property
     def tensor(self) -> Array:
@@ -165,6 +165,7 @@ class TensorPower(AbstractTensorSpace):
 
 
 class AbstractTensorOperator(Operator):
+    domain: AbstractTensorSpace = eqx.field(static=True)
 
     def _check_tensor_domain(self):
         if not isinstance(self.domain, AbstractTensorSpace):
@@ -259,7 +260,7 @@ class LiftOperator(AbstractTensorOperator):
 
     def adjoint(self) -> Operator:
         (A,) = self.children
-        return LiftOperator(self.domain, self.factor_idx, children=(A.adjoint(),))
+        return LiftOperator(self.domain, A.adjoint(), self.factor_idx)
 
     @property
     def label(self) -> str:

@@ -58,20 +58,21 @@ Other excellent projects include
 
 ## Road map
 
-This project is in the early development stage, so the API is unstable and 
-it is likely that future updates will introduce backward-incompatible changes. 
-If you need something more mature or stable, I recommend the related projects.  
+This project is in the early development stage. The API should be considered unstable 
+since it is likely that future updates will introduce backward-incompatible changes. 
+If you need something more mature, I recommend the related projects.  
 
 However, if you are interested in geometric numerical methods and the unique approach 
 adopted by qmax, please check it out! I also welcome any contributions. 
 There are a lot interesting extensions I have planned in the medium-to-long term including:
 
+- Detailed benchmarking of various exponentiation and timestepping methods
 - Memory efficient matrix-free eigensolvers
+- Nonlinear and quasi-linear Schrödinger equations
 - Open quantum systems:
     - Density matrices
     - Stochastic unraveling schemes of Lindbladians
     - Dynamical low-rank approximations of quantum master equations
-- Nonlinear and quasi-linear Schrödinger equations
 - Support for arbitrary / user-generated spatial meshes
 
 If you have a specific need or an idea for an interesting feature, 

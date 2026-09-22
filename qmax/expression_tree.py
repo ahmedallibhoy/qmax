@@ -14,9 +14,9 @@ class IncompatibleDomainError(TypeError):
     pass
 
 
-class AbstractExpressionTree(eqx.Module):
+class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
     domain: AbstractHilbertSpace = eqx.field(static=True)
-    children: tuple[AbstractExpressionTree, ...] = eqx.field(default=(), converter=tuple, kw_only=True)
+    children: tuple[Node, ...] = eqx.field(default=(), converter=tuple, kw_only=True)
     name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
 
     def _check_compatible(self, other: ScalarLike | AbstractExpressionTree):

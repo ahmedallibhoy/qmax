@@ -63,7 +63,7 @@ class PseudoSpectral(SpatialDiscretization):
 
     def from_values(self, values: ArrayLike) -> PseudoSpectralState:
         full = jnp.fft.fftn(values, self.mesh_size, axes=self.spatial_axes, norm="forward")
-        return PseudoSpectralState(self.flatten(self.truncate(full)), self)
+        return PseudoSpectralState(self.flatten(self.truncate(full)), hilbert_space=self)
 
     @property
     def lossless(self):
@@ -83,6 +83,7 @@ class PseudoSpectral(SpatialDiscretization):
 
 
 class PseudoSpectralLaplacian(AbstractDiagonalOperator):
+    domain: PseudoSpectral = eqx.field(static=True)
 
     @property
     def eigvals(self) -> Array:
@@ -105,6 +106,7 @@ class PseudoSpectralExponentiator(ExactExponentiator):
 
 
 class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
+    domain: PseudoSpectral = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
 
     def _solve(
@@ -135,6 +137,7 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
 
 
 class PseudoSpectralMomentum(AbstractDiagonalOperator):
+    domain: PseudoSpectral = eqx.field(static=True)
     axis: int = 0
 
     @property

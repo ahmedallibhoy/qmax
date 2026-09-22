@@ -32,7 +32,7 @@ including Krylov subspace methods, Chebyshev polynomial approximations, and scal
 
 ##### Factorization through the operator algebra
 
-The exponentiation methods factor through certain algebraic compositions, 
+The exponentiation methods factor through certain algebraic compositions of operators, 
 e.g. $(A + B)$ or $cA$. In the codebase, this is implemented in terms 
 of *delegating exponentiators*, each of which act on a specific type of composite operator by delegating 
 to the exponentiators of its children. The following table shows the delegating exponentiators provided by qmax.
@@ -56,6 +56,6 @@ to the exponentiators of its children. The following table shows the delegating 
 
 ##### Timesteppers
 
-##### Adjoints
+##### Adjoints and Optimal Control
 
 ## Introspection

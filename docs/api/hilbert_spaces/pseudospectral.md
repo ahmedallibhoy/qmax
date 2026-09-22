@@ -1,4 +1,4 @@
-# PsuedoSpectral
+# PseudoSpectral
 
 ## Spaces
 
