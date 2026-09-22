@@ -1,0 +1,244 @@
+@STRING{siamjna = "SIAM Journal on Numerical Analysis"}
+@STRING{siammaa = "SIAM Journal on Matrix Analysis and Applications"}
+@STRING{siamjsc = "SIAM Journal on Scientific Computing"}
+
+@STRING{sv = "Springer"}
+@STRING{sv_add = "New York"}
+@STRING{crc = "CRC Press"}
+@STRING{crc_add = "Boca Raton, FL"}
+
+
+@STRING{jcp = "Journal of Computational Physics"}
+@STRING{cpc = "Computer Physics Communications"}
+@STRING{pla = "Physics Letters A"}
+@STRING{physrep = "Physics Reports"}
+
+@STRING{etna = "Electronic Transactions on Numerical Analysis"}
+@STRING{jcam = "Journal of Computational and Applied Mathematics"}
+@STRING{oms = "Optimization Methods and Software"}
+
+@STRING{jhu = "Johns Hopkins University Press"}
+@STRING{jhu_add = "Baltimore, MD"}
+@STRING{sscm = "Springer Series in Computational Mathematics"}
+
+
+%%% --------------------------------------------------------------------
+%%% Entries
+%%% --------------------------------------------------------------------
+
+@Comment{Krylov subspace methods --- qmax/exponentiators/krylov.py, qmax/lanczos.py}
+
+@Article{YS:92,
+  author =       {Y. Saad},
+  title =        {Analysis of some {K}rylov subspace approximations to
+                  the matrix exponential operator},
+  journal =      siamjna,
+  year =         1992,
+  volume =       29,
+  number =       1,
+  pages =        {209-228},
+}
+
+@Article{MH-CL:97,
+  author =       {M. Hochbruck and C. Lubich},
+  title =        {On {K}rylov subspace approximations to the matrix
+                  exponential operator},
+  journal =      siamjna,
+  year =         1997,
+  volume =       34,
+  number =       5,
+  pages =        {1911-1925},
+}
+
+@Article{KW-HS:00,
+  author =       {K. Wu and H. Simon},
+  title =        {Thick-restart {L}anczos method for large symmetric
+                  eigenvalue problems},
+  journal =      siammaa,
+  year =         2000,
+  volume =       22,
+  number =       2,
+  pages =        {602-616},
+}
+
+@Book{GHG-CFVL:13,
+  author =       {G. H. Golub and C. F. Van Loan},
+  title =        {Matrix Computations},
+  publisher =    jhu,
+  address =      jhu_add,
+  year =         2013,
+  edition =      4,
+}
+
+
+@Comment{Polynomial expansions --- qmax/exponentiators/polynomial.py}
+
+@Article{BNS-YS-RBS:10,
+  author =       {B. N. Sheehan and Y. Saad and R. B. Sidje},
+  title =        {Computing $\exp(-\tau A) b$ with {L}aguerre
+                  polynomials},
+  journal =      etna,
+  year =         2010,
+  volume =       37,
+  pages =        {147-165},
+}
+
+
+@Comment{Scaled and truncated Taylor series --- qmax/exponentiators/truncated_taylor.py}
+
+@Article{AHAM-NJH:11,
+  author =       {A. H. Al-Mohy and N. J. Higham},
+  title =        {Computing the action of the matrix exponential, with
+                  an application to exponential integrators},
+  journal =      siamjsc,
+  year =         2011,
+  volume =       33,
+  number =       2,
+  pages =        {488-511},
+}
+
+@Article{NJH-FT:00,
+  author =       {N. J. Higham and F. Tisseur},
+  title =        {A block algorithm for matrix 1-norm estimation, with
+                  an application to 1-norm pseudospectra},
+  journal =      siammaa,
+  year =         2000,
+  volume =       21,
+  number =       4,
+  pages =        {1185-1201},
+}
+
+
+@Comment{Commutator-free exponential time propagators --- qmax/timestepper.py}
+
+@Article{MT:06,
+  author =       {M. Thalhammer},
+  title =        {A fourth-order commutator-free exponential
+                  integrator for nonautonomous differential
+                  equations},
+  journal =      siamjna,
+  year =         2006,
+  volume =       44,
+  number =       2,
+  pages =        {851-864},
+}
+
+@Article{AA-HF:11,
+  author =       {A. Alvermann and H. Fehske},
+  title =        {High-order commutator-free exponential
+                  time-propagation of driven quantum systems},
+  journal =      jcp,
+  year =         2011,
+  volume =       230,
+  number =       15,
+  pages =        {5930-5956},
+}
+
+@Article{SB-FC-MT:17,
+  author =       {S. Blanes and F. Casas and M. Thalhammer},
+  title =        {High-order commutator-free quasi-{M}agnus
+                  exponential integrators for non-autonomous linear
+                  evolution equations},
+  journal =      cpc,
+  year =         2017,
+  volume =       220,
+  pages =        {243-262},
+}
+
+@Article{SB-FC-JAO-JR:09,
+  author =       {S. Blanes and F. Casas and J. A. Oteo and J. Ros},
+  title =        {The {M}agnus expansion and some of its applications},
+  journal =      physrep,
+  year =         2009,
+  volume =       470,
+  number =       {5-6},
+  pages =        {151-238},
+}
+
+
+@Comment{Splitting methods --- qmax/exponentiators/split.py}
+
+@Article{SB-PCM:02,
+  author =       {S. Blanes and P. C. Moan},
+  title =        {Practical symplectic partitioned {R}unge--{K}utta
+                  and {R}unge--{K}utta--{N}ystr{\"o}m methods},
+  journal =      jcam,
+  year =         2002,
+  volume =       142,
+  number =       2,
+  pages =        {313-330},
+}
+
+
+@Comment{Composition methods --- qmax/exponentiators/composed_method.py}
+
+@Article{HY:90,
+  author =       {H. Yoshida},
+  title =        {Construction of higher order symplectic
+                  integrators},
+  journal =      pla,
+  year =         1990,
+  volume =       150,
+  number =       {5-7},
+  pages =        {262-268},
+}
+
+@Article{MS:90-pla,
+  author =       {M. Suzuki},
+  title =        {Fractal decomposition of exponential operators with
+                  applications to many-body theories and {M}onte
+                  {C}arlo simulations},
+  journal =      pla,
+  year =         1990,
+  volume =       146,
+  number =       6,
+  pages =        {319-323},
+}
+
+@Article{RIM:95,
+  author =       {R. I. McLachlan},
+  title =        {On the numerical integration of ordinary
+                  differential equations by symmetric composition
+                  methods},
+  journal =      siamjsc,
+  year =         1995,
+  volume =       16,
+  number =       1,
+  pages =        {151-168},
+}
+
+@Article{MS-GS:05,
+  author =       {M. Sofroniou and G. Spaletta},
+  title =        {Derivation of symmetric composition constants for
+                  symmetric integrators},
+  journal =      oms,
+  year =         2005,
+  volume =       20,
+  number =       {4-5},
+  pages =        {597-613},
+}
+
+
+@Comment{Geometric integration monographs}
+
+@Book{EH-CL-GW:06,
+  author =       {E. Hairer and C. Lubich and G. Wanner},
+  title =        {Geometric Numerical Integration: Structure-Preserving
+                  Algorithms for Ordinary Differential Equations},
+  publisher =    sv,
+  address =      sv_add,
+  year =         2006,
+  series =       sscm,
+  volume =       31,
+  edition =      2,
+}
+
+@Book{SB-FC:25,
+  author =       {S. Blanes and F. Casas},
+  title =        {A Concise Introduction to Geometric Numerical
+                  Integration},
+  publisher =    crc,
+  address =      crc_add,
+  year =         2025,
+  edition =      2,
+}
