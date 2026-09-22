@@ -7,11 +7,12 @@ from typing import Callable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import AbstractHermitianOperator, Operator
 
+type PotentialFunction = Callable[[Array], Scalar]
 
 def _to_tuple(x, dtype=float):
     if jnp.isscalar(x):
@@ -42,13 +43,13 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def from_values(self, values: ArrayLike) -> SpatiallyDiscretizedState:
         pass
 
-    def from_function(self, fn: Callable[[ArrayLike], ScalarLike]) -> SpatiallyDiscretizedState:
+    def from_function(self, fn: PotentialFunction) -> SpatiallyDiscretizedState:
         return self.from_values(self.eval(fn))
 
     def innerp(
         self, 
         y1: SpatiallyDiscretizedState, 
-        y2: SpatiallyDiscretizedState) -> ScalarLike:
+        y2: SpatiallyDiscretizedState) -> Scalar:
 
         return jnp.prod(self.dx_range) * jnp.sum(
             jnp.conj(y1.values) * y2.values, axis=self.spatial_axes)
@@ -61,10 +62,10 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def spatial_axes(self) -> tuple[int, ...]:
         return tuple(range(-self.spatial_dim, 0))
 
-    def flatten(self, arr_grid: ArrayLike):
+    def flatten(self, arr_grid: Array):
         return arr_grid.reshape(*arr_grid.shape[:-self.spatial_dim], -1)
 
-    def to_grid(self, arr: ArrayLike, sizes: Optional[tuple[int, ...]]=None):
+    def to_grid(self, arr: Array, sizes: Optional[tuple[int, ...]]=None):
         if sizes is None:
             sizes = self.mesh_size
         return arr.reshape(*arr.shape[:-1], *sizes)
@@ -102,7 +103,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
         return self.grid_vectors(self.x_ranges)
  
-    def eval(self, fn: Callable[[ArrayLike], ScalarLike]) -> Array:
+    def eval(self, fn: PotentialFunction) -> Array:
         return self.to_grid(jax.vmap(fn)(self.points))
 
     @property
@@ -120,7 +121,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
     def laplacian(self) -> Operator:
         raise NotImplementedError 
 
-    def potential_energy(self, potential: Callable[[ArrayLike], ScalarLike]) -> Operator:
+    def potential_energy(self, potential: PotentialFunction) -> Operator:
         raise NotImplementedError 
 
     def position(self, axis: int = 0) -> Operator:
@@ -134,7 +135,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
 
 
 class AbstractPotentialEnergy(AbstractHermitianOperator):
-    potential: Callable[[ArrayLike], ScalarLike]
+    potential: PotentialFunction
 
     @property
     def values(self) -> Array:

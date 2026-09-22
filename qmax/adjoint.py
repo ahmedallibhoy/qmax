@@ -5,7 +5,7 @@ import equinox as eqx
 import equinox.internal as eqxi
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, PyTree, Scalar, ScalarLike
+from jaxtyping import Array, PyTree, Scalar, ScalarLike
 
 from .hilbert_space import AbstractState
 
@@ -14,13 +14,13 @@ if TYPE_CHECKING:
 
 
 def _step(
-    carry: tuple[ArrayLike, ScalarLike, ScalarLike], 
-    u_next: ArrayLike, 
-    u_quad: ArrayLike, 
-    t_pair: tuple[ScalarLike, ScalarLike], 
+    carry: tuple[AbstractState, Scalar, Scalar], 
+    u_next: Array, 
+    u_quad: Array, 
+    t_pair: tuple[Scalar, Scalar], 
     U: Propagator, 
     running_cost_fn: CostFunction, 
-    dt: ScalarLike) -> tuple[Array, Scalar, Scalar]:
+    dt: ScalarLike) -> tuple[AbstractState, Scalar, Scalar]:
     
     y, cost, total = carry
     t, t_next = t_pair
@@ -32,7 +32,7 @@ def _step(
 
 @eqx.filter_custom_vjp
 def _propagate(
-    vjp_args: tuple[AbstractState, ArrayLike, ArrayLike],
+    vjp_args: tuple[AbstractState, Array, Array],
     U: Propagator,
     running_cost_fn: CostFunction,
     save_every: int,

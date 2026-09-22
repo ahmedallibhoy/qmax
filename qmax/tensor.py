@@ -17,7 +17,7 @@ from .operator import Identity, IncompatibleDomainError, Operator
 
 
 def apply_along_tensor(
-    fn: Callable[[ArrayLike], ArrayLike],
+    fn: Callable[[Array], Array],
     tensor: ArrayLike,
     axis: int) -> Array:
     r"""

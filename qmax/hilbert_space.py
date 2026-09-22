@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Callable, Iterable, Sequence
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, PRNGKeyArray, ScalarLike
+from jaxtyping import Array, ArrayLike, PRNGKeyArray, Scalar, ScalarLike
 
 if TYPE_CHECKING:
     from .operator import Operator
@@ -29,7 +29,7 @@ def _coeff_index(idx: Index) -> tuple[int, ...]:
 
 class AbstractHilbertSpace(eqx.Module):
     state_type: eqx.AbstractClassVar[type[AbstractState]]
-    hbar: ScalarLike = eqx.field(default=1.0, kw_only=True)
+    hbar: float = eqx.field(default=1.0, converter=float, kw_only=True)
 
     @property
     @abstractmethod
@@ -39,19 +39,20 @@ class AbstractHilbertSpace(eqx.Module):
     def batch_shape(self, shape: Shape) -> Shape:
         return shape + (self.dim,)
 
-    def innerp(self, y1: AbstractState, y2: AbstractState) -> ScalarLike:
+    def innerp(self, y1: AbstractState, y2: AbstractState) -> Scalar:
         return jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1)
 
-    def norm(self, y: AbstractState) -> ScalarLike:
+    def norm(self, y: AbstractState) -> Scalar:
         return jnp.sqrt(self.norm2(y))
 
-    def norm2(self, y: AbstractState) -> ScalarLike:
+    def norm2(self, y: AbstractState) -> Scalar:
         return jnp.real(self.innerp(y, y))
 
-    def expected_value(self, op: Operator, y: AbstractState) -> ScalarLike:
+    def expected_value(self, op: Operator, y: AbstractState) -> Scalar:
         return self.innerp(y, op(y))
 
     def from_coeffs(self, coeffs: ArrayLike) -> AbstractState:
+        coeffs = jnp.asarray(coeffs, dtype=complex)
         return self.state_type(coeffs, hilbert_space=self)
 
     def zeros(self, shape: Shape=()) -> AbstractState:
@@ -116,7 +117,7 @@ class AbstractState(eqx.Module):
         self, 
         other: AbstractState, 
         fn: Callable, 
-        on_coeffs: bool=True) -> AbstractState | ScalarLike:
+        on_coeffs: bool=True) -> AbstractState | Scalar:
 
         if not isinstance(other, AbstractState):
             return NotImplemented
@@ -129,16 +130,16 @@ class AbstractState(eqx.Module):
         else:
             return fn(self, other)
 
-    def innerp(self, y: AbstractState) -> ScalarLike:
+    def innerp(self, y: AbstractState) -> Scalar:
         return self.hilbert_space.innerp(self, y)
 
-    def norm(self) -> Array:
+    def norm(self) -> Scalar:
         return self.hilbert_space.norm(self)
 
-    def norm2(self) -> Array:
+    def norm2(self) -> Scalar:
         return self.hilbert_space.norm2(self)
 
-    def expected_value(self, op: Operator) -> Array:
+    def expected_value(self, op: Operator) -> Scalar:
         return self.hilbert_space.expected_value(op, self)
 
     def __add__(self, other: AbstractState) -> AbstractState:
@@ -153,11 +154,11 @@ class AbstractState(eqx.Module):
     def __rsub__(self, other: AbstractState) -> AbstractState:
         return self.binary_op(other, lambda a, b: b - a)
 
-    def __matmul__(self, other: AbstractState) -> ScalarLike:
+    def __matmul__(self, other: AbstractState) -> Scalar:
         return self.binary_op(
             other, lambda a, b, hs=self.hilbert_space: hs.innerp(a, b), on_coeffs=False)
 
-    def __rmatmul__(self, other: AbstractState) -> ScalarLike:
+    def __rmatmul__(self, other: AbstractState) -> Scalar:
         return self.binary_op(
             other, lambda a, b, hs=self.hilbert_space: hs.innerp(b, a), on_coeffs=False)
 
@@ -184,7 +185,7 @@ class AbstractState(eqx.Module):
 
     def contract(
         self, 
-        weights: ArrayLike, 
+        weights: Array, 
         axes: int | Iterable[int]=(0, 0)) -> AbstractState:
         """
         Takes a linear combination of states corresponding to batch axes

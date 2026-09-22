@@ -28,9 +28,9 @@ class PropagateResult(eqx.Module):
     total_cost: Scalar
 
 
-type CostFunction = Callable[[ScalarLike, AbstractState, ArrayLike], Scalar]
-type SaveFunction = Callable[[ScalarLike, AbstractState, ArrayLike], PyTree]
-type TerminalCostFunction = Callable[[ScalarLike, AbstractState], Scalar]
+type CostFunction = Callable[[Scalar, AbstractState, Array], Scalar]
+type SaveFunction = Callable[[Scalar, AbstractState, Array], PyTree]
+type TerminalCostFunction = Callable[[Scalar, AbstractState], Scalar]
 
 def _save_y(t, y, u): 
     return y
@@ -134,7 +134,7 @@ class Propagator(eqx.Module):
         t: ScalarLike,
         dt: ScalarLike,
         y: AbstractState,
-        u_quad: ArrayLike) -> AbstractState:
+        u_quad: Array) -> AbstractState:
 
         y_next = y
         t_quad, _ = self.quad_rule

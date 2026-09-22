@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import ArrayLike, ScalarLike
+from jaxtyping import Array, Scalar, ScalarLike
 
 from .._introspect import CountDict, Path
 from ..chebyshev import chebyshev
@@ -27,7 +27,7 @@ N_MAX = 100
 # TODO: 
 #   1. raise warning on overflow 
 #   2. overflow safe implementation
-def _modified_bessel(order: ArrayLike, z: ScalarLike, extend: int=25) -> ArrayLike:
+def _modified_bessel(order: Array, z: Scalar, extend: int=25) -> Array:
     def miller(carry, idx):
         s_next, s = carry
         s_prev = s_next + (2 * idx) / z * s

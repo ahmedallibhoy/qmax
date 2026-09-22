@@ -5,7 +5,7 @@ from typing import Optional
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from .control import AbstractControl, ConstantControl
@@ -32,7 +32,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
         return self.evaluate(t)
 
     @abstractmethod
-    def quadrature(self, t_quad: ArrayLike, weights: ArrayLike) -> Operator:
+    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
         pass
 
     def evaluate(self, t: ScalarLike) -> Operator:
@@ -96,7 +96,7 @@ class ConstantTimeVaryingOperator(AbstractTimeVaryingOperator):
         self.domain = op.domain
         self.name = name if name is not None else op.label
 
-    def quadrature(self, t_quad: ArrayLike, weights: ArrayLike) -> Operator:
+    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
         return jnp.sum(weights) * self.op
 
 
@@ -125,7 +125,7 @@ class AddTimeVaryingOperator(AbstractTimeVaryingOperator):
     def with_split_method(self, split_method: AbstractSplitMethod):
         return _update_field(self, "split_method", split_method)
 
-    def quadrature(self, t_quad: ArrayLike, weights: ArrayLike) -> Operator:
+    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
         A, B = self.children
         return AddOperator(
             A.quadrature(t_quad, weights), B.quadrature(t_quad, weights),
@@ -147,7 +147,7 @@ class ScalarMulTimeVaryingOperator(AbstractTimeVaryingOperator):
         self.domain = A.domain
         self.name = name if name is not None else f"{type(u).__name__} * {A.label}"
 
-    def quadrature(self, t_quad: ArrayLike, weights: ArrayLike) -> Operator:
+    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
         (A,) = self.children
         return A.quadrature(t_quad, weights * jax.vmap(self.u)(t_quad))
 

@@ -60,7 +60,7 @@ class ControlFunction(AbstractControl):
         cntrl (callable): Function with signature `cntrl(t)` returning a scalar 
             which is the control at time t. 
     """
-    cntrl: Callable[[ScalarLike], Scalar]
+    cntrl: Callable[[Scalar], Scalar]
 
     def evaluate(self, t: ScalarLike) -> Scalar:
         return self.cntrl(t)
@@ -83,11 +83,11 @@ class AbstractInterpolatedControl(AbstractControl):
 
     t0: Scalar = eqx.field(static=True, converter=float)
     t1: Scalar = eqx.field(static=True, converter=float)
-    u_range: ArrayLike
+    u_range: Array
 
     @classmethod
     def from_function(cls, 
-        u_func: Callable[[ScalarLike], Scalar], 
+        u_func: Callable[[Scalar], Scalar], 
         t0: ScalarLike, 
         t1: ScalarLike, 
         num_samples: int) -> AbstractInterpolatedControl:
@@ -118,7 +118,7 @@ class AbstractInterpolatedControl(AbstractControl):
     def t_range(self) -> Array:
         return jnp.linspace(self.t0, self.t1, self.num_steps)
 
-    def idx(self, t: ScalarLike) -> int:
+    def idx(self, t: ScalarLike) -> Scalar:
         return jnp.clip(jnp.trunc((t - self.t0) / self.dt).astype(int), 0, self.num_steps - 2)
 
 

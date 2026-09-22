@@ -2,7 +2,8 @@ from functools import reduce
 from typing import Iterable
 
 import equinox as eqx
-from jaxtyping import ArrayLike, ScalarLike
+import jax.numpy as jnp
+from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
 from .exponentiators import AbstractSplitMethod, Strang
@@ -65,9 +66,9 @@ class ControlledOperator(eqx.Module):
 
     def quadrature(
         self, 
-        t_quad: ArrayLike,
-        u_quad: ArrayLike,  
-        weights: ArrayLike) -> Operator:
+        t_quad: Array,
+        u_quad: Array,  
+        weights: Array) -> Operator:
 
         # u_quad.shape == (len(self.controlled_ops), num_nodes)
 
@@ -92,6 +93,7 @@ class ControlledOperator(eqx.Module):
         Returns:
             the operator $H(t, u)$. 
         """
+        controls = jnp.asarray(controls)
 
         op = reduce(
             lambda a, b: (a + b).with_split_method(self.split_method), 

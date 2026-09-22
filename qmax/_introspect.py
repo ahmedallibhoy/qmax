@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 from functools import reduce
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
     from .operator import Operator
@@ -56,7 +56,7 @@ class Path:
     steps: tuple[tuple[int, str], ...] = ()
 
     @property
-    def root(self) -> bool:
+    def root(self) -> Path:
         return Path(self.root_label)
 
     def append(self, index: int, label: str) -> Path:
@@ -163,9 +163,9 @@ class CountDict:
 
         return CountDict({path: other * count for (path, count) in self.ct_dict.items()})
 
-    def render_trees(self) -> RenderTree:
+    def render_trees(self) -> list[RenderTree]:
         if not self.ct_dict:
-            return RenderTree(label="")
+            return [RenderTree(label="")]
 
         key = next(iter(self.ct_dict))
         roots = list(set([path.root for path in self.ct_dict.keys()]))
@@ -223,7 +223,7 @@ class CountDict:
         return "\n".join(out)
 
 
-type CountType = Union[CountDict, type(NotImplemented)]
+type CountType = CountDict
 
 def _to_ct_type(val: CountType | dict) -> CountType:
     if isinstance(val, CountDict):

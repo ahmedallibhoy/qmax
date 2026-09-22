@@ -1,3 +1,4 @@
+from typing import Optional
 
 import jax.numpy as jnp
 import matplotlib as mpl
@@ -22,7 +23,7 @@ def angle_mesh(
     ax: Axes,
     *,
     p: ScalarLike=1,
-    abs_max: ScalarLike=None,
+    abs_max: Optional[float]=None,
     cmap: LinearSegmentedColormap | str="hsv",
     bg="white"):
 

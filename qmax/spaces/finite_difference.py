@@ -4,7 +4,7 @@ from typing import Callable, ClassVar, Optional
 import equinox as eqx
 import jax.numpy as jnp
 import lineax as lx
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
 
 from ..exponentiators import AbstractExponentiator, Cayley, ExactExponentiator, NoExponentiator
 from ..hilbert_space import AbstractState
@@ -13,6 +13,7 @@ from ..tensor import KroneckerSum, KroneckerSumExp, LiftOperator, TensorProduct,
 from ..utils import over_batch
 from .spatial_discretization import (
     AbstractPotentialEnergy,
+    PotentialFunction,
     SpatialDiscretization,
     SpatiallyDiscretizedState,
     _to_tuple,
@@ -45,7 +46,7 @@ class _FiniteDifference1D(SpatialDiscretization):
         return self.from_coeffs(values)
 
     @property
-    def dx(self) -> ScalarLike:
+    def dx(self) -> Scalar:
         return self.dx_range[0]
 
 
@@ -162,7 +163,7 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
 
     def potential_energy(
         self,
-        potential: Callable[[ArrayLike], ScalarLike]) -> FiniteDifferencePotentialEnergy:
+        potential: PotentialFunction) -> FiniteDifferencePotentialEnergy:
 
         return FiniteDifferencePotentialEnergy(self, potential)
 

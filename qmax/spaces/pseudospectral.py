@@ -10,6 +10,7 @@ from ..exponentiators import AbstractExponentiator, ExactExponentiator, Order
 from ..operator import AbstractDiagonalOperator, Operator
 from .spatial_discretization import (
     AbstractPotentialEnergy,
+    PotentialFunction,
     SpatialDiscretization,
     SpatiallyDiscretizedState,
     _to_tuple,
@@ -74,7 +75,7 @@ class PseudoSpectral(SpatialDiscretization):
 
     def potential_energy(
         self, 
-        potential: Callable[[ArrayLike], ScalarLike]) -> PseudoSpectralPotentialEnergy:
+        potential: PotentialFunction) -> PseudoSpectralPotentialEnergy:
 
         return PseudoSpectralPotentialEnergy(self, potential)
 

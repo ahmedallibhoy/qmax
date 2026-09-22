@@ -3,7 +3,7 @@ from typing import ClassVar
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
-from jaxtyping import Array, ArrayLike
+from jaxtyping import Array
 
 
 def _gl_rule(n):
@@ -20,7 +20,7 @@ class AbstractTimeStepper(eqx.Module):
     def quad_rule(self) -> Array:
         return _gl_rule(self.num_nodes)
 
-    def eval_points(self, t_range: ArrayLike) -> Array:
+    def eval_points(self, t_range: Array) -> Array:
         t_quad, _ = self.quad_rule
         t_range = jnp.asarray(t_range)
         dt = t_range[1:] - t_range[:-1]

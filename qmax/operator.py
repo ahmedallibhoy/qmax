@@ -7,7 +7,7 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import lineax as lx
-from jaxtyping import Array, ScalarLike
+from jaxtyping import Array, Scalar, ScalarLike
 
 from ._internal import _overrides, _update_field
 from ._introspect import (
@@ -182,7 +182,7 @@ class Operator(AbstractExpressionTree["Operator"]):
         """
         raise NotImplementedError
 
-    def expected_value(self, y: AbstractState) -> ScalarLike:
+    def expected_value(self, y: AbstractState) -> Scalar:
         return y.expected_value(self)
 
     def to_matrix(self) -> Array:
