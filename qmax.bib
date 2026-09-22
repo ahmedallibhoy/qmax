@@ -16,6 +16,9 @@
 @STRING{etna = "Electronic Transactions on Numerical Analysis"}
 @STRING{jcam = "Journal of Computational and Applied Mathematics"}
 @STRING{oms = "Optimization Methods and Software"}
+@STRING{amc = "Applied Mathematics and Computation"}
+@STRING{mcom = "Mathematics of Computation"}
+@STRING{jpa = "Journal of Physics A: Mathematical and General"}
 
 @STRING{jhu = "Johns Hopkins University Press"}
 @STRING{jhu_add = "Baltimore, MD"}
@@ -155,7 +158,6 @@
   pages =        {151-238},
 }
 
-
 @Comment{Splitting methods --- qmax/exponentiators/split.py}
 
 @Article{SB-PCM:02,
@@ -241,4 +243,104 @@
   address =      crc_add,
   year =         2025,
   edition =      2,
+}
+
+%%%%%%%%%%%%%%%% Nonlinear / Quasi-linear systems
+
+@Comment{Magnus expansions for nonlinear systems}
+
+% Commutator free methods of order 2
+% Also, explicit methods of higher order, but with commutators
+
+@Article{FC-AI:06,
+  author =       {F. Casas and A. Iserles},
+  title =        {Explicit {M}agnus expansions for nonlinear
+                  equations},
+  journal =      jpa,
+  year =         2006,
+  volume =       39,
+  number =       19,
+  pages =        {5445-5461},
+}
+
+@Article{MH-FC:20,
+  author =       {M. Hajiketabi and F. Casas},
+  title =        {Numerical integrators based on the {M}agnus expansion
+                  for nonlinear dynamical systems},
+  journal =      amc,
+  year =         2020,
+  volume =       369,
+  pages =        {124844},
+}
+
+
+@Comment{Exponential integrators for quasi-linear parabolic problems}
+
+% Introduces alternative to the 2nd order scheme from FC-AI:06
+% Also explicit and commutator-free
+
+@Article{CG-MT:06,
+  author =       {C. Gonz{\'a}lez and M. Thalhammer},
+  title =        {A second-order {M}agnus-type integrator for
+                  quasi-linear parabolic problems},
+  journal =      mcom,
+  year =         2006,
+  volume =       76,
+  number =       257,
+  pages =        {205-231},
+}
+
+
+%% The next two analyze exponential Euler integrators for quasi-linear differential equations
+@Article{CG-MT:15,
+  author =       {C. Gonz{\'a}lez and M. Thalhammer},
+  title =        {Higher-order exponential integrators for quasi-linear
+                  parabolic problems. {P}art {I}: {S}tability},
+  journal =      siamjna,
+  year =         2015,
+  volume =       53,
+  number =       2,
+  pages =        {701-719},
+}
+
+@Article{CG-MT:16,
+  author =       {C. Gonz{\'a}lez and M. Thalhammer},
+  title =        {Higher-order exponential integrators for quasi-linear
+                  parabolic problems. {P}art {II}: {C}onvergence},
+  journal =      siamjna,
+  year =         2016,
+  volume =       54,
+  number =       5,
+  pages =        {2868-2888},
+}
+
+
+@Comment{Unitary integrators}
+
+% Proposes implicit Gauss RK methods, and projected RK methods
+@Article{LD-RDR-ESVV:94,
+  author =       {L. Dieci and R. D. Russell and E. S. Van Vleck},
+  title =        {Unitary integrators and applications to continuous
+                  orthonormalization techniques},
+  journal =      siamjna,
+  year =         1994,
+  volume =       31,
+  number =       1,
+  pages =        {261-281},
+}
+
+@Comment{Collocation-based}
+
+% Need to read this properly but methods appear to be both 
+% implicit and require commutators
+
+@Article{AZ:99,
+  author =       {A. Zanna},
+  title =        {Collocation and relaxed collocation for the {F}er and
+                  the {M}agnus expansions},
+  journal =      siamjna,
+  year =         1999,
+  volume =       36,
+  number =       4,
+  pages =        {1145-1182},
 }
