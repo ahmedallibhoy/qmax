@@ -1,15 +1,12 @@
-import pytest 
 from functools import reduce
 
-import jax 
-import jax.numpy as jnp 
-
-import qmax as qx
-
-from conftest import RTOL, ATOL, KEY
+import jax.numpy as jnp
+import pytest
+from conftest import ATOL, KEY, RTOL
 from helpers import SPACES
 from test_operator import action_agrees, adj_action_agrees
 
+import qmax as qx
 
 fd = SPACES["finite_difference_1d"]
 ps = SPACES["pseudospectral_1d"]
@@ -147,16 +144,16 @@ def test_kronecker_prod(tensor_space, op_list):
 @pytest.mark.parametrize("tensor_space,A,lift_idx", [(fd_times_ps, fd.laplacian(), 1)])
 def test_lift_rejects_incompatible_domain(tensor_space, A, lift_idx):
     with pytest.raises(qx.expression_tree.IncompatibleDomainError):
-        Alift = tensor_space.lift(A, lift_idx) 
+        tensor_space.lift(A, lift_idx) 
 
 
 @pytest.mark.parametrize("tensor_space,op_list", [(nlevel5, [A, A, A, A, fd.laplacian()])]) 
 def test_kron_sum_rejects_incompatible_domains(tensor_space, op_list):
     with pytest.raises(qx.expression_tree.IncompatibleDomainError):
-        op = tensor_space.kron_sum(op_list)
+        tensor_space.kron_sum(op_list)
 
 
 @pytest.mark.parametrize("tensor_space,op_list", [(nlevel5, [A, A, A, A])]) 
 def test_kron_prod_rejects_incompatible_num_factors(tensor_space, op_list):
     with pytest.raises(ValueError):
-        op = tensor_space.kron_sum(op_list)
+        tensor_space.kron_sum(op_list)

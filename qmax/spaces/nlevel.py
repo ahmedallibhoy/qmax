@@ -34,7 +34,8 @@ class NLevel[S: NLevelState[Any] = NLevelState](AbstractHilbertSpace[S]):
 
     def coherent(self, alpha: ComplexScalarLike) -> S:
         """
-        Given alpha, generates a state such that a(y) ≈ alpha * y where a is the Annihilator operator. 
+        Given alpha, generates a state such that a(y) ≈ alpha * y where a is the 
+        Annihilator operator. 
         """
         def next_coeff(c, k):
             c_next = alpha / jnp.sqrt(k) * c
@@ -55,14 +56,16 @@ class NLevel[S: NLevelState[Any] = NLevelState](AbstractHilbertSpace[S]):
 def annihilate(y: NLevelState[Any]):
     dim = y.hilbert_space.dim
     vals = jnp.sqrt(jnp.arange(1, dim))
-    coeffs = jnp.concatenate([vals * y.coeffs[..., 1:], jnp.zeros_like(y.coeffs[..., :1])], axis=-1)
+    coeffs = jnp.concatenate(
+        [vals * y.coeffs[..., 1:], jnp.zeros_like(y.coeffs[..., :1])], axis=-1)
     return y.hilbert_space.from_coeffs(coeffs)
 
 
 def create(y: NLevelState[Any]):
     dim = y.hilbert_space.dim
     vals = jnp.sqrt(jnp.arange(1, dim))
-    coeffs = jnp.concatenate([jnp.zeros_like(y.coeffs[..., :1]), vals * y.coeffs[..., :-1]], axis=-1)
+    coeffs = jnp.concatenate([
+        jnp.zeros_like(y.coeffs[..., :1]), vals * y.coeffs[..., :-1]], axis=-1)
     return y.hilbert_space.from_coeffs(coeffs)
 
 

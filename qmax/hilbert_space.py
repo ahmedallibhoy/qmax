@@ -78,7 +78,9 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
             axis += max_rank + 1
 
         if not 0 <= axis < max_rank + 1:
-            raise ValueError(f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}")
+            raise ValueError(
+                f"axis {axis} out of range for sequence with of states "
+                f"with maximum rank {max_rank}")
         
         return self.from_coeffs(jnp.stack([y.coeffs for y in ys], axis))
 
@@ -92,7 +94,9 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
             axis += max_rank
 
         if not 0 <= axis < max_rank:
-            raise ValueError(f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}")
+            raise ValueError(
+                f"axis {axis} out of range for sequence with of states"
+                f"with maximum rank {max_rank}")
 
         coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
         return self.from_coeffs(jnp.concatenate(coeffs, axis))
@@ -209,7 +213,8 @@ class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
             axis += self.rank 
 
         if not 0 <= axis < self.rank:
-            raise ValueError(f"axis={axis} out of range for batched state vector of rank {self.rank}")
+            raise ValueError(
+                f"axis={axis} out of range for batched state vector of rank {self.rank}")
 
         return axis
 

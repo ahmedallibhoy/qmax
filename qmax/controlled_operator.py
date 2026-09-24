@@ -3,10 +3,10 @@ from typing import Iterable
 
 import equinox as eqx
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import ScalarLike
 
 from ._internal import _update_field
-from ._types import ComplexArrayLike, ComplexScalarLike
+from ._types import ComplexArrayLike
 from .exponentiators import AbstractSplitMethod, Strang
 from .hilbert_space import AbstractHilbertSpace
 from .operator import AddOperator, Operator
@@ -51,7 +51,8 @@ class ControlledOperator(eqx.Module):
         for idx, op in enumerate(self.controlled_ops):
             if not op.domain == self.drift_op.domain:
                 raise ValueError(
-                    f"All operators must act on the same domain but drift_op.domain={self.drift_op.domain} "
+                    f"All operators must act on the same domain "
+                    f"but drift_op.domain={self.drift_op.domain} "
                     f"and controlled_ops[{idx}].domain={op.domain}")
 
     @property

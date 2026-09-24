@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
 
 import equinox as eqx
 import jax.numpy as jnp
-from jaxtyping import Scalar, ScalarLike
+from jaxtyping import ScalarLike
 
 from .._internal import _update_field
 from .._introspect import CountDict, Path
@@ -222,14 +222,11 @@ class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](Abstract
             c |= mult * op.children[idx].exp_count(scale * h, path, idx)
         return c
 
-    def h_scales(self, op: Op) -> Sequence[ComplexScalarLike]:
+    def h_scales(self, op: Op) -> Sequence[RealScalarLike]:
         """
         Returns list where h_scales[i] is the maximum scaling factor applied to op.children[i]
         """
-        scales = [0.] * len(op.children)
-        for idx, coeff, _ in self.schedule(op):
-            scales[idx] = max(scales[idx], abs(coeff)) # pyright: ignore[reportCallIssue, reportArgumentType]
-        return scales
+        return [abs(coeff) for _, coeff, _ in self.schedule(op)]
 
     def check_exponentiable(self, op, parent_path=None, child_idx=None) -> None:
         path = op.path(parent_path, child_idx)
@@ -237,7 +234,8 @@ class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](Abstract
             op.children[idx].check_exponentiable_tree(path, idx)
 
     def adapt_children(self, op, dt_max) -> Op:
-        children = tuple(child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op)))
+        children = tuple(
+            child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op)))
         return _update_field(op, "children", children)
 
     def effective_order(self, op: Op) -> Order:

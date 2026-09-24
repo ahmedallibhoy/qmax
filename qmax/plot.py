@@ -1,7 +1,6 @@
 from typing import Optional
 
 import jax.numpy as jnp
-import matplotlib as mpl
 from jaxtyping import Array, ScalarLike
 from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
@@ -37,7 +36,9 @@ def angle_mesh(
     else:
         y_vals = y
 
-    pm1 = ax.pcolormesh(X1, X2, jnp.angle(y_vals).T, vmin=-jnp.pi, vmax=jnp.pi, cmap=cmap)
-    pm2 = ax.pcolormesh(X1, X2, (jnp.abs(y_vals).T) ** p, vmin=0, vmax=abs_max, cmap=get_abs_filter(bg))
+    pm1 = ax.pcolormesh(
+        X1, X2, jnp.angle(y_vals).T, vmin=-jnp.pi, vmax=jnp.pi, cmap=cmap)
+    pm2 = ax.pcolormesh(
+        X1, X2, (jnp.abs(y_vals).T) ** p, vmin=0, vmax=abs_max, cmap=get_abs_filter(bg))
     return pm1, pm2
 

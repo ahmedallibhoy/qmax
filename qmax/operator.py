@@ -32,7 +32,7 @@ from .exponentiators import (
     compose,
 )
 from .expression_tree import AbstractExpressionTree, IncompatibleDomainError
-from .hilbert_space import AbstractHilbertSpace, AbstractState
+from .hilbert_space import AbstractState
 from .utils import over_batch
 
 

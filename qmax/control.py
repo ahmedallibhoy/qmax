@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Callable
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Real, Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array
 
-from ._types import RealArrayLike, RealScalarLike
+from ._types import RealScalarLike
 from .operator import Operator
 
 if TYPE_CHECKING:

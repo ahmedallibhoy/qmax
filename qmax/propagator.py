@@ -4,13 +4,12 @@ from typing import Callable, Iterable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import numpy as np
 import tqdm
 from jax.experimental import io_callback
 from jaxtyping import Array, PyTree, Scalar, ScalarLike
 
 from ._introspect import CountDict
-from ._types import ComplexArrayLike, RealArrayLike, RealScalarLike
+from ._types import ComplexArrayLike, RealScalarLike
 from .adjoint import AbstractAdjoint, ReversibleAdjoint
 from .control import AbstractControl
 from .controlled_operator import ControlledOperator
@@ -73,12 +72,16 @@ class Propagator(eqx.Module):
                 of the system.
             t0 (ScalarLike): The initial time.
             t1 (ScalarLike): The terminal time.
-            num_steps (Optional[int]): The number of steps the integration method should take. Cannot
-                be used with `dt_max`. If `num_steps=None` and `dt_max=None` then the number of steps is 1.
-            dt_max (Optional[int]):  The maximum stepsize of the integrator. Cannot be used with `num_steps`.
-            timestepper (AbstractTimeStepper): The timestepping method, see [Timesteppers](timesteppers.md).
-            adapt (bool): Whether the operator should be adapted. This parameter is ignored if the Hamiltonian 
-                is a `AbstractTimeVaryingOperator` or `ControlledOperator`. 
+            num_steps (Optional[int]): The number of steps the integration method should take. 
+                Cannot be used with `dt_max`. If `num_steps=None` and `dt_max=None` then the number 
+                of steps is 1.
+            dt_max (Optional[int]):  The maximum stepsize of the integrator. 
+                Cannot be used with `num_steps`.
+            timestepper (AbstractTimeStepper): The timestepping method, 
+                see [Timesteppers](timesteppers.md).
+            adapt (bool): Whether the operator should be adapted. 
+                This parameter is ignored if the Hamiltonian is a `AbstractTimeVaryingOperator` 
+                or `ControlledOperator`. 
         """
 
         self.t0 = float(t0)
@@ -168,19 +171,23 @@ class Propagator(eqx.Module):
         Args:
             y0 (AbstractState): initial condition
             controls (tuple[AbstractControl, ...]): Control inputs to apply to the system
-                if `Propagator` was constructed using a `ControlledOperator` (see [Controlled Operator](operators/controlled.md)). 
-                The number of provided controls must equal the number inputs to the controlled Hamiltonian. 
-            running_cost_fn (callable): Function with signature `running_cost_fn(t, y, u)` returning 
-                a scalar. `Propagator` records the integral of this function over the integration interval.  
+                if `Propagator` was constructed using a `ControlledOperator` (
+                see [Controlled Operator](operators/controlled.md)). The number of provided controls
+                must equal the number inputs to the controlled Hamiltonian. 
+            running_cost_fn (callable): Function with signature `running_cost_fn(t, y, u)` 
+                returning a scalar. `Propagator` records the integral of this function over the 
+                integration interval.  
             terminal_cost_fn (callable): Function with signature `terminal_cost_fn(t, y)` returning 
                 a scalar. `Propagator` records the value `terminal_cost_fn(t1, y1)`.
-            save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. `Propagator` 
-                records `save_function(t, y, u)` every `save_every` steps over the integration interval. 
-            save_every (Optional[int]): Number of steps per call to `save_fn`, e.g. if `save_every=2` then 
-                every other step is saved. If `save_every=None` then `save_fn` is called only on the first 
-                and last steps of the integration. 
+            save_fn (callable):  Function with signature `save_fn(t, y, u)` returning a PyTree. 
+                `Propagator` records `save_function(t, y, u)` every `save_every` steps over the 
+                integration interval. 
+            save_every (Optional[int]): Number of steps per call to `save_fn`, e.g. if 
+                `save_every=2` then every other step is saved. If `save_every=None` then `save_fn` 
+                is called only on the first and last steps of the integration. 
             progressbar (bool): Whether to display a tqdm progress bar. 
-            adjoint (AbstractAdjoint): How to differentatate `propagate`, see [Adjoints](adjoints.md).
+            adjoint (AbstractAdjoint): How to differentatate `propagate`, 
+                see [Adjoints](adjoints.md).
 
         Returns:
             A `PropagateResult` object containing the following fields:
@@ -193,7 +200,8 @@ class Propagator(eqx.Module):
 
                 - **`ts`** – The times of the saved values
 
-                - **`running_cost`** – The total running cost $\int_{t_0}^{t_1}\ell(t, u(t), \psi(t))dt$
+                - **`running_cost`** – The total 
+                    running cost $\int_{t_0}^{t_1}\ell(t, u(t), \psi(t))dt$
 
                 - **`terminal_cost`** – The terminal cost $V(t_1, \psi(t_1))$
 
@@ -204,7 +212,8 @@ class Propagator(eqx.Module):
             save_every = self.num_steps
 
         if not self.num_steps % save_every == 0:
-            raise ValueError(f"num_steps={self.num_steps} is not divisible by save_every={save_every}")
+            raise ValueError(
+                f"num_steps={self.num_steps} is not divisible by save_every={save_every}")
 
         controls = tuple(controls)
 
@@ -221,8 +230,10 @@ class Propagator(eqx.Module):
             u_quads = jnp.zeros((self.num_steps, 0, self.timestepper.num_nodes))
 
         if progressbar:
-            BAR = "Propagating: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{rate_fmt}, {elapsed}<{remaining}]"
-            tqdm_bar = tqdm.tqdm(total=self.num_steps, mininterval=0.2, bar_format=BAR, unit=" steps")
+            BAR = ("Propagating: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} "
+                "[{rate_fmt}, {elapsed}<{remaining}]")
+            tqdm_bar = tqdm.tqdm(
+                total=self.num_steps, mininterval=0.2, bar_format=BAR, unit=" steps")
             def update_bar(n):
                 tqdm_bar.update(int(n))
 
@@ -238,24 +249,26 @@ class Propagator(eqx.Module):
         if progressbar:
             tqdm_bar.close() # pyright: ignore[reportPossiblyUnboundVariable]
 
-        return PropagateResult(y0, y1, ys, self.ts[::save_every], running_cost, terminal_cost, total_cost)
+        return PropagateResult(
+            y0, y1, ys, self.ts[::save_every], running_cost, terminal_cost, total_cost)
 
     def count_stage(
         self,
         t: RealScalarLike,
         dt: RealScalarLike) -> CountDict:
         """
-        Produces a `CountDict` object tabulating the number of matvecs, adjoint matvecs, exponential actions, 
-            and solves required by each operator in the expression tree of the Hamiltonian to compute one 
-            stage of the integration method.
+        Produces a `CountDict` object tabulating the number of matvecs, adjoint matvecs, 
+            exponential actions, and solves required by each operator in the expression tree of the 
+            Hamiltonian to compute one stage of the integration method.
 
         Args:
             t (ScalarLike): The time of the stage
             dt (ScalarLike): The stepsize 
 
         Returns:
-            A `CountDict` object representing the interface counts of the leaves of the Hamiltonian operator for 
-                one stage of the time integration method at time `t` with stepsize `dt`.
+            A `CountDict` object representing the interface counts of the leaves of the Hamiltonian 
+                operator for one stage of the time integration method at time `t` with 
+                stepsize `dt`.
 
         Example:
         ```python
@@ -278,9 +291,9 @@ class Propagator(eqx.Module):
             └─Laplacian
               └─Laplacian1D(axis=0) ·································  actions=1, solves=1
         ─────────────────────────────────────────────────────────────
-        total:                                                         actions=1, solves=1, exp_actions=2
+        total:                                                         actions=1, solves=1, exp_actions=2 
         ```
-        """
+        """# noqa: E501
 
         c = CountDict()
         t_quad, _ = self.quad_rule

@@ -301,7 +301,7 @@ class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
 
     def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
-        dim = self.domain.dim
+        #dim = self.domain.dim
         #scaled = [
         #    (dim // self.domain[idx].dim, op.interface_count(path, idx))
         #    for idx, op in enumerate(self.children)

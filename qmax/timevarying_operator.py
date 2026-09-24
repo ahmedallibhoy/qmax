@@ -5,10 +5,10 @@ from typing import Any, Optional
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import ScalarLike
 
 from ._internal import _update_field
-from ._types import ComplexArrayLike, ComplexScalarLike, RealScalarLike
+from ._types import ComplexArrayLike, RealScalarLike
 from .control import AbstractControl, ConstantControl
 from .exponentiators import AbstractSplitMethod, Strang
 from .expression_tree import AbstractExpressionTree
@@ -120,7 +120,8 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
-                f"Cannot add operators on different domains: A={type(A).__name__} acts on {A.domain}, "
+                f"Cannot add operators on different domains: "
+                f"A={type(A).__name__} acts on {A.domain}, "
                 f"but B={type(B).__name__} acts on {B.domain},"
             )
 

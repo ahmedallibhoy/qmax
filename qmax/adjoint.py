@@ -170,7 +170,8 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         u_ends = us[1:].reshape(num_saves, save_every, -1)
         u_quads = u_quads.reshape(num_saves, save_every, *u_quads.shape[1:])
 
-        args = ((t_starts, t_ends), (u_starts, u_ends), u_quads, jax.tree.map(lambda a: a[:-1], g_ys))
+        args = (
+            (t_starts, t_ends), (u_starts, u_ends), u_quads, jax.tree.map(lambda a: a[:-1], g_ys))
 
         ((y0, _, _), (g_y0, g_cost0, _)), (g_us, g_u_quads, g_u_saves) = jax.lax.scan(
             bwd_loop, init, args, reverse=True)
@@ -243,11 +244,12 @@ class CheckpointedAdjoint(AbstractAdjoint):
     interval: an outer loop of length `num_steps // save_every` that steps across states recorded 
     by the save function, and an inner loop of length `save_every` that steps between saved states.
 
-    `CheckpointAdjoint` uses a binomial checkpointing scheme for both loops and reconstructs residuals 
-    by recomputing the forward pass from the previous checkpoint. Memory scales as O(√`num_steps`) by default, 
-    though the number of checkpoints saved by the outer and inner loops can be adjusted
-    by setting `outer_checkpoints` and `inner_checkpoints` respectively. This method only 
-    supports reverse-mode differentiation. Likely noticeably slower than `DirectAdjoint`.
+    `CheckpointAdjoint` uses a binomial checkpointing scheme for both loops and reconstructs 
+    residuals by recomputing the forward pass from the previous checkpoint. Memory scales 
+    as O(√`num_steps`) by default, though the number of checkpoints saved by the outer and inner 
+    loops can be adjusted by setting `outer_checkpoints` and `inner_checkpoints` respectively. 
+    This method only supports reverse-mode differentiation. 
+    Likely noticeably slower than `DirectAdjoint`.
 
     Attributes:
         outer_checkpoints (Optional[int]): number of checkpoints saved by the 

@@ -7,6 +7,7 @@ from jaxtyping import Array
 
 from ._types import ComplexArrayLike
 
+
 def _gl_rule(n):
     x, w = np.polynomial.legendre.leggauss(n)
     return (x + 1) / 2, w / 2
@@ -30,7 +31,8 @@ class AbstractTimeStepper(eqx.Module):
 
 class Midpoint(AbstractTimeStepper):
     r"""
-    Second order CFET with 1 exponential evaluation, equivalent to $U(t, t + dt) \approx \exp(-\frac{i}{\hbar}H(t + \frac{dt}{2})dt)$. 
+    Second order CFET with 1 exponential evaluation, equivalent to 
+    $U(t, t + dt) \approx \exp(-\frac{i}{\hbar}H(t + \frac{dt}{2})dt)$. 
     """
 
     num_nodes: ClassVar[int] = 1
@@ -108,7 +110,7 @@ class CFET_r6_e4opt_cplx(AbstractTimeStepper):
 
     num_nodes: ClassVar[int] = 3
     order:     ClassVar[int] = 6
-    weights:   ClassVar[ComplexArrayLike] = np.array(
+    weights:   ClassVar[ComplexArrayLike] = np.array( 
         [[ 0.245985577298764294+0.038734389227164527j, -0.046806149832548937+0.012442141491185027j,  0.010894359342569201-0.004575808769067271j],
          [ 0.062868370946917202-0.048761268117765233j,  0.269028372054771159-0.012442141491185027j, -0.041970529810472921+0.014602687659667977j],
          [-0.041970529810472921+0.014602687659667977j,  0.269028372054771159-0.012442141491185027j,  0.062868370946917202-0.048761268117765233j],

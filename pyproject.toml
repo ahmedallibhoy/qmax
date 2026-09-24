@@ -40,17 +40,17 @@ dependencies = [
 ]
 
 [tool.ruff]
-# The minimum Python version that should be supported
 target-version = "py314"
+exclude = ["tests/", "benchmarks/", "utils/"]
 extend-exclude = ["*.ipynb"]
 line-length = 100
 
 [tool.ruff.lint]
 fixable = ["I001", "F401", "F541"]
-ignore = ["E402", "E731", "B008"]
+ignore = ["E402", "E731", "E741", "B008"]
 select = ["E", "F", "I"]
 
 [tool.pyright]
 include = ["qmax"]
-ignore = ["qmax/lanczos.py"]
 reportIncompatibleVariableOverride = false # Incompatible with eqx.AbstractVar
+reportUnnecessaryTypeIgnoreComment = true

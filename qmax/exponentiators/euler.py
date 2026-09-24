@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from jaxtyping import ScalarLike
-
 from .._introspect import CountDict, Path
-from ..hilbert_space import AbstractState
 from .._types import ComplexScalarLike
+from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:

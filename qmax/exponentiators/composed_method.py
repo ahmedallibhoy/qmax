@@ -13,7 +13,7 @@ from .._internal import _update_field
 from .._introspect import CountDict, Path
 from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractState
-from .base import AbstractExponentiator, NotExponentiableError, Order
+from .base import AbstractExponentiator, Order
 from .split import AbstractSplitMethod
 
 if TYPE_CHECKING:
@@ -271,7 +271,7 @@ class AbstractComposedExponentiator(AbstractExponentiator):
 
         self.base_exp.check_exponentiable(op, parent_path, child_idx)
 
-        base_effective_order = self.base_exp.effective_order(op)
+        #base_effective_order = self.base_exp.effective_order(op)
 
         #if not base_effective_order == 2:
         #    raise NotExponentiableError(

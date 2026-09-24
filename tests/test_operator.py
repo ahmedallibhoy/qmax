@@ -1,13 +1,11 @@
 
-import pytest
-
-import jax 
+import jax
 import jax.numpy as jnp
+import pytest
+from conftest import ATOL, KEY, RTOL
+from helpers import OPERATOR_PAIRS, OPERATORS, SPACES
 
-import qmax as qx 
-
-from conftest import RTOL, ATOL, KEY
-from helpers import SPACES, OPERATORS, OPERATOR_PAIRS
+import qmax as qx
 
 
 def action_agrees(op, y):

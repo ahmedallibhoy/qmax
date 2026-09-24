@@ -1,11 +1,6 @@
-import jax
 import jax.numpy as jnp
 
-import qmax as qx 
-from qmax.operator import Operator
-
-from conftest import KEY
-
+import qmax as qx
 
 SPACES = {
     "finite_difference_1d":  qx.spaces.finite_difference.FiniteDifference(
@@ -53,8 +48,10 @@ def finite_difference_pairs():
     space_2d = SPACES["finite_difference_2d"]
 
     return {
-        "fd_lapl_1d, fd_potential_1d": (-space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),  
-        "fd_lapl_2d, fd_potential_2d": (-space_2d.laplacian(), space_2d.potential_energy(lambda x: x @ x))
+        "fd_lapl_1d, fd_potential_1d": (
+            -space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),  
+        "fd_lapl_2d, fd_potential_2d": (
+            -space_2d.laplacian(), space_2d.potential_energy(lambda x: x @ x))
     }
 
 @append_operators

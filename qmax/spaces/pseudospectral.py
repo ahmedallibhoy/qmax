@@ -1,5 +1,5 @@
 from functools import partial, reduce
-from typing import Callable, ClassVar
+from typing import ClassVar
 
 import equinox as eqx
 import jax

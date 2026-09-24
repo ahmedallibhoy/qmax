@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Optional
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, PRNGKeyArray
+from jaxtyping import PRNGKeyArray
 
 from .hilbert_space import AbstractState
 
@@ -45,7 +45,8 @@ def lanczos(
 
     if num_iterations > hilbert_space.dim - idx0:
         warnings.warn(
-            f"Received num_iterations={num_iterations} which is greater than hilbert_space.dim - idx0={hilbert_space.dim - idx0}. ",
+            f"Received num_iterations={num_iterations} which is greater than "
+            f"hilbert_space.dim - idx0={hilbert_space.dim - idx0}. ",
             stacklevel=2,
         )
 
@@ -80,11 +81,11 @@ def lanczos(
     if Q0 is None:
         Q0 = hilbert_space.zeros((num_iterations + 1,))
 
-    init = (idx0, w0.norm(), Q0, w0)
+    init = (idx0, w0.norm(), Q0, w0) # pyright: ignore
     carry, (alpha, beta) = jax.lax.scan(lanczos_loop, init, length=num_iterations)
     _, _, Q, w = carry
 
-    return alpha, beta, Q[1:], w
+    return alpha, beta, Q[1:], w # pyright: ignore
 
 
 def _select_indices(select, theta, num):
@@ -157,7 +158,8 @@ def restart_lanczos(
 
     def reconstruct(alpha, beta, sk, thetak, beta_m):
         tri = jnp.diag(alpha) + jnp.diag(beta[:-1], k=1) + jnp.diag(beta[:-1], k=-1)
-        border = jnp.zeros((num_ritz, max_krylov_dim - num_ritz)).at[:, 0].set(jnp.real(beta_m * sk))
+        border = jnp.zeros(
+            (num_ritz, max_krylov_dim - num_ritz)).at[:, 0].set(jnp.real(beta_m * sk))
         T_next = jnp.block([[jnp.diag(thetak), border], [border.T, tri]])
         return T_next
 
@@ -181,7 +183,7 @@ def restart_lanczos(
     init_restart = (Qk, sk, thetak, w)
     (Qk, sk, thetak, wk), _ = jax.lax.scan(restart, init_restart, length=num_restarts)
     
-    beta_m = wk.norm()
+    beta_m = wk.norm() # pyright: ignore
     eigvals, eigvecs, residuals = thetak, Qk, beta_m * jnp.abs(sk)
     indices = _select_indices(select, thetak, num_ritz)
     eigvals, eigvecs, residuals = eigvals[indices], eigvecs[indices], residuals[indices]
