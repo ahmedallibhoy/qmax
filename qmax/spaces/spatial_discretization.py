@@ -7,8 +7,9 @@ from typing import Callable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike, Scalar
 
+from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import AbstractHermitianOperator, Operator
 
@@ -144,14 +145,14 @@ class AbstractPotentialEnergy(AbstractHermitianOperator):
     def action(self, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
         return self.domain.from_values(self.values * y.values)
 
-    def exp_action(self, h: ScalarLike, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
+    def exp_action(self, h: ComplexScalarLike, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
         return self.domain.from_values(jnp.exp(h * self.values) * y.values)
 
     def _solve(
         self,
         b: SpatiallyDiscretizedState,
-        scale: ScalarLike=-1.0,
-        shift: ScalarLike=0.0) -> SpatiallyDiscretizedState:
+        scale: ComplexScalarLike=-1.0,
+        shift: ComplexScalarLike=0.0) -> SpatiallyDiscretizedState:
 
         return self.domain.from_values(b.values / (scale * self.values + shift))
 

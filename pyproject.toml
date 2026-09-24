@@ -52,6 +52,5 @@ select = ["E", "F", "I"]
 
 [tool.pyright]
 include = ["qmax"]
-reportIncompatibleMethodOverride = false
+#reportIncompatibleMethodOverride = false
 reportIncompatibleVariableOverride = false # Incompatible with eqx.AbstractVar
-#reportUnnecessaryTypeIgnoreComment = true
