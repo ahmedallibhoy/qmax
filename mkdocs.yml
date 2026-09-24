@@ -36,10 +36,10 @@ exclude_docs: |
 
 plugins:
   - search
-  #- hippogriffe  
+  #- hippogriffe
   #- ipynb
   - mkdocstrings:
-      #custom_templates: docs/_templates
+      custom_templates: docs/_templates
       handlers:
         python:
           options:
@@ -47,17 +47,17 @@ plugins:
             heading_level: 4
             inherited_members: true
             members_order: source
-            #show_bases: false
+            show_bases: false
             show_if_no_docstring: false
             show_overloads: true
             show_root_heading: true
-            show_signature_annotations: true
+            show_signature_annotations: false
             show_source: false
             show_symbol_type_heading: true
             show_symbol_type_toc: true
             docstring_section_style: list
 
-  
+
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
@@ -97,7 +97,7 @@ nav:
       #- Spherical: 'api/hilbert_spaces/spherical.md'
       - Qubits: 'api/hilbert_spaces/qubits.md'
       - N-Level: 'api/hilbert_spaces/nlevel.md'
-    - Operators: 
+    - Operators:
       - Operator: 'api/operators/operator.md'
       - Timevarying Operator: 'api/operators/timevarying.md'
       - Controlled Operator: 'api/operators/controlled.md'

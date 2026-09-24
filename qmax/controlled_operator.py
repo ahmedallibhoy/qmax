@@ -14,6 +14,7 @@ from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryi
 
 __all__ = ["ControlledOperator"]
 
+
 class ControlledOperator(eqx.Module):
     r"""
     Controlled operator of the form $H(t, u) = H_0(t) + \sum_{j=1}^{m}u_jH_j(t)$.
@@ -35,7 +36,7 @@ class ControlledOperator(eqx.Module):
         self,
         drift_op: Operator | AbstractTimeVaryingOperator,
         controlled_ops: Iterable[Operator | AbstractTimeVaryingOperator] = (),
-        split_method=Strang(),
+        split_method: AbstractSplitMethod = Strang(),
     ):
 
         if isinstance(drift_op, Operator):

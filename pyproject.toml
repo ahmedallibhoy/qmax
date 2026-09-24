@@ -19,6 +19,7 @@ utils = [
 dev = [
     "qmax[docs,tests,utils]",
     "ruff",
+    "prek",
     "pyright",
 ]
 
