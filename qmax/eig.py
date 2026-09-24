@@ -13,13 +13,6 @@ if TYPE_CHECKING:
     from .operator import Operator
 
 
-# TODO:
-#   1. Davidson's method 
-#   2. Chebyshev filter based preconditioning
-#
-#
-
-
 def op_eigh(operator: Operator) -> tuple[Array, AbstractState, Array]:
     mat = operator.to_matrix()
     eigvals, eigvecs = jnp.linalg.eigh(mat)
@@ -32,11 +25,11 @@ def op_eigh_lanczos(
     op: Operator,
     num_iterations: int,
     *,
-    orthogonalize: bool=True,
-    key: Optional[PRNGKeyArray]=None) -> tuple[Array, AbstractState, Array]:
+    orthogonalize: bool = True,
+    key: Optional[PRNGKeyArray] = None,
+) -> tuple[Array, AbstractState, Array]:
 
-    alpha, beta, Q, _ = lanczos(
-        op, num_iterations, orthogonalize=orthogonalize, key=key)
+    alpha, beta, Q, _ = lanczos(op, num_iterations, orthogonalize=orthogonalize, key=key)
     eigvals, Y = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
     eigvecs = Q.contract(Y)
     residuals = jnp.abs(beta[-1] * Y[-1, :])
@@ -46,12 +39,12 @@ def op_eigh_lanczos(
 
 def op_spectral_bounds_lanczos(
     op: Operator,
-    num_iterations: int=25,
+    num_iterations: int = 25,
     *,
-    orthogonalize: bool=False,
-    key: Optional[PRNGKeyArray]=None) -> tuple[Scalar, Scalar]:
+    orthogonalize: bool = False,
+    key: Optional[PRNGKeyArray] = None,
+) -> tuple[Scalar, Scalar]:
 
-    alpha, beta, _, _ = lanczos(
-        op, num_iterations, orthogonalize=orthogonalize, key=key)
+    alpha, beta, _, _ = lanczos(op, num_iterations, orthogonalize=orthogonalize, key=key)
     eigvals = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1], eigvals_only=True)
     return jnp.min(eigvals), jnp.max(eigvals)

@@ -16,7 +16,7 @@ __all__ = ["ForwardEuler", "ImplicitEuler", "Cayley"]
 
 class ForwardEuler(AbstractExponentiator):
     r"""
-    Forward Euler method: $\exp(hA)y \approx (I + hA)y$. 
+    Forward Euler method: $\exp(hA)y \approx (I + hA)y$.
 
     !!! warning
         This method should be avoided since it is numerically unstable and not unitary preserving.
@@ -30,18 +30,19 @@ class ForwardEuler(AbstractExponentiator):
         return 1
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         return op.interface_count(parent_path, child_idx).action
 
 
 class ImplicitEuler(AbstractExponentiator):
     r"""
-    Implicit Euler method: $\exp(hA)y \approx (I - hA)^{-1}y$. 
+    Implicit Euler method: $\exp(hA)y \approx (I - hA)^{-1}y$.
 
     !!! warning
         This method should be avoided since it is not unitary preserving.
@@ -55,25 +56,26 @@ class ImplicitEuler(AbstractExponentiator):
         return 1
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         return op.interface_count(parent_path, child_idx).solve
 
 
 class Cayley(AbstractExponentiator):
     r"""
-    Approximates the matrix exponential action via the Cayley transform: 
-    $\exp(hA)y \approx (I - \frac{h}{2}A)^{-1}(I + \frac{h}{2}A)y$. 
-    This equivalent to a half step of the forward Euler method, followed by a 
+    Approximates the matrix exponential action via the Cayley transform:
+    $\exp(hA)y \approx (I - \frac{h}{2}A)^{-1}(I + \frac{h}{2}A)y$.
+    This equivalent to a half step of the forward Euler method, followed by a
     half step of the implicit Euler method.
 
-    !!! info 
-        Since the method is implicit, this exponentiator is best paired with operators 
-        that have an efficient `solve` override. 
+    !!! info
+        Since the method is implicit, this exponentiator is best paired with operators
+        that have an efficient `solve` override.
     """
 
     def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
@@ -84,11 +86,12 @@ class Cayley(AbstractExponentiator):
         return 2
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         i_count = op.interface_count(parent_path, child_idx)
         return i_count.action | i_count.solve

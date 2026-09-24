@@ -37,7 +37,7 @@ from .utils import over_batch
 
 
 class NoExactExponentialError(NotExponentiableError):
-    pass 
+    pass
 
 
 class NoRealSpectrumError(Exception):
@@ -48,7 +48,7 @@ def _as_shift(x: Operator | ComplexScalarLike) -> Optional[ComplexScalarLike]:
     """The coefficient c if x is c*I -- as a bare scalar, Identity, or a scalar
     multiple of one, else None."""
     if jnp.isscalar(x):
-        return x # pyright: ignore[reportReturnType]
+        return x  # pyright: ignore[reportReturnType]
     if isinstance(x, Identity):
         return 1.0
     if isinstance(x, ShiftScaleOperator) and isinstance(x.children[0], Identity):
@@ -62,20 +62,20 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def _check_domain(self, y: S):
         if self.domain != y.hilbert_space:
             raise IncompatibleDomainError(
-                f"{self} acts on {self.domain}, "
-                f"but received a state on {y.hilbert_space}"
+                f"{self} acts on {self.domain}, but received a state on {y.hilbert_space}"
             )
 
     def _set_exponentiator(
         self,
         make_exponentiator: Callable[[Operator], AbstractExponentiator],
-        path: Path=Path(),
-        validate: bool=True) -> Self:
+        path: Path = Path(),
+        validate: bool = True,
+    ) -> Self:
 
         def update(op, parent_path, child_idx):
             exponentiator = make_exponentiator(op)
 
-            if validate and not isinstance(exponentiator, NoExponentiator): 
+            if validate and not isinstance(exponentiator, NoExponentiator):
                 # NoExponentiator will raise but is assignable
                 exponentiator.check_exponentiable_tree(op, parent_path, child_idx)
 
@@ -88,37 +88,43 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
             raise e.from_path(path) from None
 
     def with_exponentiator(
-        self,
-        exponentiator: AbstractExponentiator,
-        path: Path=Path(),
-        validate: bool=True) -> Self:
+        self, exponentiator: AbstractExponentiator, path: Path = Path(), validate: bool = True
+    ) -> Self:
 
         return self._set_exponentiator(lambda op: exponentiator, path, validate=validate)
 
     def compose_exponentiator(
-        self,
-        composition: AbstractCompositionMethod,
-        path: Path=Path(),
-        validate: bool=True) -> Self:
+        self, composition: AbstractCompositionMethod, path: Path = Path(), validate: bool = True
+    ) -> Self:
 
         return self._set_exponentiator(
-            lambda op: compose(op.exponentiator, composition), path, validate=validate)
+            lambda op: compose(op.exponentiator, composition), path, validate=validate
+        )
 
     # --------------------------------------------------------------------------------------------
     # Exponentiator delegators
     # --------------------------------------------------------------------------------------------
 
-    def can_exponentiate(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> bool:
+    def can_exponentiate(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> bool:
         return self.exponentiator.can_exponentiate(self, parent_path, child_idx)
 
-    def check_exponentiable_tree(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None):
+    def check_exponentiable_tree(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ):
         self.exponentiator.check_exponentiable_tree(self, parent_path, child_idx)
 
     @property
     def tree_order(self) -> Order:
         return self.exponentiator.tree_order(self)
 
-    def exp_count(self, h: ComplexScalarLike, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> CountDict:
+    def exp_count(
+        self,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
         return self.exponentiator.tree_count(self, h, parent_path, child_idx)
 
     def adapt(self, dt_max: RealScalarLike) -> Operator[S]:
@@ -136,7 +142,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         self._check_domain(y)
         return self.exponentiator(self, h, y)
 
-    def solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
+    def solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         self._check_domain(b)
         return self._solve(b, scale, shift)
 
@@ -160,12 +166,12 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def _exp(self, h: ComplexScalarLike, y: S) -> S:
         return self.exponentiator.exp(self, h, y)
 
-    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         """
-        Solves (shift * I + scale * A)y = b. 
+        Solves (shift * I + scale * A)y = b.
 
-        Warning: This is unreliable and slow. Operators using implicit exponentiators should 
-        override this method when a more efficient implementation exists. 
+        Warning: This is unreliable and slow. Operators using implicit exponentiators should
+        override this method when a more efficient implementation exists.
         """
         func = lambda y: shift * y + scale * self(y)
 
@@ -206,8 +212,8 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         # self may be the identity term instead
         c = _as_shift(self)
         if c is not None:
-            return ShiftScaleOperator(other, shift=c)  
-            
+            return ShiftScaleOperator(other, shift=c)
+
         return AddOperator(self, other)
 
     def __radd__(self, other: Operator[S] | ComplexScalarLike) -> Operator[S]:
@@ -233,7 +239,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         if c is not None:
             return ShiftScaleOperator(self, shift=-c)
         if isinstance(other, Operator):
-            return self + (-other) 
+            return self + (-other)
 
         return NotImplemented
 
@@ -244,7 +250,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         if c is not None:
             return ShiftScaleOperator(self, shift=c, scale=-1.0)
         if isinstance(other, Operator):
-            return other + (-self) 
+            return other + (-self)
 
         return NotImplemented
 
@@ -258,7 +264,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ShiftScaleOperator(self, scale=other) 
+        return ShiftScaleOperator(self, scale=other)
 
     def __matmul__(self, other: Operator[S]) -> Operator[S]:
         self._check_compatible(other)
@@ -268,7 +274,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
 
         c = _as_shift(other)
         if c is not None:
-            return c * self 
+            return c * self
 
         c = _as_shift(self)
         if c is not None:
@@ -285,7 +291,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         # A @ (c * I) == c * A
         c = _as_shift(other)
         if c is not None:
-            return c * self 
+            return c * self
 
         # (c * I) @ B == c * B
         c = _as_shift(self)
@@ -305,7 +311,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         if not jnp.isscalar(other):
             return NotImplemented
 
-        return ShiftScaleOperator(self, scale=1.0 / other) 
+        return ShiftScaleOperator(self, scale=1.0 / other)
 
     def __neg__(self) -> Operator[S]:
         return ShiftScaleOperator(self, scale=-1.0)
@@ -321,13 +327,13 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
         if show_exp:
             rows = _rows(self, get_data=lambda A: A.exponentiator)
         else:
-            rows = _rows(self) 
-            
+            rows = _rows(self)
+
         width = max(width, max(len(line) + 4 for line, _ in rows))
         all_rows += rows
 
         out = [
-            line if c is None else f"{line} {" " * (width - len(line) - 2)}  exponentiator={c}"
+            line if c is None else f"{line} {' ' * (width - len(line) - 2)}  exponentiator={c}"
             for line, c in all_rows
         ]
 
@@ -344,8 +350,10 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def _exp_action_count(self, path: Path) -> CountType:
         return {path: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
-        # for each interface (i.e. action, adj_action, solve, exp_action), 
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
+        # for each interface (i.e. action, adj_action, solve, exp_action),
         # recursively counts number of calls to each interface of a leaves of expression tree
         path = self.path(parent_path, child_idx)
 
@@ -358,7 +366,6 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
 
 
 class AbstractHermitianOperator[S: AbstractState[Any]](Operator[S]):
-
     def adj_action(self, y: S) -> S:
         return self.action(y)
 
@@ -370,17 +377,19 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
     """
     Implements shift * Identity() + scale * op
     """
+
     shift: Scalar
     scale: Scalar
 
     def __init__(
         self,
         op: Operator[S],
-        shift: ComplexScalarLike=0,
-        scale: ComplexScalarLike=1,
+        shift: ComplexScalarLike = 0,
+        scale: ComplexScalarLike = 1,
         *,
-        exponentiator: AbstractExponentiator=ShiftScaleExponentiator(),
-        name: Optional[str]=None):
+        exponentiator: AbstractExponentiator = ShiftScaleExponentiator(),
+        name: Optional[str] = None,
+    ):
 
         self.domain = op.domain
 
@@ -422,7 +431,7 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
         (A,) = self.children
         return jnp.conj(self.scale) * A.adj_action(y) + jnp.conj(self.shift) * y
 
-    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0):
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0):
         (A,) = self.children
         return A._solve(b, scale * self.scale, shift + scale * self.shift)
 
@@ -445,28 +454,30 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
         (A,) = self.children
         return jnp.conj(self.shift) + jnp.conj(self.scale) * A.adjoint()
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         (A,) = self.children
         path = self.path(parent_path, child_idx)
         c = A.interface_count(path, 0)
 
         return InterfaceCount(
-            action     = c.action,
-            adj_action = c.adj_action,
-            solve      = c.solve,
-            exp_action = self._exp_action_count(path),
+            action=c.action,
+            adj_action=c.adj_action,
+            solve=c.solve,
+            exp_action=self._exp_action_count(path),
         )
 
 
 class AddOperator[S: AbstractState[Any]](Operator[S]):
-
     def __init__(
         self,
         A: Operator[S],
         B: Operator[S],
         *,
-        exponentiator: Optional[AbstractExponentiator]=None,
-        name: Optional[str]=None):
+        exponentiator: Optional[AbstractExponentiator] = None,
+        name: Optional[str] = None,
+    ):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
@@ -512,26 +523,28 @@ class AddOperator[S: AbstractState[Any]](Operator[S]):
         A, B = self.children
         return A.adjoint() + B.adjoint()
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
-            action     = c1.action | c2.action,
-            adj_action = c1.adj_action | c2.adj_action,
-            solve      = {path: Count(solves=1)},
-            exp_action = self._exp_action_count(path),
+            action=c1.action | c2.action,
+            adj_action=c1.adj_action | c2.adj_action,
+            solve={path: Count(solves=1)},
+            exp_action=self._exp_action_count(path),
         )
 
 
 class MatMulOperator[S: AbstractState[Any]](Operator[S]):
-
     def __init__(
-        self, 
-        A: Operator[S], 
-        B: Operator[S], 
+        self,
+        A: Operator[S],
+        B: Operator[S],
         exponentiator=NoExponentiator(),
-        name: Optional[str]=None):
+        name: Optional[str] = None,
+    ):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
@@ -565,26 +578,28 @@ class MatMulOperator[S: AbstractState[Any]](Operator[S]):
         A, B = self.children
         return B.adjoint() @ A.adjoint()
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
         c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
-            action     = c1.action | c2.action,
-            adj_action = c1.adj_action | c2.adj_action,
-            solve      = {path: Count(solves=1)},
-            exp_action = self._exp_action_count(path),
+            action=c1.action | c2.action,
+            adj_action=c1.adj_action | c2.adj_action,
+            solve={path: Count(solves=1)},
+            exp_action=self._exp_action_count(path),
         )
 
 
 class AdjOperator[S: AbstractState[Any]](Operator[S]):
-
     def __init__(
         self,
         op: Operator[S],
         *,
-        exponentiator: AbstractExponentiator=NoExponentiator(),
-        name: Optional[str]=None):
+        exponentiator: AbstractExponentiator = NoExponentiator(),
+        name: Optional[str] = None,
+    ):
 
         self.domain = op.domain
         self.children = (op,)
@@ -617,16 +632,18 @@ class AdjOperator[S: AbstractState[Any]](Operator[S]):
         (A,) = self.children
         return A
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         (A,) = self.children
         path = self.path(parent_path, child_idx)
         c = A.interface_count(path, 0)
 
         return InterfaceCount(
-            action     = c.adj_action,
-            adj_action = c.action,
-            solve      = {path: Count(solves=1)},
-            exp_action = self._exp_action_count(path),
+            action=c.adj_action,
+            adj_action=c.action,
+            solve={path: Count(solves=1)},
+            exp_action=self._exp_action_count(path),
         )
 
 
@@ -639,7 +656,7 @@ class Identity[S: AbstractState[Any]](AbstractHermitianOperator[S]):
     def exp_action(self, h: ComplexScalarLike, y: S) -> S:
         return jnp.exp(h) * y
 
-    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         return b / (shift + scale)
 
     @property
@@ -659,7 +676,7 @@ class Zero[S: AbstractState[Any]](AbstractHermitianOperator[S]):
     def exp_action(self, h: ComplexScalarLike, y: S) -> S:
         return y
 
-    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         return b / shift
 
     @property
@@ -688,12 +705,7 @@ class AbstractDiagonalOperator[S: AbstractState[Any]](Operator[S]):
         coeffs = jnp.exp(h * self.eigvals) * y.coeffs
         return self.domain.from_coeffs(coeffs)
 
-    def _solve(
-        self, 
-        b: S, 
-        scale: ComplexScalarLike=-1.0, 
-        shift: ComplexScalarLike=0.0) -> S:
-
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         return self.domain.from_coeffs(b.coeffs / (scale * self.eigvals + shift))
 
     @property

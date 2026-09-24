@@ -14,14 +14,15 @@ if TYPE_CHECKING:
 
 
 def _step(
-    carry: tuple[AbstractState, Scalar, Scalar], 
-    u_next: Array, 
-    u_quad: Array, 
-    t_pair: tuple[Scalar, Scalar], 
-    U: Propagator, 
-    running_cost_fn: CostFunction, 
-    dt: ScalarLike) -> tuple[AbstractState, Scalar, Scalar]:
-    
+    carry: tuple[AbstractState, Scalar, Scalar],
+    u_next: Array,
+    u_quad: Array,
+    t_pair: tuple[Scalar, Scalar],
+    U: Propagator,
+    running_cost_fn: CostFunction,
+    dt: ScalarLike,
+) -> tuple[AbstractState, Scalar, Scalar]:
+
     y, cost, total = carry
     t, t_next = t_pair
     y_next = U.propagate_stage(t, dt, y, u_quad)
@@ -40,7 +41,8 @@ def _propagate(
     callback: Callable,
     *,
     outer_scan_fn=jax.lax.scan,
-    inner_scan_fn=jax.lax.scan) -> tuple[AbstractState, Scalar, PyTree]:
+    inner_scan_fn=jax.lax.scan,
+) -> tuple[AbstractState, Scalar, PyTree]:
 
     y0, us, u_quads = vjp_args
     ts, dt = U.ts, U.dt
@@ -74,8 +76,8 @@ def _propagate(
     (y1, _, running_cost), ys = outer_scan_fn(loop, (y0, cost0, 0.0), args)
 
     ys = jax.tree.map(
-        lambda a, b: jnp.concatenate([a, jnp.asarray(b)[None]]),
-        ys, save_fn(t1, y1, us[-1]))
+        lambda a, b: jnp.concatenate([a, jnp.asarray(b)[None]]), ys, save_fn(t1, y1, us[-1])
+    )
 
     return y1, running_cost, ys
 
@@ -87,7 +89,9 @@ def _propagate_fwd(_, vjp_args, *args, **kwargs):
 
 
 @_propagate.def_bwd
-def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, save_fn, *args, **kwargs):
+def _propagate_bwd(
+    res, grad_out, _, vjp_args, U, running_cost_fn, save_every, save_fn, *args, **kwargs
+):
     y1, total = res
     g_y1, g_total, g_ys = grad_out
     y0, us, u_quads = vjp_args
@@ -106,9 +110,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         out, vjp = eqx.filter_vjp(lambda yy, uu: save_fn(t1, yy, uu), y1, us[-1])
 
         # in case g_save has any leaves that are None
-        g_save = eqx.combine(
-            jax.tree.map(lambda a: a[-1], g_ys),
-            jax.tree.map(jnp.zeros_like, out))
+        g_save = eqx.combine(jax.tree.map(lambda a: a[-1], g_ys), jax.tree.map(jnp.zeros_like, out))
 
         # gradient of last save
         g_y1_step, g_u1_save = vjp(g_save)
@@ -119,12 +121,14 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         t_pair, u_pair, u_quad_next = args
         u, u_next = u_pair
 
-        carry = _step(
-            carry_next, u, u_quad_next[:, ::-1], t_pair[::-1], U, running_cost_fn, -dt)
+        carry = _step(carry_next, u, u_quad_next[:, ::-1], t_pair[::-1], U, running_cost_fn, -dt)
 
         _, vjp = eqx.filter_vjp(
             lambda c, u, u_q: _step(c, u, u_q, t_pair, U, running_cost_fn, dt),
-            carry, u_next, u_quad_next)
+            carry,
+            u_next,
+            u_quad_next,
+        )
 
         g_carry, g_u_next, g_u_quad_next = vjp(g_carry_next)
 
@@ -132,9 +136,10 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
 
     def bwd_loop(bwd_carry, args):
         t_pair, u_pair, u_quad, g_save = args
-        
+
         (carry, g_carry), (g_us, g_u_quads) = jax.lax.scan(
-            bwd_step, bwd_carry, (t_pair, u_pair, u_quad), reverse=True)
+            bwd_step, bwd_carry, (t_pair, u_pair, u_quad), reverse=True
+        )
 
         y, _, _ = carry
         t_starts, _ = t_pair
@@ -149,7 +154,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         g_y = g_y + g_y_step
 
         return (carry, (g_y, g_cost, g_total)), (g_us, g_u_quads, g_u_save)
-        
+
     cost1 = running_cost_fn(t1, y1, us[-1])
 
     if not jax.tree.leaves(g_ys):
@@ -159,7 +164,8 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
             bwd_step,
             ((y1, cost1, total), (g_y1, 0.0, g_total)),
             ((ts[:-1], ts[1:]), (us[:-1], us[1:]), u_quads),
-            reverse=True)
+            reverse=True,
+        )
     else:
         init = ((y1, cost1, total), (g_y1, 0.0, g_total))
 
@@ -171,13 +177,18 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         u_quads = u_quads.reshape(num_saves, save_every, *u_quads.shape[1:])
 
         args = (
-            (t_starts, t_ends), (u_starts, u_ends), u_quads, jax.tree.map(lambda a: a[:-1], g_ys))
+            (t_starts, t_ends),
+            (u_starts, u_ends),
+            u_quads,
+            jax.tree.map(lambda a: a[:-1], g_ys),
+        )
 
         ((y0, _, _), (g_y0, g_cost0, _)), (g_us, g_u_quads, g_u_saves) = jax.lax.scan(
-            bwd_loop, init, args, reverse=True)
+            bwd_loop, init, args, reverse=True
+        )
 
         # Flatten stacked outputs of nested loops
-        g_us     = g_us.reshape(U.num_steps, *g_us.shape[2:])
+        g_us = g_us.reshape(U.num_steps, *g_us.shape[2:])
         g_u_quads = g_u_quads.reshape(U.num_steps, *g_u_quads.shape[2:])
 
         # Append last save gradient
@@ -191,7 +202,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
 
     if jax.tree.leaves(g_ys):
         # Add contribution of save gradients to g_us
-        g_us = g_us.at[::save_every].add(g_u_saves) # pyright: ignore[reportPossiblyUnboundVariable]
+        g_us = g_us.at[::save_every].add(g_u_saves)  # pyright: ignore[reportPossiblyUnboundVariable]
 
     return g_y0, g_us, g_u_quads
 
@@ -205,32 +216,30 @@ class AbstractAdjoint(eqx.Module):
     def propagate_fn(self) -> Callable:
         if self.use_custom_vjp:
             return partial(
-                _propagate, 
-                outer_scan_fn=self.outer_scan_fn, 
-                inner_scan_fn=self.inner_scan_fn)
+                _propagate, outer_scan_fn=self.outer_scan_fn, inner_scan_fn=self.inner_scan_fn
+            )
 
         return partial(
-            _propagate.fn,
-            outer_scan_fn=self.outer_scan_fn,
-            inner_scan_fn=self.inner_scan_fn)
+            _propagate.fn, outer_scan_fn=self.outer_scan_fn, inner_scan_fn=self.inner_scan_fn
+        )
 
 
 class DirectAdjoint(AbstractAdjoint):
     """
-    Differentiates directly through the solver while storing every residual. Its fast but 
-    likely not suitable for high-dimensional systems due to memory use. 
+    Differentiates directly through the solver while storing every residual. Its fast but
+    likely not suitable for high-dimensional systems due to memory use.
     """
 
-    outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan) 
+    outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
     inner_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
     use_custom_vjp: ClassVar[bool] = False
 
 
 class ReversibleAdjoint(AbstractAdjoint):
     """
-    Does not store any residuals and instead reconstructs the trajectory by stepping backward 
-    through the solver. Slightly slower than `DirectAdjoint` but memory of the adjoint scales 
-    like O(1). Only supports reverse-mode differentiation. 
+    Does not store any residuals and instead reconstructs the trajectory by stepping backward
+    through the solver. Slightly slower than `DirectAdjoint` but memory of the adjoint scales
+    like O(1). Only supports reverse-mode differentiation.
     """
 
     outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
@@ -241,22 +250,22 @@ class ReversibleAdjoint(AbstractAdjoint):
 class CheckpointedAdjoint(AbstractAdjoint):
     """
     [qmax.Propagator.propagate][] uses two nested loops the propagate a state over the integration
-    interval: an outer loop of length `num_steps // save_every` that steps across states recorded 
+    interval: an outer loop of length `num_steps // save_every` that steps across states recorded
     by the save function, and an inner loop of length `save_every` that steps between saved states.
 
-    `CheckpointAdjoint` uses a binomial checkpointing scheme for both loops and reconstructs 
-    residuals by recomputing the forward pass from the previous checkpoint. Memory scales 
-    as O(√`num_steps`) by default, though the number of checkpoints saved by the outer and inner 
-    loops can be adjusted by setting `outer_checkpoints` and `inner_checkpoints` respectively. 
-    This method only supports reverse-mode differentiation. 
+    `CheckpointAdjoint` uses a binomial checkpointing scheme for both loops and reconstructs
+    residuals by recomputing the forward pass from the previous checkpoint. Memory scales
+    as O(√`num_steps`) by default, though the number of checkpoints saved by the outer and inner
+    loops can be adjusted by setting `outer_checkpoints` and `inner_checkpoints` respectively.
+    This method only supports reverse-mode differentiation.
     Likely noticeably slower than `DirectAdjoint`.
 
     Attributes:
-        outer_checkpoints (Optional[int]): number of checkpoints saved by the 
-            outer loop. If `outer_checkpoints=None`, the adjoint defaults to 
+        outer_checkpoints (Optional[int]): number of checkpoints saved by the
+            outer loop. If `outer_checkpoints=None`, the adjoint defaults to
             saving the square root of the number of iterations.
-        inner_checkpoints (Optional[int]): number of checkpoints saved by the 
-            inner loop. If `inner_checkpoints=None`, the adjoint defaults to 
+        inner_checkpoints (Optional[int]): number of checkpoints saved by the
+            inner loop. If `inner_checkpoints=None`, the adjoint defaults to
             saving the square root of the number of iterations.
     """
 
@@ -265,9 +274,9 @@ class CheckpointedAdjoint(AbstractAdjoint):
     use_custom_vjp: ClassVar[bool] = False
 
     @property
-    def outer_scan_fn(self) -> Callable: # pyright: ignore[reportIncompatibleMethodOverride]
+    def outer_scan_fn(self) -> Callable:  # pyright: ignore[reportIncompatibleMethodOverride]
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.outer_checkpoints)
 
     @property
-    def inner_scan_fn(self) -> Callable: # pyright: ignore[reportIncompatibleMethodOverride]
+    def inner_scan_fn(self) -> Callable:  # pyright: ignore[reportIncompatibleMethodOverride]
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.inner_checkpoints)

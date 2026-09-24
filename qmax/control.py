@@ -27,8 +27,8 @@ class AbstractControl(eqx.Module):
     def __call__(self, t: RealScalarLike) -> RealScalarLike:
         """
         Args:
-            t (Scalar): time at which to evaluate the control 
-        
+            t (Scalar): time at which to evaluate the control
+
         Returns:
             control input evaluated at time `t`
         """
@@ -39,6 +39,7 @@ class AbstractControl(eqx.Module):
             return NotImplemented
 
         from .timevarying_operator import ConstantTimeVaryingOperator
+
         return self * ConstantTimeVaryingOperator(op)
 
     def __rmul__(self, op: Operator) -> AbstractTimeVaryingOperator:
@@ -46,6 +47,7 @@ class AbstractControl(eqx.Module):
             return NotImplemented
 
         from .timevarying_operator import ConstantTimeVaryingOperator
+
         return self * ConstantTimeVaryingOperator(op)
 
     @abstractmethod
@@ -58,9 +60,10 @@ class ControlFunction(AbstractControl):
     Control input which corresponds to directly evaluating a function `cntrl`
 
     Attributes:
-        cntrl (callable): Function with signature `cntrl(t)` returning a scalar 
-            which is the control at time t. 
+        cntrl (callable): Function with signature `cntrl(t)` returning a scalar
+            which is the control at time t.
     """
+
     cntrl: Callable[[RealScalarLike], RealScalarLike]
 
     def evaluate(self, t: RealScalarLike) -> RealScalarLike:
@@ -84,11 +87,13 @@ class AbstractInterpolatedControl(AbstractControl):
     u_range: Array
 
     @classmethod
-    def from_function(cls, 
-        u_func: Callable[[RealScalarLike], RealScalarLike], 
-        t0: RealScalarLike, 
-        t1: RealScalarLike, 
-        num_samples: int) -> AbstractInterpolatedControl:
+    def from_function(
+        cls,
+        u_func: Callable[[RealScalarLike], RealScalarLike],
+        t0: RealScalarLike,
+        t1: RealScalarLike,
+        num_samples: int,
+    ) -> AbstractInterpolatedControl:
         """
         Creates an instance of the interpolated control object from a callable
         by sampling it at `num_samples` evenly spaced points in the interval [`t0`, `t1`].
@@ -122,7 +127,7 @@ class AbstractInterpolatedControl(AbstractControl):
 
 class PiecewiseConstantControl(AbstractInterpolatedControl):
     """
-    Piecewise constant interpolation of control values at evenly spaced points 
+    Piecewise constant interpolation of control values at evenly spaced points
     on the interval [t0, t1]
 
     Attributes:
@@ -138,7 +143,7 @@ class PiecewiseConstantControl(AbstractInterpolatedControl):
 
 class PiecewiseLinearControl(AbstractInterpolatedControl):
     """
-    Piecewise linear interpolation of control values at evenly spaced points 
+    Piecewise linear interpolation of control values at evenly spaced points
     on the interval [t0, t1]
 
     Attributes:
@@ -149,9 +154,8 @@ class PiecewiseLinearControl(AbstractInterpolatedControl):
 
     def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         idx = self.idx(t)
-        t_prev = self.t0 + self.dt * idx 
+        t_prev = self.t0 + self.dt * idx
         t_next = self.t0 + self.dt * (idx + 1)
         u_prev = self.u_range[idx]
         u_next = self.u_range[idx + 1]
         return u_prev + (t - t_prev) * (u_next - u_prev) / (t_next - t_prev)
-

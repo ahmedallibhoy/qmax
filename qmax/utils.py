@@ -13,26 +13,18 @@ def zeros_like(y: AbstractState) -> AbstractState:
 
 
 def stack(ys: list[AbstractState]) -> AbstractState:
-    return ys[0].hilbert_space.from_coeffs(
-        jnp.stack([y.coeffs for y in ys], axis=0))
+    return ys[0].hilbert_space.from_coeffs(jnp.stack([y.coeffs for y in ys], axis=0))
 
 
 def unstack(y: AbstractState) -> tuple[AbstractState, ...]:
     if len(y.coeffs.shape) == 1:
         return (y,)
-        
-    return tuple(
-        y.hilbert_space.from_coeffs(y.coeffs[idx]) 
-        for idx in range(y.coeffs.shape[0]))
+
+    return tuple(y.hilbert_space.from_coeffs(y.coeffs[idx]) for idx in range(y.coeffs.shape[0]))
 
 
-def over_batch(
-    fn: Callable[[AbstractState], AbstractState], 
-    y: AbstractState):
-
+def over_batch(fn: Callable[[AbstractState], AbstractState], y: AbstractState):
     space = y.hilbert_space
     flat = y.coeffs.reshape(-1, y.coeffs.shape[-1])
     out = jax.vmap(lambda c: fn(space.from_coeffs(c)).coeffs)(flat)
     return space.from_coeffs(out.reshape(*y.coeffs.shape[:-1], out.shape[-1]))
-
-   

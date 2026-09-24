@@ -9,14 +9,10 @@ if TYPE_CHECKING:
     from .operator import Operator
 
 
-def chebyshev(
-    A: Operator,
-    y: AbstractState,
-    coeffs: Array) -> AbstractState:
-
+def chebyshev(A: Operator, y: AbstractState, coeffs: Array) -> AbstractState:
     """
     Computes Σ_k c_k T_k(A)y, where T_k is the kth Chebyshev polynomial
-    of the first kind. 
+    of the first kind.
     """
 
     def loop(carry, coeff):

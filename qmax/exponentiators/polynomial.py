@@ -25,10 +25,10 @@ N_MAX = 100
 
 
 # only works if jax_enable_x64 is True
-# TODO: 
-#   1. raise warning on overflow 
+# TODO:
+#   1. raise warning on overflow
 #   2. overflow safe implementation
-def _modified_bessel(order: int, z: Scalar, extend: int=25) -> Array:
+def _modified_bessel(order: int, z: Scalar, extend: int = 25) -> Array:
     def miller(carry, idx):
         s_next, s = carry
         s_prev = s_next + (2 * idx) / z * s
@@ -39,7 +39,7 @@ def _modified_bessel(order: int, z: Scalar, extend: int=25) -> Array:
     Is = Is[::-1]
 
     ks = jnp.arange(Is.shape[0])
-    S  = jnp.sum(jnp.where(ks == 0, 1.0, 2.0) * Is)
+    S = jnp.sum(jnp.where(ks == 0, 1.0, 2.0) * Is)
     Is = Is[:order] * jnp.exp(z) / S
     return Is
 
@@ -74,6 +74,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
             Laguerre polynomials," Electron. Trans. Numer. Anal., vol. 37,
             pp. 147-165, 2010.
     """
+
     num_iterations: int = 10
 
     def __check_init__(self):
@@ -109,7 +110,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
         op_scaled = (op - b) / a
 
         Is = _modified_bessel(self.num_iterations, h * a)
-        coeffs = (2 - (jnp.arange(self.num_iterations) == 0)) * Is[:self.num_iterations]
+        coeffs = (2 - (jnp.arange(self.num_iterations) == 0)) * Is[: self.num_iterations]
 
         exp_y = c * chebyshev(op_scaled, y, coeffs)
         return exp_y
@@ -119,10 +120,11 @@ class ChebyshevExponentiator(AbstractExponentiator):
         return None
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         return self.num_iterations * op.interface_count(parent_path, child_idx).action

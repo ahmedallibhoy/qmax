@@ -17,36 +17,33 @@ from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Identity, IncompatibleDomainError, Operator
 
 
-def apply_along_tensor(
-    fn: Callable[[Array], Array],
-    tensor: ArrayLike,
-    axis: int) -> Array:
+def apply_along_tensor(fn: Callable[[Array], Array], tensor: ArrayLike, axis: int) -> Array:
     r"""
-    Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m and a linear map A: V_i -> V_i, 
-    this function applies I ⊗ ... ⊗ A ⊗ ... ⊗ I to y, or equivalently, applies 
-    the map A to each axis of y. 
+    Given a tensor y \in V_1 ⊗ V_2 ⊗ ... ⊗ V_m and a linear map A: V_i -> V_i,
+    this function applies I ⊗ ... ⊗ A ⊗ ... ⊗ I to y, or equivalently, applies
+    the map A to each axis of y.
 
     Specifically, we have
 
-        V_1 ⊗ V_2 ⊗ ... ⊗ V_m ≅ V_i x V_i x ... x V_i, 
+        V_1 ⊗ V_2 ⊗ ... ⊗ V_m ≅ V_i x V_i x ... x V_i,
 
-    where the direct product consists of n_1 x n_2 x n_{i-1} x n_{i+1} ... x n_m, 
-    independent copies of V_i, with n_j = dim V_j. Thus A may be lifted to the map 
-    blockdiag(A, A, ..., A) acting on y. 
+    where the direct product consists of n_1 x n_2 x n_{i-1} x n_{i+1} ... x n_m,
+    independent copies of V_i, with n_j = dim V_j. Thus A may be lifted to the map
+    blockdiag(A, A, ..., A) acting on y.
 
-    The map blockdiag(A, A, ..., A) may be expressed in coordinates as follows. The 
-    tensor y is an array with shape (n_1, n_2, ..., n_m), whose element at the 
-    multi-index (k_1, k_2, ..., k_m) is y_{k_1, k_2, ..., k_m}. Thus y may be 
-    decomposed into a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} x ... x n_m 
-    vectors, having coordinates 
+    The map blockdiag(A, A, ..., A) may be expressed in coordinates as follows. The
+    tensor y is an array with shape (n_1, n_2, ..., n_m), whose element at the
+    multi-index (k_1, k_2, ..., k_m) is y_{k_1, k_2, ..., k_m}. Thus y may be
+    decomposed into a collection of n_1 x n_2 x n_{i - 1} x n_{i + 1} x ... x n_m
+    vectors, having coordinates
 
-        y_{k_1, ..., 1, ... k_m} 
-        y_{k_1, ..., 2, ... k_m} 
+        y_{k_1, ..., 1, ... k_m}
+        y_{k_1, ..., 2, ... k_m}
         ...
         y_{k_1, ..., n_i, ..., k_m}
 
-    for each multi-index (k_1, ..., k_{i-1}, k_{i+1}, ..., k_m). The block diagonal 
-    map is computed by vmapping A over all such multi-indices.  
+    for each multi-index (k_1, ..., k_{i-1}, k_{i+1}, ..., k_m). The block diagonal
+    map is computed by vmapping A over all such multi-indices.
     """
 
     t = jnp.moveaxis(tensor, axis, 0)
@@ -56,12 +53,11 @@ def apply_along_tensor(
 
 
 def apply_along_state(
-    state_fn: Callable[[AbstractState], AbstractState],
-    y: TensorState[Any],
-    factor_idx: int):
+    state_fn: Callable[[AbstractState], AbstractState], y: TensorState[Any], factor_idx: int
+):
     """
-    Same function as apply_along_tensor except acting on batched state vectors 
-    rather than raw coefficient arrays. This function extracts the coefficients, 
+    Same function as apply_along_tensor except acting on batched state vectors
+    rather than raw coefficient arrays. This function extracts the coefficients,
     then delegates to apply_along_tensor, and repacks the result into a TensorState
     """
 
@@ -73,7 +69,6 @@ def apply_along_state(
 
 
 class TensorState[H: AbstractTensorSpace[Any] = AbstractTensorSpace](AbstractState[H]):
-
     @property
     def tensor(self) -> Array:
         return self.coeffs.reshape(*self.coeffs.shape[:-1], *self.hilbert_space.dim_list)
@@ -84,7 +79,7 @@ class AbstractTensorSpace[S: TensorState[Any]](AbstractHilbertSpace[S]):
 
     @abstractmethod
     def factor(self, idx: int) -> AbstractHilbertSpace:
-        pass 
+        pass
 
     def __getitem__(self, idx: int) -> AbstractHilbertSpace:
         return self.factor(idx)
@@ -105,7 +100,7 @@ class AbstractTensorSpace[S: TensorState[Any]](AbstractHilbertSpace[S]):
 
     def from_tensor(self, tensor: ArrayLike) -> S:
         tensor = jnp.asarray(tensor)
-        batch_shape = tensor.shape[:tensor.ndim - self.num_factors]
+        batch_shape = tensor.shape[: tensor.ndim - self.num_factors]
         return self.from_coeffs(tensor.reshape(*batch_shape, self.dim))
 
     def product_state(self, y_list: Iterable[AbstractState]) -> S:
@@ -114,7 +109,8 @@ class AbstractTensorSpace[S: TensorState[Any]](AbstractHilbertSpace[S]):
                 *y.coeffs.shape[:-1],
                 *(1,) * factor_idx,
                 y.coeffs.shape[-1],
-                *(1,) * (self.num_factors - factor_idx - 1))
+                *(1,) * (self.num_factors - factor_idx - 1),
+            )
             for factor_idx, y in enumerate(y_list)
         ]
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
@@ -133,7 +129,7 @@ class TensorProduct[S: TensorState[Any] = TensorState](AbstractTensorSpace[S]):
     spaces: tuple[AbstractHilbertSpace, ...]
 
     def factor(self, idx: int) -> AbstractHilbertSpace:
-        return self.spaces[idx] 
+        return self.spaces[idx]
 
     @property
     def num_factors(self) -> int:
@@ -161,7 +157,7 @@ class TensorPower[S: TensorState[Any] = TensorState](AbstractTensorSpace[S]):
 
     @property
     def dim(self) -> int:
-        return self.factorspace.dim ** self.power
+        return self.factorspace.dim**self.power
 
 
 class AbstractTensorOperator[S: TensorState[Any]](Operator[S]):
@@ -176,18 +172,13 @@ class AbstractTensorOperator[S: TensorState[Any]](Operator[S]):
 
 
 class LiftExp[S: TensorState[Any]](DelegatingExponentiator["LiftOperator[S]", S]):
-
     def schedule(self, op: LiftOperator[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         # the lifted operator acts on each of the remaining subspaces in turn
         (A,) = op.children
-        #return [(0, 1.0, op.domain.dim // A.domain.dim)]
+        # return [(0, 1.0, op.domain.dim // A.domain.dim)]
         return [(0, 1.0, 1)]
 
-    def exp(
-        self,
-        op: LiftOperator[S],
-        h: ComplexScalarLike,
-        y: S) -> S:
+    def exp(self, op: LiftOperator[S], h: ComplexScalarLike, y: S) -> S:
 
         (A,) = op.children
         return apply_along_state(lambda s: A._exp(h, s), y, op.factor_idx)
@@ -205,11 +196,7 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
     factor_idx: int
     exponentiator: AbstractExponentiator = eqx.field(default=LiftExp(), kw_only=True)
 
-    def __init__(
-        self, 
-        domain: AbstractTensorSpace[S],
-        A: Operator,
-        factor_idx: int):
+    def __init__(self, domain: AbstractTensorSpace[S], A: Operator, factor_idx: int):
 
         self.domain = domain
         self.children = (A,)
@@ -246,7 +233,7 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
         (A,) = self.children
         return A.spectral_bounds
 
-    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         (A,) = self.children
         return apply_along_state(lambda s: A._solve(s, scale, shift), b, self.factor_idx)
 
@@ -266,23 +253,24 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
     def label(self) -> str:
         return f"{type(self).__name__}(idx={self.factor_idx})"
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         (A,) = self.children
         path = self.path(parent_path, child_idx)
         c = A.interface_count(path, 0)
-        #num = self.domain.dim // A.domain.dim
+        # num = self.domain.dim // A.domain.dim
         num = 1
 
         return InterfaceCount(
-            action     = num * c.action,
-            adj_action = num * c.adj_action,
-            solve      = num * c.solve,
-            exp_action = self._exp_action_count(path),
+            action=num * c.action,
+            adj_action=num * c.adj_action,
+            solve=num * c.solve,
+            exp_action=self._exp_action_count(path),
         )
 
 
 class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
-
     def __check_init__(self):
         self._check_tensor_domain()
 
@@ -299,24 +287,23 @@ class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
                     f"operand at index {idx} acts on {self.children[idx].domain}"
                 )
 
-    def interface_count(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> InterfaceCount:
+    def interface_count(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
         path = self.path(parent_path, child_idx)
-        #dim = self.domain.dim
-        #scaled = [
+        # dim = self.domain.dim
+        # scaled = [
         #    (dim // self.domain[idx].dim, op.interface_count(path, idx))
         #    for idx, op in enumerate(self.children)
-        #]
+        # ]
 
-        scaled = [
-            (1, op.interface_count(path, idx))
-            for idx, op in enumerate(self.children)
-        ]
+        scaled = [(1, op.interface_count(path, idx)) for idx, op in enumerate(self.children)]
 
         return InterfaceCount(
-            action = reduce(lambda a, b: a | b, [num * c.action for num, c in scaled]),
-            adj_action = reduce(lambda a, b: a | b, [num * c.adj_action for num, c in scaled]),
-            solve = {path: Count(solves=1)},
-            exp_action = self._exp_action_count(path),
+            action=reduce(lambda a, b: a | b, [num * c.action for num, c in scaled]),
+            adj_action=reduce(lambda a, b: a | b, [num * c.adj_action for num, c in scaled]),
+            solve={path: Count(solves=1)},
+            exp_action=self._exp_action_count(path),
         )
 
     def adjoint(self) -> Operator[S]:
@@ -324,24 +311,16 @@ class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
 
 
 class KroneckerSumExp[S: TensorState[Any]](DelegatingExponentiator["KroneckerSum[S]", S]):
-
     def schedule(self, op: KroneckerSum[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         # each factor acts on every slice along its own axis
-        #return [
+        # return [
         #    (idx, 1.0, op.domain.dim // op.domain[idx].dim)
         #    for idx in range(len(op.children))
-        #]
+        # ]
 
-        return [
-            (idx, 1.0, 1)
-            for idx in range(len(op.children))
-        ]
+        return [(idx, 1.0, 1) for idx in range(len(op.children))]
 
-    def exp(
-        self,
-        op: KroneckerSum[S],
-        h: ComplexScalarLike,
-        y: S) -> S:
+    def exp(self, op: KroneckerSum[S], h: ComplexScalarLike, y: S) -> S:
 
         for factor_idx, child in enumerate(op.children):
             y = apply_along_state(lambda s, child=child: child._exp(h, s), y, factor_idx)
@@ -361,16 +340,22 @@ class KroneckerSum[S: TensorState[Any]](KroneckerProductMixin[S]):
     exponentiator: AbstractExponentiator = eqx.field(default=KroneckerSumExp(), kw_only=True)
 
     def action(self, y: S) -> S:
-        return reduce(lambda a, b: a + b, [
-            apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
-            for factor_idx, op in enumerate(self.children)
-        ])
+        return reduce(
+            lambda a, b: a + b,
+            [
+                apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
+                for factor_idx, op in enumerate(self.children)
+            ],
+        )
 
     def adj_action(self, y: S) -> S:
-        return reduce(lambda a, b: a + b, [
-            apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
-            for factor_idx, op in enumerate(self.children)
-        ])
+        return reduce(
+            lambda a, b: a + b,
+            [
+                apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
+                for factor_idx, op in enumerate(self.children)
+            ],
+        )
 
     @property
     def spectral_bounds(self) -> Array:
@@ -389,7 +374,6 @@ class KroneckerSum[S: TensorState[Any]](KroneckerProductMixin[S]):
 
 
 class KroneckerProduct[S: TensorState[Any]](KroneckerProductMixin[S]):
-
     def action(self, y: S) -> S:
         for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
@@ -415,8 +399,5 @@ class KroneckerProduct[S: TensorState[Any]](KroneckerProductMixin[S]):
         return jnp.array([lo, hi])
 
     def to_matrix(self) -> Array:
-        mat_list = [
-            op.to_matrix() for idx, op in enumerate(self.children)
-        ]
+        mat_list = [op.to_matrix() for idx, op in enumerate(self.children)]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
-

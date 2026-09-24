@@ -29,11 +29,11 @@ pip install qmax
 
 ```python
 import jax.numpy as jnp
-import qmax as qx 
+import qmax as qx
 
 hilbert_space = qx.spaces.FiniteDifference(x0=-10, x1=10, num_steps=500)
 L = hilbert_space.laplacian()
-V = hilbert_space.potential_energy(lambda x: 0.5 * x ** 2)
+V = hilbert_space.potential_energy(lambda x: 0.5 * x**2)
 H = -0.5 * L + V
 
 U = qx.Propagator(H, t0=0.0, t1=2 * jnp.pi, dt_max=0.01)

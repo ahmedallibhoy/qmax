@@ -77,8 +77,9 @@ class KrylovExponentiator(AbstractExponentiator):
     def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
 
         def fn(y_i):
-            alpha, beta, Q, _ = lanczos(op, self.num_iterations,
-                orthogonalize=self.orthogonalize, w0=y_i)
+            alpha, beta, Q, _ = lanczos(
+                op, self.num_iterations, orthogonalize=self.orthogonalize, w0=y_i
+            )
 
             beta0 = y_i.norm()
             eigvals, eigvecs = jax.scipy.linalg.eigh_tridiagonal(alpha, beta[:-1])
@@ -92,10 +93,11 @@ class KrylovExponentiator(AbstractExponentiator):
         return None
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         return self.num_iterations * op.interface_count(parent_path, child_idx).action

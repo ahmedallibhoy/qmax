@@ -29,24 +29,24 @@ __all__ = [
 
 type Order = Optional[int]
 
+
 def min_order(*orders: Order) -> Order:
     finite = [order for order in orders if order is not None]
     return min(finite) if finite else None
 
 
 class NotExponentiableError(Exception):
-    def __init__(self, reason: str, path: Path=Path()):
+    def __init__(self, reason: str, path: Path = Path()):
         self.reason, self.path = reason, path
         super().__init__(f"{reason}\n  path: {path}")
 
-    def from_path(self, path: Path=Path()) -> NotExponentiableError:
-        #if self.path:
+    def from_path(self, path: Path = Path()) -> NotExponentiableError:
+        # if self.path:
         #    return self
         return type(self)(self.reason, path)
 
 
 class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module):
-
     # --------------------------------------------------------------------------------------------
     # Do not override
     # --------------------------------------------------------------------------------------------
@@ -60,15 +60,12 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
         return self.exp(op, h, y)
 
     def check_exponentiable_tree(
-        self, 
-        op: Operator, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None):
-
+        self, op: Operator, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ):
         """
-        Traverses the expression tree of op to ensure op is compatible with this 
-        exponentiator. If not, raises NotExponentiableError reproducing the path 
-        to the offending node. 
+        Traverses the expression tree of op to ensure op is compatible with this
+        exponentiator. If not, raises NotExponentiableError reproducing the path
+        to the offending node.
         """
         try:
             if not isinstance(op, self.operator_type):
@@ -84,13 +81,11 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
             raise e.from_path(op.path(parent_path, child_idx)) from None
 
     def can_exponentiate(
-        self, 
-        op: Operator, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> bool:
+        self, op: Operator, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> bool:
         """
-        Traverses the expression tree of op and returns True if this exponentiator 
-        can be called on op without raising an error. 
+        Traverses the expression tree of op and returns True if this exponentiator
+        can be called on op without raising an error.
         """
         try:
             self.check_exponentiable_tree(op, parent_path, child_idx)
@@ -100,21 +95,22 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
 
     def tree_order(self, op: Op) -> Order:
         """
-        Traverses the expression tree of op to compute effective order of this 
+        Traverses the expression tree of op to compute effective order of this
         exponentiator when applied to op
         """
         return self.effective_order(op)
 
     def tree_count(
-        self, 
-        op: Op, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Op,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
         """
-        Traverses the expression tree of op to count the number of calls to interface 
-        methods of leaves per one call to self.exp(op, h, y), as a rough measure 
-        of the computational effort of required by this exponentiatiator. 
+        Traverses the expression tree of op to count the number of calls to interface
+        methods of leaves per one call to self.exp(op, h, y), as a rough measure
+        of the computational effort of required by this exponentiatiator.
         """
         return self.count(op, h, parent_path, child_idx)
 
@@ -132,37 +128,30 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
         Type of operator this exponentiator is compatible with
         """
         from ..operator import Operator
+
         # general-purpose exponentiators accept any operator
         return cast(type[Op], Operator)
 
     def check_exponentiable(
-        self, 
-        op: Op, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None):
+        self, op: Op, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ):
         """
-        Validates exponentiability by recursing into a composite operators tree via 
+        Validates exponentiability by recursing into a composite operators tree via
         op_child.check_exponentiable_tree for each child of op
         """
         pass
 
-    def adapt(
-        self,
-        op: Op,
-        dt_max: ScalarLike) -> AbstractExponentiator:
+    def adapt(self, op: Op, dt_max: ScalarLike) -> AbstractExponentiator:
         """
         Given a max stepsize and an operator, returns an instance of type(self) with any
         parameters tuned to guarantee that reported order estimate is valid while reducing
         computational burden.
 
-        May be overridden on exponentiators acting on leaf operators. 
+        May be overridden on exponentiators acting on leaf operators.
         """
         return self
 
-    def adapt_children(
-        self, 
-        op: Op, 
-        dt_max) -> Op:
+    def adapt_children(self, op: Op, dt_max) -> Op:
         """
         Returns an instance of type(op) whose children are adapted.
 
@@ -172,14 +161,15 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
 
     @abstractmethod
     def count(
-        self, 
-        op: Op, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Op,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
         """
-        Counts number of calls to each interface of op required by one call 
-        to self.exp(op, h, y) recursing into children of op, if necessary,  
+        Counts number of calls to each interface of op required by one call
+        to self.exp(op, h, y) recursing into children of op, if necessary,
         via op_child.exp_count for each child of op.
         """
         return CountDict()
@@ -194,26 +184,28 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
 
     def effective_order(self, op: Op) -> Order:
         """
-        The minimum of the intrinsic order and the orders of the exponentiators of each 
+        The minimum of the intrinsic order and the orders of the exponentiators of each
         child of op, queried via op_child.tree_order for each child of op
         """
         return self.order
 
 
-class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](AbstractExponentiator[Op, S]):
+class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](
+    AbstractExponentiator[Op, S]
+):
     """
     Base class for exponentiators that delegate to children of an operator, e.g. splitting
-    exponentiators that act on `AddOperator`. 
+    exponentiators that act on `AddOperator`.
     """
 
     @abstractmethod
     def schedule(self, op: Op) -> Sequence[tuple[int, ComplexScalarLike, int]]:
         """
-        Schedule of (index, scale, mult) of op's children that this exponentiator 
+        Schedule of (index, scale, mult) of op's children that this exponentiator
         delegates to, i.e., (i, s, m) means that op.children[i].exp(scale * h, y)
-        is called m times. 
+        is called m times.
         """
-        pass 
+        pass
 
     def count(self, op: Op, h: ComplexScalarLike, parent_path=None, child_idx=None) -> CountDict:
         path = op.path(parent_path, child_idx)
@@ -235,12 +227,13 @@ class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](Abstract
 
     def adapt_children(self, op, dt_max) -> Op:
         children = tuple(
-            child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op)))
+            child.adapt(s * dt_max) for (child, s) in zip(op.children, self.h_scales(op))
+        )
         return _update_field(op, "children", children)
 
     def effective_order(self, op: Op) -> Order:
         """
-        The minimum of the intrinsic order and the orders of the exponentiators of each 
+        The minimum of the intrinsic order and the orders of the exponentiators of each
         child of op, queried via op_child.tree_order for each child of op
         """
         return min_order(self.order, *(child.tree_order for child in op.children))
@@ -248,38 +241,40 @@ class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](Abstract
 
 class ExactExponentiator[Op: Operator[Any], S: AbstractState[Any]](AbstractExponentiator[Op, S]):
     """
-    Exponentiator which produces the closed-form exponential action of an operator. Only works 
-    on operators which override `exp_action`, otherwise raises `NotExponentiableError`. 
+    Exponentiator which produces the closed-form exponential action of an operator. Only works
+    on operators which override `exp_action`, otherwise raises `NotExponentiableError`.
     """
 
     def exp(self, op: Op, h: ComplexScalarLike, y: S) -> S:
         return op.exp_action(h, y)
 
     def check_exponentiable(
-        self, 
-        op: Op, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None):
+        self, op: Op, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ):
 
         if not op.overrides_exp_action:
             raise NotExponentiableError(
-                f"ExactExponentiator requires {type(op).__name__} to implement exp_action")
+                f"ExactExponentiator requires {type(op).__name__} to implement exp_action"
+            )
 
     @property
     def order(self) -> Order:
         return None
 
     def count(
-        self, 
-        op: Op, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Op,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         return op.interface_count(parent_path, child_idx).exp_action
 
 
-class ShiftScaleExponentiator[S: AbstractState[Any]](DelegatingExponentiator["ShiftScaleOperator[S]", S]):
+class ShiftScaleExponentiator[S: AbstractState[Any]](
+    DelegatingExponentiator["ShiftScaleOperator[S]", S]
+):
     """
     Exponentiates op = shift * I + scale * A
     """
@@ -295,6 +290,7 @@ class ShiftScaleExponentiator[S: AbstractState[Any]](DelegatingExponentiator["Sh
     @property
     def operator_type(self) -> type[ShiftScaleOperator[S]]:
         from ..operator import ShiftScaleOperator
+
         return ShiftScaleOperator
 
     @property
@@ -303,34 +299,34 @@ class ShiftScaleExponentiator[S: AbstractState[Any]](DelegatingExponentiator["Sh
 
 
 class NoExponentiator(AbstractExponentiator):
-
     def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
-            "Use .with_exponentiator to assign an exponentiator")
+            "Use .with_exponentiator to assign an exponentiator"
+        )
 
     def check_exponentiable(
-        self, 
-        op: Operator, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None):
-        
+        self, op: Operator, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ):
+
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
-            "Use .with_exponentiator to assign an exponentiator")
+            "Use .with_exponentiator to assign an exponentiator"
+        )
 
     def count(
-        self, 
-        op: Operator, 
-        h: ComplexScalarLike, 
-        parent_path: Optional[Path]=None, 
-        child_idx: Optional[int]=None) -> CountDict:
+        self,
+        op: Operator,
+        h: ComplexScalarLike,
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> CountDict:
 
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
-            "Use .with_exponentiator to assign an exponentiator")
+            "Use .with_exponentiator to assign an exponentiator"
+        )
 
     @property
     def order(self) -> Order:
         raise NotExponentiableError("Cannot compute order of NoExponentatiator")
-

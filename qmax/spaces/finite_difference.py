@@ -24,7 +24,6 @@ __all__ = ["FiniteDifference"]
 
 
 class _FiniteDifference1DState(SpatiallyDiscretizedState["_FiniteDifference1D"]):
-
     @property
     def values(self) -> Array:
         return self.coeffs
@@ -57,28 +56,31 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator[_FiniteDifference1D
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(
-            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1
+        )
 
         values_prev = jnp.concatenate(
-            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1
+        )
 
-        lapl_values = (values_next - 2 * y.values + values_prev) / (self.domain.dx ** 2)
+        lapl_values = (values_next - 2 * y.values + values_prev) / (self.domain.dx**2)
 
         return self.domain.from_values(lapl_values)
 
     def _solve(
         self,
         b: _FiniteDifference1DState,
-        scale: ComplexScalarLike=-1.0,
-        shift: ComplexScalarLike=0.0) -> _FiniteDifference1DState:
+        scale: ComplexScalarLike = -1.0,
+        shift: ComplexScalarLike = 0.0,
+    ) -> _FiniteDifference1DState:
 
         hilbert_space = self.domain
         dim = hilbert_space.dim
         dx = hilbert_space.dx
 
-        diag = jnp.full(dim, shift - 2 * scale / (dx ** 2), dtype=complex)
-        lower_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
-        upper_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
+        diag = jnp.full(dim, shift - 2 * scale / (dx**2), dtype=complex)
+        lower_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx**2), dtype=complex)
+        upper_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx**2), dtype=complex)
 
         lx_op = lx.TridiagonalLinearOperator(diag, lower_diag, upper_diag)
 
@@ -90,12 +92,12 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator[_FiniteDifference1D
 
     @property
     def spectral_bounds(self) -> Array:
-        return jnp.array([-4 / self.domain.dx ** 2, 0.0])
+        return jnp.array([-4 / self.domain.dx**2, 0.0])
 
     def to_matrix(self) -> Array:
         dim = self.domain.dim
         dx = self.domain.dx
-        L = (-2 * jnp.eye(dim) + jnp.eye(dim, k=1) + jnp.eye(dim, k=-1)) / (dx ** 2)
+        L = (-2 * jnp.eye(dim) + jnp.eye(dim, k=1) + jnp.eye(dim, k=-1)) / (dx**2)
         return L
 
 
@@ -104,20 +106,24 @@ class _FiniteDifference1DMomentum(Operator[_FiniteDifference1DState]):
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(
-            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1
+        )
 
         values_prev = jnp.concatenate(
-            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1
+        )
 
         d_values = (values_next - values_prev) / (2 * self.domain.dx)
         return self.domain.from_values(-1j * self.domain.hbar * d_values)
 
     def adj_action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
         values_next = jnp.concatenate(
-            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1)
+            [y.values[..., 1:], jnp.zeros_like(y.values[..., :1])], axis=-1
+        )
 
         values_prev = jnp.concatenate(
-            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1)
+            [jnp.zeros_like(y.values[..., :1]), y.values[..., :-1]], axis=-1
+        )
 
         d_values = (values_next - values_prev) / (2 * self.domain.dx)
         return self.domain.from_values(1j * self.domain.hbar * jnp.conj(d_values))
@@ -130,17 +136,16 @@ class _FiniteDifference1DMomentum(Operator[_FiniteDifference1DState]):
 
 
 class FiniteDifferenceState(
-    SpatiallyDiscretizedState["FiniteDifference"],
-    TensorState["FiniteDifference"]):
-
+    SpatiallyDiscretizedState["FiniteDifference"], TensorState["FiniteDifference"]
+):
     @property
     def values(self) -> Array:
         return self.hilbert_space.to_grid(self.coeffs)
 
 
 class FiniteDifference(
-    SpatialDiscretization[FiniteDifferenceState],
-    TensorProduct[FiniteDifferenceState]):
+    SpatialDiscretization[FiniteDifferenceState], TensorProduct[FiniteDifferenceState]
+):
     state_type: ClassVar[type[AbstractState]] = FiniteDifferenceState
     endpoint: ClassVar[bool] = True
 
@@ -149,8 +154,9 @@ class FiniteDifference(
             self.spaces = (_FiniteDifference1D(float(x0), float(x1), num_steps),)
         else:
             self.spaces = tuple(
-                _FiniteDifference1D(float(x0_i), float(x1_i), n) 
-                for x0_i, x1_i, n in zip(x0, x1, num_steps))
+                _FiniteDifference1D(float(x0_i), float(x1_i), n)
+                for x0_i, x1_i, n in zip(x0, x1, num_steps)
+            )
 
         self.x0 = _to_tuple(x0)
         self.x1 = _to_tuple(x1)
@@ -166,31 +172,30 @@ class FiniteDifference(
     def laplacian(self) -> FiniteDifferenceLaplacian:
         return FiniteDifferenceLaplacian(self)
 
-    def potential_energy(
-        self,
-        potential: PotentialFunction) -> FiniteDifferencePotentialEnergy:
-
+    def potential_energy(self, potential: PotentialFunction) -> FiniteDifferencePotentialEnergy:
         return FiniteDifferencePotentialEnergy(self, potential)
 
-    def momentum(self, axis: int=0) -> FiniteDifferenceMomentum:
-        return FiniteDifferenceMomentum(self, axis) 
+    def momentum(self, axis: int = 0) -> FiniteDifferenceMomentum:
+        return FiniteDifferenceMomentum(self, axis)
 
 
 class FiniteDifferenceLaplacian(
-    AbstractHermitianOperator[FiniteDifferenceState],
-    KroneckerSum[FiniteDifferenceState]):
+    AbstractHermitianOperator[FiniteDifferenceState], KroneckerSum[FiniteDifferenceState]
+):
     domain: FiniteDifference = eqx.field(static=True)
 
     def __init__(
         self,
         domain: FiniteDifference,
-        exponentiator: AbstractExponentiator=KroneckerSumExp(),
-        name: Optional[str]=None):
+        exponentiator: AbstractExponentiator = KroneckerSumExp(),
+        name: Optional[str] = None,
+    ):
 
         self.domain = domain
         self.children = tuple(
-            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})") # pyright: ignore[reportArgumentType]
-            for idx in range(domain.num_factors))
+            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})")  # pyright: ignore[reportArgumentType]
+            for idx in range(domain.num_factors)
+        )
         self.exponentiator = exponentiator
         self.name = name if name is not None else "Laplacian"
 
@@ -202,11 +207,12 @@ class FiniteDifferenceMomentum(LiftOperator[FiniteDifferenceState]):
         self,
         domain: FiniteDifference,
         axis: int,
-        exponentiator: AbstractExponentiator=NoExponentiator(),
-        name: Optional[str]=None):
+        exponentiator: AbstractExponentiator = NoExponentiator(),
+        name: Optional[str] = None,
+    ):
 
         self.domain = domain
-        self.children = (_FiniteDifference1DMomentum(domain[axis]),) # pyright: ignore[reportArgumentType]
+        self.children = (_FiniteDifference1DMomentum(domain[axis]),)  # pyright: ignore[reportArgumentType]
         self.factor_idx = axis
         self.exponentiator = exponentiator
         self.name = name

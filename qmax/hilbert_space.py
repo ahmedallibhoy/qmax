@@ -19,7 +19,7 @@ type Index = Any
 
 def _to_tuple(idx: Index) -> tuple[Index, ...]:
     if isinstance(idx, tuple):
-        return idx 
+        return idx
     return (idx,)
 
 
@@ -56,11 +56,11 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
         # state_type is a ClassVar, which cannot mention S
         return cast(S, self.state_type(coeffs, hilbert_space=self))
 
-    def zeros(self, shape: Shape=()) -> S:
+    def zeros(self, shape: Shape = ()) -> S:
         batch_shape = self.batch_shape(shape)
         return self.from_coeffs(jnp.zeros(batch_shape))
 
-    def random(self, key: PRNGKeyArray, shape: Shape=(), dtype=complex) -> S:
+    def random(self, key: PRNGKeyArray, shape: Shape = (), dtype=complex) -> S:
         batch_shape = self.batch_shape(shape)
         random_coeffs = jax.random.normal(key, shape=batch_shape, dtype=dtype)
         return self.from_coeffs(random_coeffs)
@@ -70,8 +70,8 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
     def stack(self, ys: Sequence[S], axis=0) -> S:
         if any(y.hilbert_space != self for y in ys):
-            raise ValueError("Cannot join states from different spaces")    
-        
+            raise ValueError("Cannot join states from different spaces")
+
         max_rank = max([y.rank for y in ys])
 
         if axis < 0:
@@ -79,9 +79,9 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
         if not 0 <= axis < max_rank + 1:
             raise ValueError(
-                f"axis {axis} out of range for sequence with of states "
-                f"with maximum rank {max_rank}")
-        
+                f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}"
+            )
+
         return self.from_coeffs(jnp.stack([y.coeffs for y in ys], axis))
 
     def concatenate(self, ys: Sequence[S], axis=0) -> S:
@@ -95,18 +95,20 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
         if not 0 <= axis < max_rank:
             raise ValueError(
-                f"axis {axis} out of range for sequence with of states"
-                f"with maximum rank {max_rank}")
+                f"axis {axis} out of range for sequence with of stateswith maximum rank {max_rank}"
+            )
 
         coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
         return self.from_coeffs(jnp.concatenate(coeffs, axis))
 
     def identity(self) -> Operator[S]:
         from .operator import Identity
+
         return Identity(self)
 
     def zero_operator(self) -> Operator[S]:
         from .operator import Zero
+
         return Zero(self)
 
 
@@ -182,10 +184,7 @@ class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
     def __neg__(self) -> Self:
         return self.hilbert_space.from_coeffs(-self.coeffs)
 
-    def contract(
-        self,
-        weights: Array,
-        axes: int | Iterable[int]=(0, 0)) -> Self:
+    def contract(self, weights: Array, axes: int | Iterable[int] = (0, 0)) -> Self:
         """
         Takes a linear combination of states corresponding to batch axes
         """
@@ -210,11 +209,12 @@ class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
 
     def coeff_axis(self, axis: int) -> int:
         if axis < 0:
-            axis += self.rank 
+            axis += self.rank
 
         if not 0 <= axis < self.rank:
             raise ValueError(
-                f"axis={axis} out of range for batched state vector of rank {self.rank}")
+                f"axis={axis} out of range for batched state vector of rank {self.rank}"
+            )
 
         return axis
 
@@ -227,7 +227,6 @@ class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
 
 
 class _AbstractStateIndexHelper[S: AbstractState[Any]]:
-
     def __init__(self, state: S):
         self.state = state
 
@@ -236,7 +235,6 @@ class _AbstractStateIndexHelper[S: AbstractState[Any]]:
 
 
 class _AbstractStateIndexSetter[S: AbstractState[Any]]:
-
     def __init__(self, state: S, idx: Index):
         self.state = state
         self.idx = idx

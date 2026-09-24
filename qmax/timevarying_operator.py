@@ -17,7 +17,8 @@ from .operator import AddOperator, IncompatibleDomainError, Operator
 
 
 class AbstractTimeVaryingOperator[S: AbstractState[Any]](
-    AbstractExpressionTree["AbstractTimeVaryingOperator", S]):
+    AbstractExpressionTree["AbstractTimeVaryingOperator", S]
+):
     """
     A timevarying operator $H(t)$.
     """
@@ -30,7 +31,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
             t (Scalar): Evaluation time
 
         Returns:
-            the operator $H(t)$. 
+            the operator $H(t)$.
         """
         return self.evaluate(t)
 
@@ -57,7 +58,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
     def __radd__(self, other: Operator | AbstractTimeVaryingOperator) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
-    
+
         if isinstance(other, Operator):
             other = ConstantTimeVaryingOperator(other)
         if not isinstance(other, AbstractTimeVaryingOperator):
@@ -68,7 +69,9 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
     def __sub__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
         return self + (-other)
 
-    def __rsub__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+    def __rsub__(
+        self, other: Operator | AbstractTimeVaryingOperator
+    ) -> AbstractTimeVaryingOperator:
         return (-self) + other
 
     def __mul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
@@ -98,7 +101,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 class ConstantTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
     op: Operator[S]
 
-    def __init__(self, op: Operator, *, name: Optional[str]=None):
+    def __init__(self, op: Operator, *, name: Optional[str] = None):
         self.op = op
         self.domain = op.domain
         self.name = name if name is not None else op.label
@@ -115,8 +118,9 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
         A: AbstractTimeVaryingOperator,
         B: AbstractTimeVaryingOperator,
         *,
-        split_method: AbstractSplitMethod=Strang(),
-        name: Optional[str]=None):
+        split_method: AbstractSplitMethod = Strang(),
+        name: Optional[str] = None,
+    ):
 
         if A.domain != B.domain:
             raise IncompatibleDomainError(
@@ -136,19 +140,18 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
     def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         A, B = self.children
         return AddOperator(
-            A.quadrature(t_quad, weights), B.quadrature(t_quad, weights),
-            exponentiator=self.split_method)
+            A.quadrature(t_quad, weights),
+            B.quadrature(t_quad, weights),
+            exponentiator=self.split_method,
+        )
 
 
 class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
     u: AbstractControl
 
     def __init__(
-        self,
-        A: AbstractTimeVaryingOperator,
-        u: AbstractControl,
-        *,
-        name: Optional[str]=None):
+        self, A: AbstractTimeVaryingOperator, u: AbstractControl, *, name: Optional[str] = None
+    ):
 
         self.children = (A,)
         self.u = u
@@ -158,5 +161,3 @@ class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOpe
     def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         (A,) = self.children
         return A.quadrature(t_quad, weights * jax.vmap(self.u)(t_quad))
-
-

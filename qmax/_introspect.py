@@ -18,20 +18,22 @@ PAD = ""
 @dataclasses.dataclass
 class RenderTree:
     """
-    Simplified representation of an operator expression tree for the purposes 
-    of rendering. 
+    Simplified representation of an operator expression tree for the purposes
+    of rendering.
     """
+
     label: str
-    count: Optional[Count] = None                
+    count: Optional[Count] = None
     children: list[RenderTree] = dataclasses.field(default_factory=list)
 
 
 def _rows(
-    node: RenderTree | AbstractExpressionTree, 
-    prefix: str="", 
-    is_last: bool=True, 
-    is_root: bool=True, 
-    get_data: Callable=lambda n: None) -> list[tuple[str, Optional[Count]]]:
+    node: RenderTree | AbstractExpressionTree,
+    prefix: str = "",
+    is_last: bool = True,
+    is_root: bool = True,
+    get_data: Callable = lambda n: None,
+) -> list[tuple[str, Optional[Count]]]:
 
     if is_root:
         line, child_prefix = node.label, ""
@@ -46,11 +48,13 @@ def _rows(
 
     for idx, child in enumerate(node.children):
         rows += _rows(
-            child, child_prefix, idx == (len(node.children) - 1), False, get_data=get_data)
+            child, child_prefix, idx == (len(node.children) - 1), False, get_data=get_data
+        )
     return rows
 
 
 type Step = tuple[int, str]
+
 
 @dataclasses.dataclass(frozen=True)
 class Path:
@@ -74,17 +78,18 @@ class Path:
 
     def __repr__(self) -> str:
         return self.root_label + "".join(
-            f".children[{index}] → {label}" for index, label in self.steps)
+            f".children[{index}] → {label}" for index, label in self.steps
+        )
 
     def __len__(self) -> int:
         return len(self.steps)
 
-        
+
 @dataclasses.dataclass
 class Count:
-    actions:     int = 0
+    actions: int = 0
     adj_actions: int = 0
-    solves:      int = 0
+    solves: int = 0
     exp_actions: int = 0
 
     def __add__(self, other: Count) -> Count:
@@ -92,10 +97,10 @@ class Count:
             return NotImplemented
 
         return Count(
-            self.actions     + other.actions, 
-            self.adj_actions + other.adj_actions, 
-            self.solves      + other.solves, 
-            self.exp_actions + other.exp_actions
+            self.actions + other.actions,
+            self.adj_actions + other.adj_actions,
+            self.solves + other.solves,
+            self.exp_actions + other.exp_actions,
         )
 
     def __rmul__(self, other: int) -> Count:
@@ -104,15 +109,17 @@ class Count:
 
         return Count(
             other * self.actions,
-            other * self.adj_actions, 
-            other * self.solves, 
-            other * self.exp_actions
+            other * self.adj_actions,
+            other * self.solves,
+            other * self.exp_actions,
         )
 
     def __repr__(self) -> str:
         args_list = [
-            f"{attr}={getattr(self, attr)}" for attr in 
-            ["actions", "adj_actions", "solves", "exp_actions"] if getattr(self, attr)]
+            f"{attr}={getattr(self, attr)}"
+            for attr in ["actions", "adj_actions", "solves", "exp_actions"]
+            if getattr(self, attr)
+        ]
         args = ", ".join(args_list)
         return f"{args}"
 
@@ -120,12 +127,13 @@ class Count:
 @dataclasses.dataclass
 class CountDict:
     """
-    Wrapped dictionary of counts corresponding to each leaf in an operator 
-    expression tree, keyed by the paths to the leaves. 
+    Wrapped dictionary of counts corresponding to each leaf in an operator
+    expression tree, keyed by the paths to the leaves.
     """
+
     ct_dict: dict[Path, Count] = dataclasses.field(default_factory=dict)
 
-    def __getitem__(self, key: Path) -> Count:          
+    def __getitem__(self, key: Path) -> Count:
         return self.ct_dict[key]
 
     def __contains__(self, key: Path) -> bool:
@@ -229,9 +237,10 @@ class CountDict:
 
 type CountType = CountDict
 
+
 def _to_ct_type(val: CountType | dict) -> CountType:
     if isinstance(val, CountDict):
-        return val 
+        return val
     if isinstance(val, dict):
         return CountDict(val)
     return val
@@ -239,20 +248,20 @@ def _to_ct_type(val: CountType | dict) -> CountType:
 
 @dataclasses.dataclass
 class InterfaceCount:
-    action:     CountType
+    action: CountType
     adj_action: CountType
-    solve:      CountType
+    solve: CountType
     exp_action: CountType
 
     def __init__(
-        self, 
+        self,
         action: CountType | dict,
         adj_action: CountType | dict,
         solve: CountType | dict,
-        exp_action: CountType | dict):
+        exp_action: CountType | dict,
+    ):
 
         self.action = _to_ct_type(action)
         self.adj_action = _to_ct_type(adj_action)
         self.solve = _to_ct_type(solve)
         self.exp_action = _to_ct_type(exp_action)
-

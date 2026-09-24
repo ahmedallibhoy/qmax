@@ -15,6 +15,7 @@ from ..operator import AbstractHermitianOperator, Operator
 
 type PotentialFunction = Callable[[Array], Scalar]
 
+
 def _to_tuple(x, dtype=float) -> tuple:
     if jnp.isscalar(x):
         return (x,)
@@ -22,7 +23,6 @@ def _to_tuple(x, dtype=float) -> tuple:
 
 
 class SpatiallyDiscretizedState[H: SpatialDiscretization[Any]](AbstractState[H]):
-
     @property
     @abstractmethod
     def values(self) -> Array:
@@ -47,9 +47,9 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
         return self.from_values(self.eval(fn))
 
     def innerp(self, y1: S, y2: S) -> Scalar:
-
         return jnp.prod(self.dx_range) * jnp.sum(
-            jnp.conj(y1.values) * y2.values, axis=self.spatial_axes)
+            jnp.conj(y1.values) * y2.values, axis=self.spatial_axes
+        )
 
     @property
     def spatial_dim(self) -> int:
@@ -60,9 +60,9 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
         return tuple(range(-self.spatial_dim, 0))
 
     def flatten(self, arr_grid: Array):
-        return arr_grid.reshape(*arr_grid.shape[:-self.spatial_dim], -1)
+        return arr_grid.reshape(*arr_grid.shape[: -self.spatial_dim], -1)
 
-    def to_grid(self, arr: Array, sizes: Optional[tuple[int, ...]]=None):
+    def to_grid(self, arr: Array, sizes: Optional[tuple[int, ...]] = None):
         if sizes is None:
             sizes = self.mesh_size
         return arr.reshape(*arr.shape[:-1], *sizes)
@@ -70,38 +70,39 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
     @staticmethod
     def grid_vectors(per_axis: Sequence[Array]) -> Array:
         """
-        Given a list of scalars for each axis, returns all vectors in the 
-        cartesian product of the lists. 
+        Given a list of scalars for each axis, returns all vectors in the
+        cartesian product of the lists.
         """
-        grid = jnp.stack(jnp.meshgrid(*per_axis, indexing="ij"), axis=-1) 
+        grid = jnp.stack(jnp.meshgrid(*per_axis, indexing="ij"), axis=-1)
         return grid.reshape(-1, len(per_axis))
 
     @property
     def x_ranges(self) -> tuple[Array, ...]:
         return tuple(
-            jnp.linspace(self.x0[i], self.x1[i], self.mesh_size[i], endpoint=self.endpoint) 
+            jnp.linspace(self.x0[i], self.x1[i], self.mesh_size[i], endpoint=self.endpoint)
             for i in range(self.spatial_dim)
         )
 
     @property
     def x_range(self) -> Array:
         if self.spatial_dim == 1:
-            return jnp.linspace(self.x0[0], self.x1[0], self.mesh_size[0], endpoint=self.endpoint) 
+            return jnp.linspace(self.x0[0], self.x1[0], self.mesh_size[0], endpoint=self.endpoint)
         raise Exception(
             f"x_range only supported on 1d spatial discretizations but "
-            f"dim={self.spatial_dim}, did you mean x_ranges?")
+            f"dim={self.spatial_dim}, did you mean x_ranges?"
+        )
 
     @property
     def x_meshgrid(self) -> tuple[Array, ...]:
         return jnp.meshgrid(*self.x_ranges, indexing="ij")
 
     @property
-    def points(self) -> Array:   
+    def points(self) -> Array:
         if self.spatial_dim == 1:
             return self.x_range
 
         return self.grid_vectors(self.x_ranges)
- 
+
     def eval(self, fn: PotentialFunction) -> Array:
         return self.to_grid(jax.vmap(fn)(self.points))
 
@@ -114,14 +115,14 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
 
         return (jnp.array(self.x1) - jnp.array(self.x0)) / sizes
 
-    # These factories are not abstract properties since intermediate classes 
+    # These factories are not abstract properties since intermediate classes
     # like _FiniteDifference1D need to be instantiable without overrides
 
     def laplacian(self) -> Operator[S]:
-        raise NotImplementedError 
+        raise NotImplementedError
 
     def potential_energy(self, potential: PotentialFunction) -> Operator[S]:
-        raise NotImplementedError 
+        raise NotImplementedError
 
     def position(self, axis: int = 0) -> Operator[S]:
         if self.spatial_dim == 1:
@@ -130,7 +131,7 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
         return X.with_name(f"Position(axis={axis})")
 
     def momentum(self, axis: int) -> Operator[S]:
-        raise NotImplementedError 
+        raise NotImplementedError
 
 
 class AbstractPotentialEnergy[S: SpatiallyDiscretizedState[Any]](AbstractHermitianOperator[S]):
@@ -147,12 +148,7 @@ class AbstractPotentialEnergy[S: SpatiallyDiscretizedState[Any]](AbstractHermiti
     def exp_action(self, h: ComplexScalarLike, y: S) -> S:
         return self.domain.from_values(jnp.exp(h * self.values) * y.values)
 
-    def _solve(
-        self,
-        b: S,
-        scale: ComplexScalarLike=-1.0,
-        shift: ComplexScalarLike=0.0) -> S:
-
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
         return self.domain.from_values(b.values / (scale * self.values + shift))
 
     @property

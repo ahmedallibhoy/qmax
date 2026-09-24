@@ -28,7 +28,7 @@ from .utils import *
 #       b. new spaces
 #           i. Non-rectangular spatial discretizations (e.g. spherical, cylindrical)
 #
-#   5. Misc Utilities 
+#   5. Misc Utilities
 #       a. Wigner functions
 #       b. better plotting / visualization?
 #
@@ -37,7 +37,7 @@ from .utils import *
 #       b. Certain runtime tests should instead be static checks (e.g. palindromic split coefficients)
 #
 #   7. Documentation :/
-#       a. docstrings / makedocs    
+#       a. docstrings / makedocs
 #       b. worked examples
 #       c. website
 #
@@ -45,6 +45,6 @@ from .utils import *
 # TODO: ROADMAP -- long term
 #   1. Nonlinearities + exponential integrators
 #   2. Density matrices
-#   3. Open quantum systems / dissipation / Lindbladians       
+#   3. Open quantum systems / dissipation / Lindbladians
 #   4. Dynamic low-rank approximations / tensor trains
 #   5. Arbitrary spatial meshes

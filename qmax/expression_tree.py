@@ -22,9 +22,10 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
     def _check_compatible(self, other: ScalarLike | AbstractExpressionTree):
         if isinstance(other, AbstractExpressionTree) and other.domain != self.domain:
             raise IncompatibleDomainError(
-                f"{self} acts on {self.domain}, but {other} acts on {other.domain}")
+                f"{self} acts on {self.domain}, but {other} acts on {other.domain}"
+            )
 
-    def path(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> Path:
+    def path(self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None) -> Path:
         # parent_path is None at the entry point of a traversal, where self is the root
         if parent_path is None:
             return Path(self.label)
@@ -40,7 +41,9 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
         index, rest = path.descend()
         return self.children[index].child_at(rest)
 
-    def leaves(self, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> list[Path]:
+    def leaves(
+        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+    ) -> list[Path]:
         path = self.path(parent_path, child_idx)
 
         if not self.children:
@@ -51,11 +54,13 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
 
     def set_at_path(
         self,
-        update: Callable[[AbstractExpressionTree, Optional[Path], Optional[int]], AbstractExpressionTree],
-        path: Path=Path(),
-        parent_path: Optional[Path]=None,
-        child_idx: Optional[int]=None) -> Self:
-
+        update: Callable[
+            [AbstractExpressionTree, Optional[Path], Optional[int]], AbstractExpressionTree
+        ],
+        path: Path = Path(),
+        parent_path: Optional[Path] = None,
+        child_idx: Optional[int] = None,
+    ) -> Self:
         """
         Rebuilds self with update(expr, parent_path, child_idx) applied to the node at path,
         where parent_path and child_idx locate that node relative to the root.
@@ -66,15 +71,16 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
 
             child = fn(self)
             new_child = child.set_at_path(
-                update, new_path, self.path(parent_path, child_idx), index)
+                update, new_path, self.path(parent_path, child_idx), index
+            )
             return eqx.tree_at(fn, self, new_child)
 
         return cast(Self, update(self, parent_path, child_idx))
 
-    def with_name(self, name: str, path: Path=Path()) -> Self:
+    def with_name(self, name: str, path: Path = Path()) -> Self:
         return self.set_at_path(lambda op, _, __: _update_field(op, "name", name), path)
 
-    @property 
+    @property
     def default_name(self) -> str:
         return type(self).__name__
 

@@ -19,7 +19,7 @@ class ControlledOperator(eqx.Module):
 
     Attributes:
         drift_op (Operator | AbstractTimeVaryingOperator): The drift operator $H_0(t)$
-        controlled_ops (Iterable[Operator | AbstractTimeVaryingOperator]): An iterable of 
+        controlled_ops (Iterable[Operator | AbstractTimeVaryingOperator]): An iterable of
             controlled operators $H_j(t)$.
         split_method (Optional[AbstractSplitMethod]): The split method used to exponentiate
             the sum $H_0(t) + \sum_{j=1}^{m}u_jH_j(t)$, (see [Split](../exponentiators/split.md)
@@ -31,19 +31,21 @@ class ControlledOperator(eqx.Module):
     split_method: AbstractSplitMethod = eqx.field(default=Strang(), kw_only=True)
 
     def __init__(
-        self, 
-        drift_op: Operator | AbstractTimeVaryingOperator, 
-        controlled_ops: Iterable[Operator | AbstractTimeVaryingOperator]=(), 
-        split_method=Strang()):
-        
+        self,
+        drift_op: Operator | AbstractTimeVaryingOperator,
+        controlled_ops: Iterable[Operator | AbstractTimeVaryingOperator] = (),
+        split_method=Strang(),
+    ):
+
         if isinstance(drift_op, Operator):
             drift_op = ConstantTimeVaryingOperator(drift_op)
 
         controlled_ops = tuple(
             ConstantTimeVaryingOperator(op) if isinstance(op, Operator) else op
-            for op in controlled_ops)
+            for op in controlled_ops
+        )
 
-        self.drift_op = drift_op 
+        self.drift_op = drift_op
         self.controlled_ops = controlled_ops
         self.split_method = split_method
 
@@ -53,7 +55,8 @@ class ControlledOperator(eqx.Module):
                 raise ValueError(
                     f"All operators must act on the same domain "
                     f"but drift_op.domain={self.drift_op.domain} "
-                    f"and controlled_ops[{idx}].domain={op.domain}")
+                    f"and controlled_ops[{idx}].domain={op.domain}"
+                )
 
     @property
     def domain(self) -> AbstractHilbertSpace:
@@ -67,38 +70,34 @@ class ControlledOperator(eqx.Module):
         return _update_field(self, "split_method", split_method)
 
     def quadrature(
-        self, 
-        t_quad: ComplexArrayLike,
-        u_quad: ComplexArrayLike,  
-        weights: ComplexArrayLike) -> Operator:
+        self, t_quad: ComplexArrayLike, u_quad: ComplexArrayLike, weights: ComplexArrayLike
+    ) -> Operator:
 
         # u_quad.shape == (len(self.controlled_ops), num_nodes)
 
         H0 = self.drift_op.quadrature(t_quad, weights)
         H_list = [H0] + [
-            H.quadrature(t_quad, u * weights) for (H, u) in zip(self.controlled_ops, u_quad)]
+            H.quadrature(t_quad, u * weights) for (H, u) in zip(self.controlled_ops, u_quad)
+        ]
 
         return reduce(lambda a, b: AddOperator(a, b, exponentiator=self.split_method), H_list)
 
-    def __call__(
-        self, 
-        t: ScalarLike,
-        controls: ComplexArrayLike) -> Operator:
-
+    def __call__(self, t: ScalarLike, controls: ComplexArrayLike) -> Operator:
         """
-        Evaluates the controlled operator given a time t and an array of control inputs `controls`. 
+        Evaluates the controlled operator given a time t and an array of control inputs `controls`.
 
         Args:
             t (Scalar): Evaluation time
             controls (Array): Array of shape `(num_controls,)`
 
         Returns:
-            the operator $H(t, u)$. 
+            the operator $H(t, u)$.
         """
         controls = jnp.asarray(controls)
 
         op = reduce(
             lambda a, b: (a + b).with_split_method(self.split_method),
-            [self.drift_op] + [u * op for (u, op) in zip(controls, self.controlled_ops)]) 
+            [self.drift_op] + [u * op for (u, op) in zip(controls, self.controlled_ops)],
+        )
 
         return op(t)

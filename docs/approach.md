@@ -48,7 +48,7 @@ little effort is required on the part of the user to configure the exponential a
 operator. Consider the following example of a particle on $\mathbb{R}^2$ with potential energy $V(x) = \|x\|^2$.
 
 ```python
-import qmax as qx 
+import qmax as qx
 
 hilbert_space = qx.spaces.FiniteDifference(x0=(-10, -10), x1=(10, 10), num_steps=(500, 500))
 L = hilbert_space.laplacian()

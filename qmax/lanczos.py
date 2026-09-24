@@ -15,9 +15,9 @@ if TYPE_CHECKING:
 
 def gram_schmidt2(y, Z):
     # Gram-Schmidt process
-    y1 =  y - Z.contract(Z @ y)
+    y1 = y - Z.contract(Z @ y)
     # redo Gram-Schmidt for numerical stability
-    y2 =  y1 - Z.contract(Z @ y1)
+    y2 = y1 - Z.contract(Z @ y1)
 
     return y2
 
@@ -26,12 +26,12 @@ def lanczos(
     op: Operator,
     num_iterations: int,
     *,
-    orthogonalize: bool=True,
-    key: Optional[PRNGKeyArray]=None,
-    w0: Optional[AbstractState]=None,
-    Q0: Optional[AbstractState]=None,
-    idx0: int=0):
-
+    orthogonalize: bool = True,
+    key: Optional[PRNGKeyArray] = None,
+    w0: Optional[AbstractState] = None,
+    Q0: Optional[AbstractState] = None,
+    idx0: int = 0,
+):
     """
     Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of [1].
 
@@ -51,10 +51,10 @@ def lanczos(
         )
 
     def lanczos_step(beta, q, w):
-        # TODO: what should actually happen when beta == 0 is that 
+        # TODO: what should actually happen when beta == 0 is that
         # we select a unit q_next that is orthogonal to Q
         q_next = w / jnp.where(beta == 0, 1.0, beta)
-        z = op.action(q_next)        
+        z = op.action(q_next)
         alpha_next = jnp.real(q_next @ z)
         w_next = z - alpha_next * q_next - beta * q
         return alpha_next, q_next, w_next
@@ -63,7 +63,7 @@ def lanczos(
         idx, beta, Q, w = carry
 
         alpha_next, q_next, w_next = lanczos_step(beta, Q[idx], w)
-        Q_next = Q.at[idx + 1].set(q_next) 
+        Q_next = Q.at[idx + 1].set(q_next)
 
         if orthogonalize:
             w_next = gram_schmidt2(w_next, Q_next)
@@ -71,7 +71,7 @@ def lanczos(
         beta_next = w_next.norm()
         carry_next = (idx + 1, beta_next, Q_next, w_next)
 
-        return carry_next, (alpha_next, beta_next) 
+        return carry_next, (alpha_next, beta_next)
 
     if w0 is None:
         if key is None:
@@ -81,11 +81,11 @@ def lanczos(
     if Q0 is None:
         Q0 = hilbert_space.zeros((num_iterations + 1,))
 
-    init = (idx0, w0.norm(), Q0, w0) # pyright: ignore
+    init = (idx0, w0.norm(), Q0, w0)  # pyright: ignore
     carry, (alpha, beta) = jax.lax.scan(lanczos_loop, init, length=num_iterations)
     _, _, Q, w = carry
 
-    return alpha, beta, Q[1:], w # pyright: ignore
+    return alpha, beta, Q[1:], w  # pyright: ignore
 
 
 def _select_indices(select, theta, num):
@@ -100,18 +100,19 @@ def _select_indices(select, theta, num):
         case _:
             raise ValueError(
                 f"Invalid option select={select}, must be one of 'smallest', "
-                "'largest', or 'largest-magnitude'")
+                "'largest', or 'largest-magnitude'"
+            )
     return jnp.argsort(key)[:num]
 
 
 def restart_lanczos(
     op: Operator,
     num_ritz: int,
-    max_krylov_dim: int=100,
-    num_restarts: int=4,
-    select: str="smallest",
-    key: Optional[PRNGKeyArray]=None):
-
+    max_krylov_dim: int = 100,
+    num_restarts: int = 4,
+    select: str = "smallest",
+    key: Optional[PRNGKeyArray] = None,
+):
     """
     Essentially reproduces the method described in [1].
 
@@ -143,14 +144,15 @@ def restart_lanczos(
         w0 = z - alpha0 * q0 - beta_m * Qk.contract(sk)
 
         Q0 = hilbert_space.zeros((max_krylov_dim + 1,))
-        Q0 = Q0.at[1:num_ritz + 1].set(Qk)
+        Q0 = Q0.at[1 : num_ritz + 1].set(Qk)
         Q0 = Q0.at[num_ritz + 1].set(q0)
 
         w0 = gram_schmidt2(w0, Q0)
         beta0 = w0.norm()
 
-        alpha, beta, Q, w = lanczos(op, max_krylov_dim - num_ritz - 1,
-            orthogonalize=True, w0=w0, Q0=Q0, idx0=num_ritz + 1)
+        alpha, beta, Q, w = lanczos(
+            op, max_krylov_dim - num_ritz - 1, orthogonalize=True, w0=w0, Q0=Q0, idx0=num_ritz + 1
+        )
 
         alpha = jnp.append(alpha0, alpha)
         beta = jnp.append(beta0, beta)
@@ -158,8 +160,9 @@ def restart_lanczos(
 
     def reconstruct(alpha, beta, sk, thetak, beta_m):
         tri = jnp.diag(alpha) + jnp.diag(beta[:-1], k=1) + jnp.diag(beta[:-1], k=-1)
-        border = jnp.zeros(
-            (num_ritz, max_krylov_dim - num_ritz)).at[:, 0].set(jnp.real(beta_m * sk))
+        border = (
+            jnp.zeros((num_ritz, max_krylov_dim - num_ritz)).at[:, 0].set(jnp.real(beta_m * sk))
+        )
         T_next = jnp.block([[jnp.diag(thetak), border], [border.T, tri]])
         return T_next
 
@@ -182,8 +185,8 @@ def restart_lanczos(
     Qk, sk, thetak = selectk(theta, Y, Q)
     init_restart = (Qk, sk, thetak, w)
     (Qk, sk, thetak, wk), _ = jax.lax.scan(restart, init_restart, length=num_restarts)
-    
-    beta_m = wk.norm() # pyright: ignore
+
+    beta_m = wk.norm()  # pyright: ignore
     eigvals, eigvecs, residuals = thetak, Qk, beta_m * jnp.abs(sk)
     indices = _select_indices(select, thetak, num_ritz)
     eigvals, eigvecs, residuals = eigvals[indices], eigvecs[indices], residuals[indices]

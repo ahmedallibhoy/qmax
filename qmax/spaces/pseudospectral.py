@@ -21,7 +21,6 @@ __all__ = ["PseudoSpectral"]
 
 
 class PseudoSpectralState(SpatiallyDiscretizedState["PseudoSpectral"]):
-
     @property
     def values(self) -> Array:
         hs = self.hilbert_space
@@ -44,10 +43,10 @@ class PseudoSpectral(SpatialDiscretization[PseudoSpectralState]):
         out = v_fft
         for ax, M in zip(self.spatial_axes, self.mesh_size):
             N = out.shape[ax]
-            a = (N + 1) // 2                                   # DC + positive freqs
-            lo = jax.lax.slice_in_dim(out, 0, a, axis=ax)      # low positive half
-            hi = jax.lax.slice_in_dim(out, a, N, axis=ax)      # negative half
-            zshape = list(out.shape) 
+            a = (N + 1) // 2  # DC + positive freqs
+            lo = jax.lax.slice_in_dim(out, 0, a, axis=ax)  # low positive half
+            hi = jax.lax.slice_in_dim(out, a, N, axis=ax)  # negative half
+            zshape = list(out.shape)
             zshape[ax] = M - N
             out = jnp.concatenate([lo, jnp.zeros(zshape, out.dtype), hi], axis=ax)
         return out
@@ -58,8 +57,8 @@ class PseudoSpectral(SpatialDiscretization[PseudoSpectralState]):
         out = v_fft
         for ax, m in zip(self.spatial_axes, self.num_modes):
             N = out.shape[ax]
-            lo = jax.lax.slice_in_dim(out, 0, (m + 1) // 2, axis=ax)   # keep ceil(m/2) low
-            hi = jax.lax.slice_in_dim(out, N - m // 2, N, axis=ax)     # keep floor(m/2) high
+            lo = jax.lax.slice_in_dim(out, 0, (m + 1) // 2, axis=ax)  # keep ceil(m/2) low
+            hi = jax.lax.slice_in_dim(out, N - m // 2, N, axis=ax)  # keep floor(m/2) high
             out = jnp.concatenate([lo, hi], axis=ax)
         return out
 
@@ -74,14 +73,12 @@ class PseudoSpectral(SpatialDiscretization[PseudoSpectralState]):
     def laplacian(self) -> PseudoSpectralLaplacian:
         return PseudoSpectralLaplacian(self)
 
-    def potential_energy(
-        self, 
-        potential: PotentialFunction) -> PseudoSpectralPotentialEnergy:
+    def potential_energy(self, potential: PotentialFunction) -> PseudoSpectralPotentialEnergy:
 
         return PseudoSpectralPotentialEnergy(self, potential)
 
-    def momentum(self, axis: int=0) -> PseudoSpectralMomentum:
-        return PseudoSpectralMomentum(self, axis) 
+    def momentum(self, axis: int = 0) -> PseudoSpectralMomentum:
+        return PseudoSpectralMomentum(self, axis)
 
 
 class PseudoSpectralLaplacian(AbstractDiagonalOperator[PseudoSpectralState]):
@@ -94,11 +91,12 @@ class PseudoSpectralLaplacian(AbstractDiagonalOperator[PseudoSpectralState]):
         ds = [(hilbert_space.x1[i] - hilbert_space.x0[i]) / n for i, n in enumerate(num_modes)]
         k_per_axis = [2 * jnp.pi * jnp.fft.fftfreq(n, d=d) for (n, d) in zip(num_modes, ds)]
         ks = hilbert_space.grid_vectors(k_per_axis)
-        return -jnp.linalg.norm(ks, axis=-1) ** 2
+        return -(jnp.linalg.norm(ks, axis=-1) ** 2)
 
 
-class PseudoSpectralExponentiator(ExactExponentiator["PseudoSpectralPotentialEnergy", PseudoSpectralState]):
-
+class PseudoSpectralExponentiator(
+    ExactExponentiator["PseudoSpectralPotentialEnergy", PseudoSpectralState]
+):
     @property
     def operator_type(self) -> type[PseudoSpectralPotentialEnergy]:
         return PseudoSpectralPotentialEnergy
@@ -109,13 +107,16 @@ class PseudoSpectralExponentiator(ExactExponentiator["PseudoSpectralPotentialEne
 
 class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy[PseudoSpectralState]):
     domain: PseudoSpectral = eqx.field(static=True)
-    exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
+    exponentiator: AbstractExponentiator = eqx.field(
+        default=PseudoSpectralExponentiator(), kw_only=True
+    )
 
     def _solve(
-        self, 
-        b: PseudoSpectralState, 
-        scale: ComplexScalarLike=-1.0, 
-        shift: ComplexScalarLike=0.0) -> PseudoSpectralState:
+        self,
+        b: PseudoSpectralState,
+        scale: ComplexScalarLike = -1.0,
+        shift: ComplexScalarLike = 0.0,
+    ) -> PseudoSpectralState:
 
         if self.domain.lossless:
             return AbstractPotentialEnergy._solve(self, b, scale, shift)
@@ -124,17 +125,19 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy[PseudoSpectralState]
 
     def to_matrix(self):
         Vhat = jnp.fft.fftn(
-            self.values, self.domain.mesh_size,
-            axes=self.domain.spatial_axes, norm="forward").reshape(-1)
-        
-        mode_per_axis = [jnp.round(jnp.fft.fftfreq(n) * n).astype(int) for n in self.domain.num_modes]
-        mode_vecs = self.domain.grid_vectors(mode_per_axis)     
-        diff = (mode_vecs[:, None, :] - mode_vecs[None, :, :]) % jnp.array(self.domain.mesh_size) 
-        
+            self.values, self.domain.mesh_size, axes=self.domain.spatial_axes, norm="forward"
+        ).reshape(-1)
+
+        mode_per_axis = [
+            jnp.round(jnp.fft.fftfreq(n) * n).astype(int) for n in self.domain.num_modes
+        ]
+        mode_vecs = self.domain.grid_vectors(mode_per_axis)
+        diff = (mode_vecs[:, None, :] - mode_vecs[None, :, :]) % jnp.array(self.domain.mesh_size)
+
         flat = jnp.ravel_multi_index(
-            [diff[..., a] for a in range(diff.shape[-1])], 
-            self.domain.mesh_size, mode="wrap") 
-            
+            [diff[..., a] for a in range(diff.shape[-1])], self.domain.mesh_size, mode="wrap"
+        )
+
         return Vhat[flat]
 
 
