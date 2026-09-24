@@ -10,7 +10,7 @@ from jaxtyping import ScalarLike
 from ._internal import _update_field
 from ._types import ComplexArrayLike, RealScalarLike
 from .control import AbstractControl, ConstantControl
-from .exponentiators import AbstractSplitMethod, Strang
+from .exponentiators.split import AbstractSplitMethod, Strang
 from .expression_tree import AbstractExpressionTree
 from .hilbert_space import AbstractState
 from .operator import AddOperator, IncompatibleDomainError, Operator

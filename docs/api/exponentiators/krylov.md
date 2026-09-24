@@ -1,5 +1,5 @@
 
-::: qmax.exponentiators.KrylovExponentiator 
+::: qmax.KrylovExponentiator 
     options:
         members:
             -

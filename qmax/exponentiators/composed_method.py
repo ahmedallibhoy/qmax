@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "compose",
-    "AbstractCompositionMethod",
     "Yoshida",
     "Suzuki",
     "Symmetric_r6_s7",
@@ -34,9 +33,6 @@ __all__ = [
     "Symmetric_r10_s31",
     "Symmetric_r10_s33",
     "Symmetric_r10_s35",
-    "AbstractComposedExponentiator",
-    "ComposedExponentiator",
-    "ComposedSplitExponentiator",
 ]
 
 

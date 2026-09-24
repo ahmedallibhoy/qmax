@@ -1,5 +1,5 @@
 
-::: qmax.exponentiators.TruncatedTaylorExponentiator 
+::: qmax.TruncatedTaylorExponentiator 
     options:
         members:
             -

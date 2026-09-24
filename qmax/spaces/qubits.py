@@ -6,7 +6,7 @@ import numpy as np
 from jaxtyping import Array
 
 from .._types import ComplexScalarLike
-from ..exponentiators import AbstractExponentiator, ExactExponentiator
+from ..exponentiators.base import AbstractExponentiator, ExactExponentiator
 from ..hilbert_space import AbstractState
 from ..operator import AbstractHermitianOperator
 from ..tensor import KroneckerProduct, TensorPower, TensorState

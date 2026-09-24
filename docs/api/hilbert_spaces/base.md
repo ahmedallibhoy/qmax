@@ -15,7 +15,7 @@
             - identity
             - zero_operator
 
-::: qmax.spaces.spatial_discretization.SpatialDiscretization
+::: qmax.SpatialDiscretization
     options:
         members:
             - spatial_dim
@@ -43,7 +43,7 @@
             - rank
             - __getitem__
 
-::: qmax.spaces.spatial_discretization.SpatiallyDiscretizedState
+::: qmax.SpatiallyDiscretizedState
     options:
         members:
             - values

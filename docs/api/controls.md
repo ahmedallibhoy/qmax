@@ -1,21 +1,26 @@
 # Controls
 
-::: qmax.control.AbstractControl 
+::: qmax.AbstractControl 
     options:
         members:
             - __call__
 
-::: qmax.control.ControlFunction 
-    options:
-        members:
-            -
-
-::: qmax.control.PiecewiseConstantControl 
+::: qmax.AbstractInterpolatedControl
     options:
         members:
             - from_function
 
-::: qmax.control.PiecewiseLinearControl 
+::: qmax.ControlFunction 
+    options:
+        members:
+            -
+
+::: qmax.PiecewiseConstantControl 
+    options:
+        members:
+            - from_function
+
+::: qmax.PiecewiseLinearControl 
     options:
         members:
             - from_function

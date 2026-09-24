@@ -1,5 +1,5 @@
 
-::: qmax.exponentiators.ChebyshevExponentiator 
+::: qmax.ChebyshevExponentiator 
     options:
         members:
             -

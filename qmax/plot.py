@@ -7,6 +7,7 @@ from matplotlib.colors import LinearSegmentedColormap, to_rgb
 
 from .spaces.spatial_discretization import SpatiallyDiscretizedState
 
+__all__ = ["angle_mesh"]
 
 def get_abs_filter(bg="white") -> LinearSegmentedColormap:
     color = to_rgb(bg)

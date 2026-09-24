@@ -14,9 +14,9 @@ qubits = SPACES["qubits"]
 twolevel = SPACES["twolevel"]
 nlevel = SPACES["nlevel"]
 
-fd_times_ps = qx.tensor.TensorProduct([fd, ps])
-qubits_times_nlevel = qx.tensor.TensorProduct([qubits, nlevel])
-nlevel5 = qx.tensor.TensorPower(nlevel, 5)
+fd_times_ps = qx.TensorProduct([fd, ps])
+qubits_times_nlevel = qx.TensorProduct([qubits, nlevel])
+nlevel5 = qx.TensorPower(nlevel, 5)
 
 
 TENSOR_PROD_CASES = {
@@ -27,7 +27,7 @@ TENSOR_PROD_CASES = {
 
 @pytest.mark.parametrize("space1,space2", TENSOR_PROD_CASES.values(), ids=TENSOR_PROD_CASES.keys())
 def test_tensor_prod(space1, space2):
-    tensor_space = qx.tensor.TensorProduct((space1, space2))
+    tensor_space = qx.TensorProduct((space1, space2))
 
     y1 = space1.random(KEY)
     y2 = space2.random(KEY)
@@ -50,7 +50,7 @@ TENSOR_POWER_CASES = {
 
 @pytest.mark.parametrize("space,power", TENSOR_POWER_CASES.values(), ids=TENSOR_POWER_CASES.keys())
 def test_tensor_power(space, power):
-    tensor_space = qx.tensor.TensorPower(space, power)
+    tensor_space = qx.TensorPower(space, power)
     
     y = space.random(KEY)
     y_zero = space.zeros_like(y)

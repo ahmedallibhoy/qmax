@@ -2,7 +2,7 @@
 
 ## Spaces
 
-::: qmax.spaces.pseudospectral.PseudoSpectral
+::: qmax.PseudoSpectral
     options:
         members:
             - __init__

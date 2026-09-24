@@ -1,8 +1,13 @@
-from . import adjoint, control, eig, exponentiators, plot, spaces, timestepper
-from .controlled_operator import ControlledOperator
-from .propagator import Propagator
-from .utils import *
-
+from . import plot, utils
+from .adjoint import *
+from .control import *
+from .controlled_operator import *
+from .eig import *
+from .exponentiators import *
+from .propagator import *
+from .spaces import *
+from .tensor import *
+from .timestepper import *
 
 # TODO: ROADMAP -- short / medium term
 #   1. Time Propagation

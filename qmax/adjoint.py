@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial
 from typing import TYPE_CHECKING, Callable, ClassVar, Optional
 
@@ -12,6 +14,12 @@ from .hilbert_space import AbstractState
 if TYPE_CHECKING:
     from .propagator import CostFunction, Propagator, SaveFunction
 
+__all__ = [
+    "AbstractAdjoint", 
+    "DirectAdjoint", 
+    "ReversibleAdjoint", 
+    "CheckpointedAdjoint"
+]
 
 def _step(
     carry: tuple[AbstractState, Scalar, Scalar],

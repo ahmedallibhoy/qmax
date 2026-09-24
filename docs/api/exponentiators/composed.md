@@ -1,42 +1,42 @@
 
-::: qmax.exponentiators.compose
+::: qmax.compose
 
-::: qmax.exponentiators.Yoshida 
+::: qmax.Yoshida 
     options:
         members:
             -
 
-::: qmax.exponentiators.Suzuki 
+::: qmax.Suzuki 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r6_s7 
+::: qmax.Symmetric_r6_s7 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r6_s9 
+::: qmax.Symmetric_r6_s9 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r8_s15 
+::: qmax.Symmetric_r8_s15 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r8_s17 
+::: qmax.Symmetric_r8_s17 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r10_s33 
+::: qmax.Symmetric_r10_s33 
     options:
         members:
             -
 
-::: qmax.exponentiators.Symmetric_r10_s35 
+::: qmax.Symmetric_r10_s35 
     options:
         members:
             -

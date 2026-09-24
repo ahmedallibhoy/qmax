@@ -7,7 +7,8 @@ import lineax as lx
 from jaxtyping import Array, ArrayLike, Scalar
 
 from .._types import ComplexScalarLike, RealArrayLike, RealScalarLike
-from ..exponentiators import AbstractExponentiator, Cayley, ExactExponentiator, NoExponentiator
+from ..exponentiators.base import AbstractExponentiator, ExactExponentiator, NoExponentiator
+from ..exponentiators.euler import Cayley
 from ..hilbert_space import AbstractState
 from ..operator import AbstractHermitianOperator, Operator
 from ..tensor import KroneckerSum, KroneckerSumExp, LiftOperator, TensorProduct, TensorState

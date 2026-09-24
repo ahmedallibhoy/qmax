@@ -13,12 +13,12 @@
             - kron_sum
             - kron_prod
 
-::: qmax.tensor.TensorProduct 
+::: qmax.TensorProduct 
     options:
         members:
             -
 
-::: qmax.tensor.TensorPower 
+::: qmax.TensorPower 
     options:
         members:
             -

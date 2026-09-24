@@ -17,14 +17,9 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "Order",
-    "min_order",
-    "NotExponentiableError",
     "AbstractExponentiator",
-    "DelegatingExponentiator",
     "ExactExponentiator",
-    "ShiftScaleExponentiator",
-    "NoExponentiator",
+    "NoExponentiator"
 ]
 
 type Order = Optional[int]
@@ -46,7 +41,7 @@ class NotExponentiableError(Exception):
         return type(self)(self.reason, path)
 
 
-class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module):
+class AbstractExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](eqx.Module):
     # --------------------------------------------------------------------------------------------
     # Do not override
     # --------------------------------------------------------------------------------------------
@@ -190,7 +185,7 @@ class AbstractExponentiator[Op: Operator[Any], S: AbstractState[Any]](eqx.Module
         return self.order
 
 
-class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](
+class DelegatingExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](
     AbstractExponentiator[Op, S]
 ):
     """
@@ -239,7 +234,7 @@ class DelegatingExponentiator[Op: Operator[Any], S: AbstractState[Any]](
         return min_order(self.order, *(child.tree_order for child in op.children))
 
 
-class ExactExponentiator[Op: Operator[Any], S: AbstractState[Any]](AbstractExponentiator[Op, S]):
+class ExactExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](AbstractExponentiator[Op, S]):
     """
     Exponentiator which produces the closed-form exponential action of an operator. Only works
     on operators which override `exp_action`, otherwise raises `NotExponentiableError`.

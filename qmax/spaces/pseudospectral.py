@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike
 
 from .._types import ComplexScalarLike
-from ..exponentiators import AbstractExponentiator, ExactExponentiator, Order
+from ..exponentiators.base import AbstractExponentiator, ExactExponentiator, Order
 from ..operator import AbstractDiagonalOperator, Operator
 from .spatial_discretization import (
     AbstractPotentialEnergy,

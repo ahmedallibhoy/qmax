@@ -20,6 +20,7 @@ from .timevarying_operator import AbstractTimeVaryingOperator
 
 # TODO: enforce batch safety of Propagator and adjoints
 
+__all__ = ["Propagator"]
 
 class PropagateResult(eqx.Module):
     y0: AbstractState

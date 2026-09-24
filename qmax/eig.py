@@ -12,6 +12,8 @@ from .lanczos import lanczos
 if TYPE_CHECKING:
     from .operator import Operator
 
+__all__ = ["op_eigh", "op_eigh_lanczos", "op_spectral_bounds_lanczos"]
+
 
 def op_eigh(operator: Operator) -> tuple[Array, AbstractState, Array]:
     mat = operator.to_matrix()

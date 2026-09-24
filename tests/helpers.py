@@ -3,16 +3,16 @@ import jax.numpy as jnp
 import qmax as qx
 
 SPACES = {
-    "finite_difference_1d":  qx.spaces.finite_difference.FiniteDifference(
+    "finite_difference_1d":  qx.finite_difference.FiniteDifference(
         -10, 10, num_steps=100), 
-    "finite_difference_2d":  qx.spaces.finite_difference.FiniteDifference(
+    "finite_difference_2d":  qx.finite_difference.FiniteDifference(
         jnp.array([-10, -10]), jnp.array([10, 10]), num_steps=(50, 50)), 
-    "pseudospectral_1d": qx.spaces.PseudoSpectral(-10, 10, 100, 50), 
-    "pseudospectral_2d": qx.spaces.PseudoSpectral(
+    "pseudospectral_1d": qx.PseudoSpectral(-10, 10, 100, 50), 
+    "pseudospectral_2d": qx.PseudoSpectral(
         jnp.array([-10, -10]), jnp.array([10, 10]), (50, 50), (25, 25)), 
-    "twolevel": qx.spaces.TwoLevel(), 
-    "qubits": qx.spaces.Qubits(3), 
-    "nlevel": qx.spaces.NLevel(5)
+    "twolevel": qx.TwoLevel(), 
+    "qubits": qx.Qubits(3), 
+    "nlevel": qx.NLevel(5)
 }
 
 

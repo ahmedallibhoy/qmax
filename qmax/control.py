@@ -19,6 +19,16 @@ if TYPE_CHECKING:
 #   1. Add FourierControl
 
 
+__all__ = [
+    "AbstractControl",
+    "AbstractInterpolatedControl",
+    "ControlFunction", 
+    "ConstantControl", 
+    "PiecewiseConstantControl", 
+    "PiecewiseLinearControl"
+]
+
+
 class AbstractControl(eqx.Module):
     """
     Abstract base class for controls.

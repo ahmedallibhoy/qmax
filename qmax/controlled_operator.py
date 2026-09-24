@@ -7,11 +7,12 @@ from jaxtyping import ScalarLike
 
 from ._internal import _update_field
 from ._types import ComplexArrayLike
-from .exponentiators import AbstractSplitMethod, Strang
+from .exponentiators.split import AbstractSplitMethod, Strang
 from .hilbert_space import AbstractHilbertSpace
 from .operator import AddOperator, Operator
 from .timevarying_operator import AbstractTimeVaryingOperator, ConstantTimeVaryingOperator
 
+__all__ = ["ControlledOperator"]
 
 class ControlledOperator(eqx.Module):
     r"""

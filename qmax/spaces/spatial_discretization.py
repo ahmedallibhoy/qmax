@@ -13,6 +13,8 @@ from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import AbstractHermitianOperator, Operator
 
+__all__ = ["SpatiallyDiscretizedState", "SpatialDiscretization"]
+
 type PotentialFunction = Callable[[Array], Scalar]
 
 

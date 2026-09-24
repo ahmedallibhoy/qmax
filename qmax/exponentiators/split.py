@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..operator import AddOperator
 
 
-__all__ = ["AbstractSplitMethod", "Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
+__all__ = ["Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
 
 
 class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOperator[S]", S]):

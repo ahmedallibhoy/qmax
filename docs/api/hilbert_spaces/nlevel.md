@@ -2,7 +2,7 @@
 
 ## Spaces
 
-::: qmax.spaces.nlevel.NLevel
+::: qmax.NLevel
     options:
         members:
             - __init__

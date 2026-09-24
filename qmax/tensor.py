@@ -12,10 +12,14 @@ from jaxtyping import Array, ArrayLike
 
 from ._introspect import Count, InterfaceCount, Path
 from ._types import ComplexScalarLike
-from .exponentiators import AbstractExponentiator, DelegatingExponentiator, Order
+from .exponentiators.base import AbstractExponentiator, DelegatingExponentiator, Order
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Identity, IncompatibleDomainError, Operator
 
+__all__ = [
+    "TensorProduct", 
+    "TensorPower"
+]
 
 def apply_along_tensor(fn: Callable[[Array], Array], tensor: ArrayLike, axis: int) -> Array:
     r"""

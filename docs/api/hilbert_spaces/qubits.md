@@ -2,12 +2,12 @@
 
 ## Spaces
 
-::: qmax.spaces.qubits.TwoLevel
+::: qmax.TwoLevel
     options:
         members:
             - __init__
 
-::: qmax.spaces.qubits.Qubits
+::: qmax.Qubits
     options:
         members:
             - __init__

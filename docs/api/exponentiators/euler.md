@@ -1,15 +1,15 @@
 
-::: qmax.exponentiators.Cayley 
+::: qmax.Cayley 
     options:
         members:
             -
 
-::: qmax.exponentiators.ForwardEuler 
+::: qmax.ForwardEuler 
     options:
         members:
             -
 
-::: qmax.exponentiators.ImplicitEuler 
+::: qmax.ImplicitEuler 
     options:
         members:
             -

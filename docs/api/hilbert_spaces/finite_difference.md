@@ -2,7 +2,7 @@
 
 ## Spaces
 
-::: qmax.spaces.finite_difference.FiniteDifference
+::: qmax.FiniteDifference
     options:
         members:
             - __init__

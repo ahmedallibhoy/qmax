@@ -25,20 +25,20 @@ the method to reconstruct unsaved residuals, allowing the user to control the tr
 
 Unlike most standard ODE integrators (e.g. those provided by libraries like [diffrax](https://docs.kidger.site/diffrax/)), 
 the CFETs provided by qmax are *symmetric* (see [Timesteppers](timesteppers.md) for more details), meaning that the exact trajectory can be reconstructed by stepping backward 
-through the solver. This allows qmax to offer a fast and memory-efficient [qmax.adjoint.ReversibleAdjoint][] method, which 
+through the solver. This allows qmax to offer a fast and memory-efficient [qmax.ReversibleAdjoint][] method, which 
 is the default used by [qmax.Propagator][]. 
 
-::: qmax.adjoint.DirectAdjoint 
+::: qmax.DirectAdjoint 
     options:
         members:
             -
 
-::: qmax.adjoint.ReversibleAdjoint
+::: qmax.ReversibleAdjoint
     options:
         members:
             -
 
-::: qmax.adjoint.CheckpointedAdjoint 
+::: qmax.CheckpointedAdjoint 
     options:
         members:
             -

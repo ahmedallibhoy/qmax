@@ -53,27 +53,27 @@ unitary even in the presence of truncation errors, making these methods ideal fo
 simulation of quantum systems. 
 
 
-::: qmax.timestepper.Midpoint 
+::: qmax.Midpoint 
     options:
         members:
             -
 
-::: qmax.timestepper.CFET_r4_e2 
+::: qmax.CFET_r4_e2 
     options:
         members:
             -
 
-::: qmax.timestepper.CFET_r4_e3opt 
+::: qmax.CFET_r4_e3opt 
     options:
         members:
             -
 
-::: qmax.timestepper.CFET_r4_e4opt 
+::: qmax.CFET_r4_e4opt 
     options:
         members:
             -
 
-::: qmax.timestepper.CFET_r6_e4opt_cplx 
+::: qmax.CFET_r6_e4opt_cplx 
     options:
         members:
             -

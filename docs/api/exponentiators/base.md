@@ -1,5 +1,5 @@
 
-::: qmax.exponentiators.AbstractExponentiator 
+::: qmax.AbstractExponentiator 
     options:
         members:
             - __call__

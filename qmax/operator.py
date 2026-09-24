@@ -20,17 +20,16 @@ from ._introspect import (
     _rows,
 )
 from ._types import ComplexScalarLike, RealScalarLike
-from .exponentiators import (
-    AbstractCompositionMethod,
+from .exponentiators.base import (
     AbstractExponentiator,
     ExactExponentiator,
     NoExponentiator,
     NotExponentiableError,
     Order,
     ShiftScaleExponentiator,
-    Strang,
-    compose,
 )
+from .exponentiators.composed_method import AbstractCompositionMethod, compose
+from .exponentiators.split import Strang
 from .expression_tree import AbstractExpressionTree, IncompatibleDomainError
 from .hilbert_space import AbstractState
 from .utils import over_batch
