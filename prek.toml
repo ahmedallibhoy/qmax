@@ -20,3 +20,13 @@ hooks = [
   # Run the formatter.
   { id = "ruff-format", types_or = ["python", "pyi"] },
 ]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "pyright"
+name = "pyright"
+language = "system"
+entry = "pyright"
+types = ["python"]
