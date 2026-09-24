@@ -3,15 +3,15 @@ import jax.numpy as jnp
 import qmax as qx
 
 SPACES = {
-    "finite_difference_1d":  qx.finite_difference.FiniteDifference(
-        -10, 10, num_steps=100), 
-    "finite_difference_2d":  qx.finite_difference.FiniteDifference(
-        jnp.array([-10, -10]), jnp.array([10, 10]), num_steps=(50, 50)), 
-    "pseudospectral_1d": qx.PseudoSpectral(-10, 10, 100, 50), 
+    "finite_difference_1d":  qx.FiniteDifference(
+        -10, 10, num_steps=100),
+    "finite_difference_2d":  qx.FiniteDifference(
+        jnp.array([-10, -10]), jnp.array([10, 10]), num_steps=(50, 50)),
+    "pseudospectral_1d": qx.PseudoSpectral(-10, 10, 100, 50),
     "pseudospectral_2d": qx.PseudoSpectral(
-        jnp.array([-10, -10]), jnp.array([10, 10]), (50, 50), (25, 25)), 
-    "twolevel": qx.TwoLevel(), 
-    "qubits": qx.Qubits(3), 
+        jnp.array([-10, -10]), jnp.array([10, 10]), (50, 50), (25, 25)),
+    "twolevel": qx.TwoLevel(),
+    "qubits": qx.Qubits(3),
     "nlevel": qx.NLevel(5)
 }
 
@@ -36,9 +36,9 @@ def finite_difference_operators():
     space_2d = SPACES["finite_difference_2d"]
 
     return {
-        "fd_lapl_1d": space_1d.laplacian(), 
-        "fd_potential_1d": space_1d.potential_energy(lambda x: x ** 2), 
-        "fd_lapl_2d": space_2d.laplacian(), 
+        "fd_lapl_1d": space_1d.laplacian(),
+        "fd_potential_1d": space_1d.potential_energy(lambda x: x ** 2),
+        "fd_lapl_2d": space_2d.laplacian(),
         "fd_potential_2d": space_2d.potential_energy(lambda x: x @ x)
     }
 
@@ -49,7 +49,7 @@ def finite_difference_pairs():
 
     return {
         "fd_lapl_1d, fd_potential_1d": (
-            -space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),  
+            -space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),
         "fd_lapl_2d, fd_potential_2d": (
             -space_2d.laplacian(), space_2d.potential_energy(lambda x: x @ x))
     }
@@ -60,9 +60,9 @@ def pseudospectral_operators():
     space_2d = SPACES["pseudospectral_2d"]
 
     return {
-        "ps_lapl_1d": space_1d.laplacian(), 
-        "ps_potential_1d": space_1d.potential_energy(lambda x: x ** 2), 
-        "ps_lapl_2d": space_2d.laplacian(), 
+        "ps_lapl_1d": space_1d.laplacian(),
+        "ps_potential_1d": space_1d.potential_energy(lambda x: x ** 2),
+        "ps_lapl_2d": space_2d.laplacian(),
         "ps_potential_2d": space_2d.potential_energy(lambda x: x @ x)
     }
 
@@ -72,9 +72,9 @@ def pseudospectral_pairs():
     space_2d = SPACES["pseudospectral_2d"]
 
     return {
-        "ps_lapl_1d, ps_potential_1d": 
-            (-space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),  
-        "ps_lapl_2d, ps_potential_2d": 
+        "ps_lapl_1d, ps_potential_1d":
+            (-space_1d.laplacian(), space_1d.potential_energy(lambda x: x ** 2)),
+        "ps_lapl_2d, ps_potential_2d":
             (-space_2d.laplacian(), space_2d.potential_energy(lambda x: x @ x))
     }
 
@@ -103,7 +103,7 @@ def qubit_pairs():
 
     return {
         "S_x, S_y": (twolevel.pauli("x"), twolevel.pauli("y")),
-        "TensorProd(S_x, S_y, S_z), TensorProd(I, I, S_x)": 
+        "TensorProd(S_x, S_y, S_z), TensorProd(I, I, S_x)":
             (qubits.pauli_product(["x", "y", "z"]), qubits.pauli_product(["i", "i", "x"]))
     }
 
