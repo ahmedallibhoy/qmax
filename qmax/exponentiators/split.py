@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import equinox as eqx
 import jax
 import numpy as np
 from jaxtyping import Array, Scalar, ScalarLike
 
-from ..hilbert_space import AbstractState
 from .._types import ComplexScalarLike
+from ..hilbert_space import AbstractState
 from .base import DelegatingExponentiator, Order
 
 if TYPE_CHECKING:
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
 __all__ = ["AbstractSplitMethod", "Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
 
 
-class AbstractSplitMethod(DelegatingExponentiator):
+class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOperator[S]", S]):
     """
     Exponential splitting of op = A + B into an alternating sequence of exponentials:
         exp(h(A + B)) ~ exp(a_0 hA) exp(b_0 hB)  ... exp(a_{n-1} hA) exp(b_{n-1} hB) exp(a_n hA)
@@ -27,15 +26,8 @@ class AbstractSplitMethod(DelegatingExponentiator):
     """
     nest_left: bool = eqx.field(static=True, kw_only=True, default=True)
 
-    @property
-    @abstractmethod
-    def a(self) -> np.ndarray:
-        pass
-
-    @property
-    @abstractmethod
-    def b(self) -> np.ndarray:
-        pass
+    a: eqx.AbstractVar[np.ndarray]
+    b: eqx.AbstractVar[np.ndarray]
 
     def __check_init__(self):
         if not (np.allclose(np.sum(self.a), 1) and np.allclose(np.sum(self.b), 1)):
@@ -47,7 +39,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
         if not (np.allclose(self.a, self.a[::-1]) and np.allclose(self.b, self.b[::-1])):
             raise ValueError("self.a and self.b must be palindromic sequences")
 
-    def schedule(self, op: AddOperator) -> list[tuple[int, ComplexScalarLike, int]]:
+    def schedule(self, op: AddOperator[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         if self.nest_left:
             a_index, b_index = 1, 0
         else:
@@ -60,18 +52,18 @@ class AbstractSplitMethod(DelegatingExponentiator):
             sched += [(b_index, bi, 1), (a_index, ai, 1)]
         return sched
 
-    def exp(self, add_op: AddOperator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: AddOperator[S], h: ComplexScalarLike, y: S) -> S:
         if self.nest_left:
             # We flip so that the Strang method on a nested sum ((A + B) + C) expands as
             #   exp(h/2 C)exp(h/2 B)exp(hA)exp(h/2 B)exp(h/2 C) 
             # rather than 
             #   exp(h/4 A)exp(h/2 B)exp(h/4 A)exp(hC)exp(h/4 A)exp(h/2 B)exp(h/4 A)
-            B, A = add_op.children
+            B, A = op.children
         else:
             # Assumes sums are nested on the right (A + (B + (C + ...) ...))
             # This is NOT the case in general: by default A + B + C + ... nests on the left
             # We implement this for completeness, but generally one should not use nest_left=False
-            A, B = add_op.children
+            A, B = op.children
 
         def do_step(y, coeffs):
             ai, bi = coeffs
@@ -83,7 +75,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
         return y_exp
 
     @property
-    def operator_type(self) -> type:
+    def operator_type(self) -> type[AddOperator[S]]:
         from ..operator import AddOperator
         return AddOperator
 

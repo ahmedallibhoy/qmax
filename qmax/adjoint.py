@@ -180,7 +180,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         g_u_quads = g_u_quads.reshape(U.num_steps, *g_u_quads.shape[2:])
 
         # Append last save gradient
-        g_u_saves = jnp.concatenate([g_u_saves, g_u1_save[None]])  # pyright: ignore
+        g_u_saves = jnp.concatenate([g_u_saves, g_u1_save[None]])  # pyright: ignore[reportPossiblyUnboundVariable]
 
     # compute gradient of initial cost w.r.t. u0, y0
     _, vjp = eqx.filter_vjp(running_cost_fn, t0, y0, us[0])
@@ -190,15 +190,15 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
 
     if jax.tree.leaves(g_ys):
         # Add contribution of save gradients to g_us
-        g_us = g_us.at[::save_every].add(g_u_saves) # pyright: ignore
+        g_us = g_us.at[::save_every].add(g_u_saves) # pyright: ignore[reportPossiblyUnboundVariable]
 
     return g_y0, g_us, g_u_quads
 
 
 class AbstractAdjoint(eqx.Module):
-    outer_scan_fn: eqx.AbstractClassVar[Callable]
-    inner_scan_fn: eqx.AbstractClassVar[Callable]
-    use_custom_vjp: eqx.AbstractClassVar[bool]
+    outer_scan_fn: eqx.AbstractVar[Callable]
+    inner_scan_fn: eqx.AbstractVar[Callable]
+    use_custom_vjp: eqx.AbstractVar[bool]
 
     @property
     def propagate_fn(self) -> Callable:
@@ -263,9 +263,9 @@ class CheckpointedAdjoint(AbstractAdjoint):
     use_custom_vjp: ClassVar[bool] = False
 
     @property
-    def outer_scan_fn(self) -> Callable:
+    def outer_scan_fn(self) -> Callable: # pyright: ignore[reportIncompatibleMethodOverride]
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.outer_checkpoints)
 
     @property
-    def inner_scan_fn(self) -> Callable:
+    def inner_scan_fn(self) -> Callable: # pyright: ignore[reportIncompatibleMethodOverride]
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.inner_checkpoints)

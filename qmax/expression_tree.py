@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-from typing import Callable, Optional, Self
+from typing import Callable, Optional, Self, cast
 
 import equinox as eqx
 from jaxtyping import ScalarLike
 
 from ._internal import _update_field
 from ._introspect import Path, _rows
-from .hilbert_space import AbstractHilbertSpace
+from .hilbert_space import AbstractHilbertSpace, AbstractState
 
 
 class IncompatibleDomainError(TypeError):
     pass
 
 
-class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
-    domain: AbstractHilbertSpace = eqx.field(static=True)
+class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](eqx.Module):
+    domain: AbstractHilbertSpace[S] = eqx.field(static=True)
     children: tuple[Node, ...] = eqx.field(default=(), converter=tuple, kw_only=True)
     name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
 
@@ -69,7 +69,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
                 update, new_path, self.path(parent_path, child_idx), index)
             return eqx.tree_at(fn, self, new_child)
 
-        return update(self, parent_path, child_idx)
+        return cast(Self, update(self, parent_path, child_idx))
 
     def with_name(self, name: str, path: Path=Path()) -> Self:
         return self.set_at_path(lambda op, _, __: _update_field(op, "name", name), path)

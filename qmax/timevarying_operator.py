@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 import jax
 import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
-from ._types import ComplexArrayLike, ComplexScalarLike
+from ._types import ComplexArrayLike, ComplexScalarLike, RealScalarLike
 from .control import AbstractControl, ConstantControl
 from .exponentiators import AbstractSplitMethod, Strang
 from .expression_tree import AbstractExpressionTree
+from .hilbert_space import AbstractState
 from .operator import AddOperator, IncompatibleDomainError, Operator
 
 
-class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOperator"]):
+class AbstractTimeVaryingOperator[S: AbstractState[Any]](
+    AbstractExpressionTree["AbstractTimeVaryingOperator", S]):
     """
     A timevarying operator $H(t)$.
     """
@@ -43,7 +45,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
     # Operator Algebra
     # --------------------------------------------------------------------------------------------
 
-    def __add__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+    def __add__(self, other: Operator | AbstractTimeVaryingOperator) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
 
         if isinstance(other, Operator):
@@ -53,7 +55,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
 
         return AddTimeVaryingOperator(self, other)
 
-    def __radd__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+    def __radd__(self, other: Operator | AbstractTimeVaryingOperator) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
     
         if isinstance(other, Operator):
@@ -69,18 +71,22 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
     def __rsub__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
         return (-self) + other
 
-    def __mul__(self, other: ScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
-        if jnp.isscalar(other):
-            other = ConstantControl(other) # pyright: ignore
-        if not isinstance(other, AbstractControl):
+    def __mul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
+        if isinstance(other, AbstractControl):
+            pass
+        elif jnp.isscalar(other):
+            other = ConstantControl(other)
+        else:
             return NotImplemented
 
         return ScalarMulTimeVaryingOperator(self, other)
 
-    def __rmul__(self, other: ScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
-        if jnp.isscalar(other):
-            other = ConstantControl(other) # pyright: ignore
-        if not isinstance(other, AbstractControl):
+    def __rmul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
+        if isinstance(other, AbstractControl):
+            pass
+        elif jnp.isscalar(other):
+            other = ConstantControl(other)
+        else:
             return NotImplemented
 
         return ScalarMulTimeVaryingOperator(self, other)
@@ -89,8 +95,8 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
         return -1.0 * self
 
 
-class ConstantTimeVaryingOperator(AbstractTimeVaryingOperator):
-    op: Operator
+class ConstantTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
+    op: Operator[S]
 
     def __init__(self, op: Operator, *, name: Optional[str]=None):
         self.op = op
@@ -101,7 +107,7 @@ class ConstantTimeVaryingOperator(AbstractTimeVaryingOperator):
         return jnp.sum(weights) * self.op
 
 
-class AddTimeVaryingOperator(AbstractTimeVaryingOperator):
+class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
     split_method: AbstractSplitMethod
 
     def __init__(
@@ -133,7 +139,7 @@ class AddTimeVaryingOperator(AbstractTimeVaryingOperator):
             exponentiator=self.split_method)
 
 
-class ScalarMulTimeVaryingOperator(AbstractTimeVaryingOperator):
+class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
     u: AbstractControl
 
     def __init__(

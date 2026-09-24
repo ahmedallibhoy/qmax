@@ -23,14 +23,14 @@ from .spatial_discretization import (
 __all__ = ["FiniteDifference"]
 
 
-class _FiniteDifference1DState(SpatiallyDiscretizedState):
+class _FiniteDifference1DState(SpatiallyDiscretizedState["_FiniteDifference1D"]):
 
     @property
     def values(self) -> Array:
         return self.coeffs
 
 
-class _FiniteDifference1D(SpatialDiscretization):
+class _FiniteDifference1D(SpatialDiscretization[_FiniteDifference1DState]):
     state_type: ClassVar = _FiniteDifference1DState
     endpoint: ClassVar[bool] = True
 
@@ -51,7 +51,7 @@ class _FiniteDifference1D(SpatialDiscretization):
         return self.dx_range[0]
 
 
-class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
+class _FiniteDifference1DLaplacian(AbstractHermitianOperator[_FiniteDifference1DState]):
     domain: _FiniteDifference1D = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=Cayley(), kw_only=True)
 
@@ -99,7 +99,7 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
         return L
 
 
-class _FiniteDifference1DMomentum(Operator):
+class _FiniteDifference1DMomentum(Operator[_FiniteDifference1DState]):
     domain: _FiniteDifference1D = eqx.field(static=True)
 
     def action(self, y: _FiniteDifference1DState) -> _FiniteDifference1DState:
@@ -129,14 +129,18 @@ class _FiniteDifference1DMomentum(Operator):
         return -1j * self.domain.hbar * D
 
 
-class FiniteDifferenceState(SpatiallyDiscretizedState, TensorState):
+class FiniteDifferenceState(
+    SpatiallyDiscretizedState["FiniteDifference"],
+    TensorState["FiniteDifference"]):
 
     @property
     def values(self) -> Array:
         return self.hilbert_space.to_grid(self.coeffs)
 
 
-class FiniteDifference(SpatialDiscretization, TensorProduct):
+class FiniteDifference(
+    SpatialDiscretization[FiniteDifferenceState],
+    TensorProduct[FiniteDifferenceState]):
     state_type: ClassVar[type[AbstractState]] = FiniteDifferenceState
     endpoint: ClassVar[bool] = True
 
@@ -172,7 +176,9 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
         return FiniteDifferenceMomentum(self, axis) 
 
 
-class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
+class FiniteDifferenceLaplacian(
+    AbstractHermitianOperator[FiniteDifferenceState],
+    KroneckerSum[FiniteDifferenceState]):
     domain: FiniteDifference = eqx.field(static=True)
 
     def __init__(
@@ -183,13 +189,13 @@ class FiniteDifferenceLaplacian(AbstractHermitianOperator, KroneckerSum):
 
         self.domain = domain
         self.children = tuple(
-            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})") 
+            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})") # pyright: ignore[reportArgumentType]
             for idx in range(domain.num_factors))
         self.exponentiator = exponentiator
         self.name = name if name is not None else "Laplacian"
 
 
-class FiniteDifferenceMomentum(LiftOperator):
+class FiniteDifferenceMomentum(LiftOperator[FiniteDifferenceState]):
     domain: FiniteDifference = eqx.field(static=True)
 
     def __init__(
@@ -200,7 +206,7 @@ class FiniteDifferenceMomentum(LiftOperator):
         name: Optional[str]=None):
 
         self.domain = domain
-        self.children = (_FiniteDifference1DMomentum(domain[axis]),)
+        self.children = (_FiniteDifference1DMomentum(domain[axis]),) # pyright: ignore[reportArgumentType]
         self.factor_idx = axis
         self.exponentiator = exponentiator
         self.name = name
@@ -210,7 +216,7 @@ class FiniteDifferenceMomentum(LiftOperator):
         return self.factor_idx
 
 
-class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy):
+class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy[FiniteDifferenceState]):
     domain: FiniteDifference = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 

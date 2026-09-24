@@ -52,5 +52,5 @@ select = ["E", "F", "I"]
 
 [tool.pyright]
 include = ["qmax"]
-#reportIncompatibleMethodOverride = false
+ignore = ["qmax/lanczos.py"]
 reportIncompatibleVariableOverride = false # Incompatible with eqx.AbstractVar

@@ -30,7 +30,7 @@ def lanczos(
     key: Optional[PRNGKeyArray]=None,
     w0: Optional[AbstractState]=None,
     Q0: Optional[AbstractState]=None,
-    idx0: int=0) -> tuple[Array, Array, AbstractState, AbstractState]:
+    idx0: int=0):
 
     """
     Implements the Lanczos tridiagonalization algorithm as described in Chapter 10 of [1].
@@ -109,7 +109,7 @@ def restart_lanczos(
     max_krylov_dim: int=100,
     num_restarts: int=4,
     select: str="smallest",
-    key: Optional[PRNGKeyArray]=None) -> tuple[Array, AbstractState, Array]:
+    key: Optional[PRNGKeyArray]=None):
 
     """
     Essentially reproduces the method described in [1].

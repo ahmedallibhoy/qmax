@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from functools import reduce
 from typing import TYPE_CHECKING, ClassVar, Optional
 
@@ -49,15 +48,8 @@ class AbstractCompositionMethod(eqx.Module):
         if not np.allclose(self.weights, self.weights[::-1]):
             raise ValueError("Composition weights must be a palindromic sequence")
 
-    @property
-    @abstractmethod
-    def weights(self) -> Array:
-        pass
-
-    @property
-    @abstractmethod
-    def composed_order(self) -> int:
-        pass
+    weights: eqx.AbstractVar[Array]
+    composed_order: eqx.AbstractVar[int]
 
 
 class Yoshida(AbstractCompositionMethod):

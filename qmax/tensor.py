@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from abc import abstractmethod
 from functools import reduce
-from typing import Callable, ClassVar, Iterable, Optional
+from typing import Any, Callable, ClassVar, Iterable, Optional
 
 import equinox as eqx
 import jax
@@ -57,8 +57,8 @@ def apply_along_tensor(
 
 def apply_along_state(
     state_fn: Callable[[AbstractState], AbstractState],
-    y: TensorState,
-    factor_idx: int) -> TensorState:
+    y: TensorState[Any],
+    factor_idx: int):
     """
     Same function as apply_along_tensor except acting on batched state vectors 
     rather than raw coefficient arrays. This function extracts the coefficients, 
@@ -72,15 +72,14 @@ def apply_along_state(
     return y.hilbert_space.from_tensor(apply_along_tensor(fn, y.tensor, axis))
 
 
-class TensorState(AbstractState):
-    hilbert_space: AbstractTensorSpace = eqx.field(static=True, kw_only=True)
+class TensorState[H: AbstractTensorSpace[Any] = AbstractTensorSpace](AbstractState[H]):
 
     @property
     def tensor(self) -> Array:
         return self.coeffs.reshape(*self.coeffs.shape[:-1], *self.hilbert_space.dim_list)
 
 
-class AbstractTensorSpace(AbstractHilbertSpace):
+class AbstractTensorSpace[S: TensorState[Any]](AbstractHilbertSpace[S]):
     state_type: ClassVar = TensorState
 
     @abstractmethod
@@ -104,12 +103,12 @@ class AbstractTensorSpace(AbstractHilbertSpace):
     def dim(self) -> int:
         return math.prod(self.dim_list)
 
-    def from_tensor(self, tensor: ArrayLike) -> TensorState:
+    def from_tensor(self, tensor: ArrayLike) -> S:
         tensor = jnp.asarray(tensor)
         batch_shape = tensor.shape[:tensor.ndim - self.num_factors]
         return self.from_coeffs(tensor.reshape(*batch_shape, self.dim))
 
-    def product_state(self, y_list: Iterable[AbstractState]) -> TensorState:
+    def product_state(self, y_list: Iterable[AbstractState]) -> S:
         expanded = [
             y.coeffs.reshape(
                 *y.coeffs.shape[:-1],
@@ -120,17 +119,17 @@ class AbstractTensorSpace(AbstractHilbertSpace):
         ]
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
 
-    def lift(self, op: Operator, factor_idx: int) -> LiftOperator:
+    def lift(self, op: Operator, factor_idx: int) -> LiftOperator[S]:
         return LiftOperator(self, op, factor_idx)
 
-    def kron_sum(self, op_list: Iterable[Operator]) -> KroneckerSum:
+    def kron_sum(self, op_list: Iterable[Operator]) -> KroneckerSum[S]:
         return KroneckerSum(self, children=op_list)
 
-    def kron_prod(self, op_list: Iterable[Operator]) -> KroneckerProduct:
+    def kron_prod(self, op_list: Iterable[Operator]) -> KroneckerProduct[S]:
         return KroneckerProduct(self, children=op_list)
 
 
-class TensorProduct(AbstractTensorSpace):
+class TensorProduct[S: TensorState[Any] = TensorState](AbstractTensorSpace[S]):
     spaces: tuple[AbstractHilbertSpace, ...]
 
     def factor(self, idx: int) -> AbstractHilbertSpace:
@@ -145,7 +144,7 @@ class TensorProduct(AbstractTensorSpace):
         return [hs.dim for hs in self.spaces]
 
 
-class TensorPower(AbstractTensorSpace):
+class TensorPower[S: TensorState[Any] = TensorState](AbstractTensorSpace[S]):
     factorspace: AbstractHilbertSpace
     power: int
 
@@ -165,8 +164,8 @@ class TensorPower(AbstractTensorSpace):
         return self.factorspace.dim ** self.power
 
 
-class AbstractTensorOperator(Operator):
-    domain: AbstractTensorSpace = eqx.field(static=True)
+class AbstractTensorOperator[S: TensorState[Any]](Operator[S]):
+    domain: AbstractTensorSpace[S] = eqx.field(static=True)
 
     def _check_tensor_domain(self):
         if not isinstance(self.domain, AbstractTensorSpace):
@@ -176,25 +175,25 @@ class AbstractTensorOperator(Operator):
             )
 
 
-class LiftExp(DelegatingExponentiator):
+class LiftExp[S: TensorState[Any]](DelegatingExponentiator["LiftOperator[S]", S]):
 
-    def schedule(self, lift_op: LiftOperator) -> list[tuple[int, ComplexScalarLike, int]]:
+    def schedule(self, op: LiftOperator[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         # the lifted operator acts on each of the remaining subspaces in turn
-        (A,) = lift_op.children
-        #return [(0, 1.0, lift_op.domain.dim // A.domain.dim)]
+        (A,) = op.children
+        #return [(0, 1.0, op.domain.dim // A.domain.dim)]
         return [(0, 1.0, 1)]
 
     def exp(
         self,
-        lift_op: LiftOperator,
+        op: LiftOperator[S],
         h: ComplexScalarLike,
-        y: TensorState) -> TensorState:
+        y: S) -> S:
 
-        (A,) = lift_op.children
-        return apply_along_state(lambda s: A._exp(h, s), y, lift_op.factor_idx)
+        (A,) = op.children
+        return apply_along_state(lambda s: A._exp(h, s), y, op.factor_idx)
 
     @property
-    def operator_type(self) -> type:
+    def operator_type(self) -> type[LiftOperator[S]]:
         return LiftOperator
 
     @property
@@ -202,14 +201,14 @@ class LiftExp(DelegatingExponentiator):
         return None
 
 
-class LiftOperator(AbstractTensorOperator):
+class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
     factor_idx: int
     exponentiator: AbstractExponentiator = eqx.field(default=LiftExp(), kw_only=True)
 
     def __init__(
         self, 
-        domain: AbstractTensorSpace, 
-        A: Operator, 
+        domain: AbstractTensorSpace[S],
+        A: Operator,
         factor_idx: int):
 
         self.domain = domain
@@ -234,11 +233,11 @@ class LiftOperator(AbstractTensorOperator):
     def num_factors(self):
         return self.domain.num_factors
 
-    def action(self, y: TensorState) -> TensorState:
+    def action(self, y: S) -> S:
         (A,) = self.children
         return apply_along_state(lambda s: A.action(s), y, self.factor_idx)
 
-    def adj_action(self, y):
+    def adj_action(self, y: S) -> S:
         (A,) = self.children
         return apply_along_state(lambda s: A.adj_action(s), y, self.factor_idx)
 
@@ -247,7 +246,7 @@ class LiftOperator(AbstractTensorOperator):
         (A,) = self.children
         return A.spectral_bounds
 
-    def _solve(self, b: TensorState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> TensorState:
+    def _solve(self, b: S, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> S:
         (A,) = self.children
         return apply_along_state(lambda s: A._solve(s, scale, shift), b, self.factor_idx)
 
@@ -259,7 +258,7 @@ class LiftOperator(AbstractTensorOperator):
         ]
         return reduce(lambda a, b: jnp.kron(a, b), mat_list)
 
-    def adjoint(self) -> Operator:
+    def adjoint(self) -> Operator[S]:
         (A,) = self.children
         return LiftOperator(self.domain, A.adjoint(), self.factor_idx)
 
@@ -282,7 +281,7 @@ class LiftOperator(AbstractTensorOperator):
         )
 
 
-class KroneckerProductMixin(AbstractTensorOperator):
+class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
 
     def __check_init__(self):
         self._check_tensor_domain()
@@ -320,37 +319,37 @@ class KroneckerProductMixin(AbstractTensorOperator):
             exp_action = self._exp_action_count(path),
         )
 
-    def adjoint(self) -> Operator:
+    def adjoint(self) -> Operator[S]:
         return type(self)(self.domain, children=tuple(op.adjoint() for op in self.children))
 
 
-class KroneckerSumExp(DelegatingExponentiator):
+class KroneckerSumExp[S: TensorState[Any]](DelegatingExponentiator["KroneckerSum[S]", S]):
 
-    def schedule(self, kron_op: KroneckerSum) -> list[tuple[int, ComplexScalarLike, int]]:
+    def schedule(self, op: KroneckerSum[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         # each factor acts on every slice along its own axis
         #return [
-        #    (idx, 1.0, kron_op.domain.dim // kron_op.domain[idx].dim)
-        #    for idx in range(len(kron_op.children))
+        #    (idx, 1.0, op.domain.dim // op.domain[idx].dim)
+        #    for idx in range(len(op.children))
         #]
 
         return [
             (idx, 1.0, 1)
-            for idx in range(len(kron_op.children))
+            for idx in range(len(op.children))
         ]
 
     def exp(
         self,
-        kron_op: KroneckerSum,
+        op: KroneckerSum[S],
         h: ComplexScalarLike,
-        y: TensorState) -> TensorState:
+        y: S) -> S:
 
-        for factor_idx, op in enumerate(kron_op.children):
-            y = apply_along_state(lambda s, op=op: op._exp(h, s), y, factor_idx)
+        for factor_idx, child in enumerate(op.children):
+            y = apply_along_state(lambda s, child=child: child._exp(h, s), y, factor_idx)
 
         return y
 
     @property
-    def operator_type(self) -> type:
+    def operator_type(self) -> type[KroneckerSum[S]]:
         return KroneckerSum
 
     @property
@@ -358,16 +357,16 @@ class KroneckerSumExp(DelegatingExponentiator):
         return None
 
 
-class KroneckerSum(KroneckerProductMixin):
+class KroneckerSum[S: TensorState[Any]](KroneckerProductMixin[S]):
     exponentiator: AbstractExponentiator = eqx.field(default=KroneckerSumExp(), kw_only=True)
 
-    def action(self, y: TensorState) -> TensorState:
+    def action(self, y: S) -> S:
         return reduce(lambda a, b: a + b, [
             apply_along_state(lambda s, op=op: op.action(s), y, factor_idx)
             for factor_idx, op in enumerate(self.children)
         ])
 
-    def adj_action(self, y: TensorState):
+    def adj_action(self, y: S) -> S:
         return reduce(lambda a, b: a + b, [
             apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
             for factor_idx, op in enumerate(self.children)
@@ -389,9 +388,9 @@ class KroneckerSum(KroneckerProductMixin):
         return mat
 
 
-class KroneckerProduct(KroneckerProductMixin):
+class KroneckerProduct[S: TensorState[Any]](KroneckerProductMixin[S]):
 
-    def action(self, y: TensorState) -> TensorState:
+    def action(self, y: S) -> S:
         for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
                 continue
@@ -399,7 +398,7 @@ class KroneckerProduct(KroneckerProductMixin):
 
         return y
 
-    def adj_action(self, y: TensorState):
+    def adj_action(self, y: S) -> S:
         for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
                 continue

@@ -88,12 +88,12 @@ class Propagator(eqx.Module):
         if dt_max is not None and num_steps is not None:
             raise ValueError("Only one of dt_max or num_steps may not be None")
 
-        if num_steps is None and dt_max is None:
-            self.num_steps = 1
-        elif num_steps is None:
-            self.num_steps = ceil((t1 - t0) / dt_max) # pyright: ignore
+        if num_steps is not None:
+            self.num_steps = num_steps
+        elif dt_max is not None:
+            self.num_steps = ceil((t1 - t0) / dt_max)
         else:
-            self.num_steps = num_steps # pyright: ignore
+            self.num_steps = 1
 
         if isinstance(op, Operator):
             if adapt: 
@@ -236,7 +236,7 @@ class Propagator(eqx.Module):
         total_cost = jnp.asarray(running_cost) + terminal_cost
 
         if progressbar:
-            tqdm_bar.close() # pyright: ignore
+            tqdm_bar.close() # pyright: ignore[reportPossiblyUnboundVariable]
 
         return PropagateResult(y0, y1, ys, self.ts[::save_every], running_cost, terminal_cost, total_cost)
 

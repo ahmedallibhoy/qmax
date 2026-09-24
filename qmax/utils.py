@@ -28,7 +28,7 @@ def unstack(y: AbstractState) -> tuple[AbstractState, ...]:
 
 def over_batch(
     fn: Callable[[AbstractState], AbstractState], 
-    y: AbstractState) -> AbstractState:
+    y: AbstractState):
 
     space = y.hilbert_space
     flat = y.coeffs.reshape(-1, y.coeffs.shape[-1])

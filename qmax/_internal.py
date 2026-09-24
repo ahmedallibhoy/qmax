@@ -1,7 +1,9 @@
 import dataclasses
 from typing import Any, TypeVar
 
-T = TypeVar("T")
+import equinox as eqx
+
+T = TypeVar("T", bound=eqx.Module)
 
 def _update_fields(obj: T, **updates: Any) -> T:
     # workaround for eqx.Modules since eqx.tree_at normally breaks

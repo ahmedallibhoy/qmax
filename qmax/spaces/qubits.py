@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -7,6 +7,7 @@ from jaxtyping import Array
 
 from .._types import ComplexScalarLike
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
+from ..hilbert_space import AbstractState
 from ..operator import AbstractHermitianOperator
 from ..tensor import KroneckerProduct, TensorPower, TensorState
 from .nlevel import NLevel, NLevelState
@@ -22,12 +23,12 @@ PAULI_MATRICES = {
 }
 
 
-class TwoLevelState(NLevelState):
+class TwoLevelState(NLevelState["TwoLevel"]):
     """
     """
 
 
-class TwoLevel(NLevel):
+class TwoLevel(NLevel[TwoLevelState]):
     state_type: ClassVar = TwoLevelState
 
     def __init__(self):
@@ -37,9 +38,9 @@ class TwoLevel(NLevel):
         return PauliOperator(self, axis)
 
 
-class AbstractPauliOperator(AbstractHermitianOperator):
+class AbstractPauliOperator[S: AbstractState[Any]](AbstractHermitianOperator[S]):
 
-    def exp_action(self, h: ComplexScalarLike, y: QubitsState) -> QubitsState:                    
+    def exp_action(self, h: ComplexScalarLike, y: S) -> S:                    
         return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 
     @property
@@ -47,14 +48,14 @@ class AbstractPauliOperator(AbstractHermitianOperator):
         return jnp.array([-1.0, 1.0])
 
     def _solve(self,
-        b: QubitsState,
+        b: S,
         scale: ComplexScalarLike=-1.0,
-        shift: ComplexScalarLike=0.0) -> QubitsState:
+        shift: ComplexScalarLike=0.0) -> S:
 
         return (shift * b - scale * self.action(b)) / (shift ** 2 - scale ** 2)
 
 
-class PauliOperator(AbstractPauliOperator):
+class PauliOperator(AbstractPauliOperator[TwoLevelState]):
     axis: str
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
@@ -88,12 +89,12 @@ class PauliOperator(AbstractPauliOperator):
         return PAULI_MATRICES[self.axis]
 
 
-class QubitsState(TensorState):
+class QubitsState(TensorState["Qubits"]):
     """
     """
 
 
-class Qubits(TensorPower):
+class Qubits(TensorPower[QubitsState]):
     state_type: ClassVar = QubitsState
 
     def __init__(self, num_bits: int=1):
@@ -104,7 +105,7 @@ class Qubits(TensorPower):
         return PauliProduct(self, ax_list)
 
 
-class PauliProduct(AbstractPauliOperator, KroneckerProduct):
+class PauliProduct(AbstractPauliOperator[QubitsState], KroneckerProduct[QubitsState]):
     exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
 
     def __init__(
@@ -116,7 +117,7 @@ class PauliProduct(AbstractPauliOperator, KroneckerProduct):
 
         self.domain = domain
         self.children = tuple(
-            domain[idx].identity() if ax.lower() == "i" else PauliOperator(domain[idx], ax.lower())
+            domain[idx].identity() if ax.lower() == "i" else PauliOperator(domain[idx], ax.lower()) # pyright: ignore[reportArgumentType]
             for idx, ax in enumerate(ax_list)
         )
         self.exponentiator = exponentiator

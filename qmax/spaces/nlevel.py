@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import jax
 import jax.numpy as jnp
@@ -11,12 +11,12 @@ from ..operator import Operator
 __all__ = ["NLevel"]
 
 
-class NLevelState(AbstractState):
+class NLevelState[H: NLevel[Any] = NLevel](AbstractState[H]):
     """
     """
 
 
-class NLevel(AbstractHilbertSpace):
+class NLevel[S: NLevelState[Any] = NLevelState](AbstractHilbertSpace[S]):
     state_type: ClassVar = NLevelState
     _dim: int
 
@@ -24,7 +24,7 @@ class NLevel(AbstractHilbertSpace):
     def dim(self) -> int:
         return self._dim
 
-    def fock(self, idx: int) -> NLevelState:
+    def fock(self, idx: int) -> S:
         if idx >= self.dim:
             raise ValueError(f"idx={idx} must be less than dimension of space (dim={self.dim})")
 
@@ -32,7 +32,7 @@ class NLevel(AbstractHilbertSpace):
         coeffs = coeffs.at[idx].set(1.0)
         return self.from_coeffs(coeffs)
 
-    def coherent(self, alpha: ComplexScalarLike) -> NLevelState:
+    def coherent(self, alpha: ComplexScalarLike) -> S:
         """
         Given alpha, generates a state such that a(y) ≈ alpha * y where a is the Annihilator operator. 
         """
@@ -45,56 +45,56 @@ class NLevel(AbstractHilbertSpace):
         y = y / y.norm()
         return y
 
-    def annihilator(self) -> Annihilator:
+    def annihilator(self) -> Annihilator[S]:
         return Annihilator(self)
 
-    def creator(self) -> Creator:
+    def creator(self) -> Creator[S]:
         return Creator(self)
 
     
-def annihilate(y: NLevelState) -> NLevelState:
+def annihilate(y: NLevelState[Any]):
     dim = y.hilbert_space.dim
     vals = jnp.sqrt(jnp.arange(1, dim))
     coeffs = jnp.concatenate([vals * y.coeffs[..., 1:], jnp.zeros_like(y.coeffs[..., :1])], axis=-1)
     return y.hilbert_space.from_coeffs(coeffs)
 
 
-def create(y: NLevelState) -> NLevelState:
+def create(y: NLevelState[Any]):
     dim = y.hilbert_space.dim
     vals = jnp.sqrt(jnp.arange(1, dim))
     coeffs = jnp.concatenate([jnp.zeros_like(y.coeffs[..., :1]), vals * y.coeffs[..., :-1]], axis=-1)
     return y.hilbert_space.from_coeffs(coeffs)
 
 
-class Annihilator(Operator):
+class Annihilator[S: NLevelState[Any]](Operator[S]):
 
-    def action(self, y: NLevelState) -> NLevelState:
+    def action(self, y: S) -> S:
         return annihilate(y)
 
-    def adj_action(self, y: NLevelState) -> NLevelState:
+    def adj_action(self, y: S) -> S:
         return create(y)
 
     def to_matrix(self) -> Array:
         vals = jnp.sqrt(jnp.arange(1, self.domain.dim))
         return jnp.diag(vals, k=1)
 
-    def adjoint(self) -> Creator:
+    def adjoint(self) -> Creator[S]:
         return Creator(self.domain)
 
 
-class Creator(Operator):
+class Creator[S: NLevelState[Any]](Operator[S]):
 
-    def action(self, y: NLevelState) -> NLevelState:
+    def action(self, y: S) -> S:
         return create(y)
 
-    def adj_action(self, y: NLevelState) -> NLevelState:
+    def adj_action(self, y: S) -> S:
         return annihilate(y)
 
     def to_matrix(self) -> Array:
         vals = jnp.sqrt(jnp.arange(1, self.domain.dim))
         return jnp.diag(vals, k=-1)
 
-    def adjoint(self) -> Annihilator:
+    def adjoint(self) -> Annihilator[S]:
         return Annihilator(self.domain)
 
 

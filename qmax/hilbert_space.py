@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Self, Sequence, cast
 
 import equinox as eqx
 import jax
@@ -27,7 +27,7 @@ def _coeff_index(idx: Index) -> tuple[Index, ...]:
     return _to_tuple(idx) + (slice(None),)
 
 
-class AbstractHilbertSpace(eqx.Module):
+class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
     state_type: eqx.AbstractClassVar[type[AbstractState]]
     hbar: float = eqx.field(default=1.0, converter=float, kw_only=True)
 
@@ -39,35 +39,36 @@ class AbstractHilbertSpace(eqx.Module):
     def batch_shape(self, shape: Shape) -> Shape:
         return shape + (self.dim,)
 
-    def innerp(self, y1: AbstractState, y2: AbstractState) -> Scalar:
+    def innerp(self, y1: S, y2: S) -> Scalar:
         return jnp.sum(jnp.conj(y1.coeffs) * y2.coeffs, axis=-1)
 
-    def norm(self, y: AbstractState) -> Scalar:
+    def norm(self, y: S) -> Scalar:
         return jnp.sqrt(self.norm2(y))
 
-    def norm2(self, y: AbstractState) -> Scalar:
+    def norm2(self, y: S) -> Scalar:
         return jnp.real(self.innerp(y, y))
 
-    def expected_value(self, op: Operator, y: AbstractState) -> Scalar:
+    def expected_value(self, op: Operator, y: S) -> Scalar:
         return self.innerp(y, op(y))
 
-    def from_coeffs(self, coeffs: ArrayLike) -> AbstractState:
+    def from_coeffs(self, coeffs: ArrayLike) -> S:
         coeffs = jnp.asarray(coeffs, dtype=complex)
-        return self.state_type(coeffs, hilbert_space=self)
+        # state_type is a ClassVar, which cannot mention S
+        return cast(S, self.state_type(coeffs, hilbert_space=self))
 
-    def zeros(self, shape: Shape=()) -> AbstractState:
+    def zeros(self, shape: Shape=()) -> S:
         batch_shape = self.batch_shape(shape)
         return self.from_coeffs(jnp.zeros(batch_shape))
 
-    def random(self, key: PRNGKeyArray, shape: Shape=(), dtype=complex) -> AbstractState:
+    def random(self, key: PRNGKeyArray, shape: Shape=(), dtype=complex) -> S:
         batch_shape = self.batch_shape(shape)
         random_coeffs = jax.random.normal(key, shape=batch_shape, dtype=dtype)
         return self.from_coeffs(random_coeffs)
 
-    def zeros_like(self, y: AbstractState) -> AbstractState:
+    def zeros_like(self, y: S) -> S:
         return self.from_coeffs(jnp.zeros_like(y.coeffs))
 
-    def stack(self, ys: Sequence[AbstractState], axis=0) -> AbstractState:
+    def stack(self, ys: Sequence[S], axis=0) -> S:
         if any(y.hilbert_space != self for y in ys):
             raise ValueError("Cannot join states from different spaces")    
         
@@ -81,7 +82,7 @@ class AbstractHilbertSpace(eqx.Module):
         
         return self.from_coeffs(jnp.stack([y.coeffs for y in ys], axis))
 
-    def concatenate(self, ys: Sequence[AbstractState], axis=0) -> AbstractState:
+    def concatenate(self, ys: Sequence[S], axis=0) -> S:
         if any(y.hilbert_space != self for y in ys):
             raise ValueError("Cannot join states from different spaces")
 
@@ -96,20 +97,20 @@ class AbstractHilbertSpace(eqx.Module):
         coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
         return self.from_coeffs(jnp.concatenate(coeffs, axis))
 
-    def identity(self) -> Operator:
+    def identity(self) -> Operator[S]:
         from .operator import Identity
         return Identity(self)
 
-    def zero_operator(self) -> Operator:
+    def zero_operator(self) -> Operator[S]:
         from .operator import Zero
         return Zero(self)
 
 
-class AbstractState(eqx.Module):
+class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
     coeffs: Array
-    hilbert_space: AbstractHilbertSpace = eqx.field(static=True, kw_only=True)
+    hilbert_space: H = eqx.field(static=True, kw_only=True)
 
-    def __init__(self, coeffs, hilbert_space):
+    def __init__(self, coeffs: ArrayLike, hilbert_space: H):
         self.coeffs = jnp.asarray(coeffs, dtype=complex)
         self.hilbert_space = hilbert_space
 
@@ -117,14 +118,14 @@ class AbstractState(eqx.Module):
         if self.hilbert_space != other.hilbert_space:
             raise ValueError("Cannot compose vectors from different spaces")
 
-    def binary_op(self, other: AbstractState, fn: Callable) -> AbstractState:
+    def binary_op(self, other: Self, fn: Callable) -> Self:
         if not isinstance(other, AbstractState):
             return NotImplemented
 
         self._check_compatible(other)
         return self.hilbert_space.from_coeffs(fn(self.coeffs, other.coeffs))
 
-    def innerp(self, y: AbstractState) -> Scalar:
+    def innerp(self, y: Self) -> Scalar:
         return self.hilbert_space.innerp(self, y)
 
     def norm(self) -> Scalar:
@@ -136,19 +137,19 @@ class AbstractState(eqx.Module):
     def expected_value(self, op: Operator) -> Scalar:
         return self.hilbert_space.expected_value(op, self)
 
-    def __add__(self, other: AbstractState) -> AbstractState:
+    def __add__(self, other: Self) -> Self:
         return self.binary_op(other, lambda a, b: a + b)
 
-    def __radd__(self, other: AbstractState) -> AbstractState:
+    def __radd__(self, other: Self) -> Self:
         return self.binary_op(other, lambda a, b: b + a)
 
-    def __sub__(self, other: AbstractState) -> AbstractState:
+    def __sub__(self, other: Self) -> Self:
         return self.binary_op(other, lambda a, b: a - b)
 
-    def __rsub__(self, other: AbstractState) -> AbstractState:
+    def __rsub__(self, other: Self) -> Self:
         return self.binary_op(other, lambda a, b: b - a)
 
-    def __matmul__(self, other: AbstractState) -> Scalar:
+    def __matmul__(self, other: Self) -> Scalar:
         if not isinstance(other, AbstractState):
             return NotImplemented
 
@@ -156,31 +157,31 @@ class AbstractState(eqx.Module):
 
         return self.hilbert_space.innerp(self, other)
 
-    def __mul__(self, other: ScalarLike) -> AbstractState:
+    def __mul__(self, other: ScalarLike) -> Self:
         if not jnp.isscalar(other):
             return NotImplemented
 
         return self.hilbert_space.from_coeffs(other * self.coeffs)
 
-    def __rmul__(self, other: ScalarLike) -> AbstractState:
+    def __rmul__(self, other: ScalarLike) -> Self:
         if not jnp.isscalar(other):
             return NotImplemented
 
         return self.hilbert_space.from_coeffs(other * self.coeffs)
 
-    def __truediv__(self, other: ScalarLike) -> AbstractState:
+    def __truediv__(self, other: ScalarLike) -> Self:
         if not jnp.isscalar(other):
             return NotImplemented
 
         return self.hilbert_space.from_coeffs(self.coeffs / other)
 
-    def __neg__(self) -> AbstractState:
+    def __neg__(self) -> Self:
         return self.hilbert_space.from_coeffs(-self.coeffs)
 
     def contract(
-        self, 
-        weights: Array, 
-        axes: int | Iterable[int]=(0, 0)) -> AbstractState:
+        self,
+        weights: Array,
+        axes: int | Iterable[int]=(0, 0)) -> Self:
         """
         Takes a linear combination of states corresponding to batch axes
         """
@@ -212,30 +213,30 @@ class AbstractState(eqx.Module):
 
         return axis
 
-    def __getitem__(self, idx: Index) -> AbstractState:            
+    def __getitem__(self, idx: Index) -> Self:
         return self.hilbert_space.from_coeffs(self.coeffs[_coeff_index(idx)])
 
     @property
-    def at(self) -> _AbstractStateIndexHelper:
+    def at(self) -> _AbstractStateIndexHelper[Self]:
         return _AbstractStateIndexHelper(self)
 
 
-class _AbstractStateIndexHelper:
+class _AbstractStateIndexHelper[S: AbstractState[Any]]:
 
-    def __init__(self, state: AbstractState):
-        self.state = state 
+    def __init__(self, state: S):
+        self.state = state
 
-    def __getitem__(self, idx: Index) -> _AbstractStateIndexSetter:
+    def __getitem__(self, idx: Index) -> _AbstractStateIndexSetter[S]:
         return _AbstractStateIndexSetter(self.state, idx)
 
 
-class _AbstractStateIndexSetter:
+class _AbstractStateIndexSetter[S: AbstractState[Any]]:
 
-    def __init__(self, state: AbstractState, idx: Index):
-        self.state = state 
+    def __init__(self, state: S, idx: Index):
+        self.state = state
         self.idx = idx
 
-    def set(self, values: AbstractState) -> AbstractState:
+    def set(self, values: S) -> S:
         if self.state.hilbert_space != values.hilbert_space:
             raise ValueError("Cannot set batched state with values from a different Hilbert space")
 

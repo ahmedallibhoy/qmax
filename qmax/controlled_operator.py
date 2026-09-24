@@ -97,7 +97,7 @@ class ControlledOperator(eqx.Module):
         controls = jnp.asarray(controls)
 
         op = reduce(
-            lambda a, b: (a + b).with_split_method(self.split_method), # pyright: ignore
+            lambda a, b: (a + b).with_split_method(self.split_method),
             [self.drift_op] + [u * op for (u, op) in zip(controls, self.controlled_ops)]) 
 
         return op(t)

@@ -20,7 +20,7 @@ from .spatial_discretization import (
 __all__ = ["PseudoSpectral"]
 
 
-class PseudoSpectralState(SpatiallyDiscretizedState):
+class PseudoSpectralState(SpatiallyDiscretizedState["PseudoSpectral"]):
 
     @property
     def values(self) -> Array:
@@ -29,7 +29,7 @@ class PseudoSpectralState(SpatiallyDiscretizedState):
         return jnp.fft.ifftn(hs.pad(grid), axes=hs.spatial_axes, norm="forward")
 
 
-class PseudoSpectral(SpatialDiscretization):
+class PseudoSpectral(SpatialDiscretization[PseudoSpectralState]):
     state_type: ClassVar = PseudoSpectralState
     endpoint: ClassVar[bool] = False
     num_modes: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
@@ -84,7 +84,7 @@ class PseudoSpectral(SpatialDiscretization):
         return PseudoSpectralMomentum(self, axis) 
 
 
-class PseudoSpectralLaplacian(AbstractDiagonalOperator):
+class PseudoSpectralLaplacian(AbstractDiagonalOperator[PseudoSpectralState]):
     domain: PseudoSpectral = eqx.field(static=True)
 
     @property
@@ -97,17 +97,17 @@ class PseudoSpectralLaplacian(AbstractDiagonalOperator):
         return -jnp.linalg.norm(ks, axis=-1) ** 2
 
 
-class PseudoSpectralExponentiator(ExactExponentiator):
+class PseudoSpectralExponentiator(ExactExponentiator["PseudoSpectralPotentialEnergy", PseudoSpectralState]):
 
     @property
-    def operator_type(self) -> type:
+    def operator_type(self) -> type[PseudoSpectralPotentialEnergy]:
         return PseudoSpectralPotentialEnergy
 
     def effective_order(self, op: PseudoSpectralPotentialEnergy) -> Order:
         return None if op.domain.lossless else 1
 
 
-class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
+class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy[PseudoSpectralState]):
     domain: PseudoSpectral = eqx.field(static=True)
     exponentiator: AbstractExponentiator = eqx.field(default=PseudoSpectralExponentiator(), kw_only=True)
 
@@ -138,7 +138,7 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
         return Vhat[flat]
 
 
-class PseudoSpectralMomentum(AbstractDiagonalOperator):
+class PseudoSpectralMomentum(AbstractDiagonalOperator[PseudoSpectralState]):
     domain: PseudoSpectral = eqx.field(static=True)
     axis: int = 0
 

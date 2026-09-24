@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from functools import partial
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, Sequence
 
 import equinox as eqx
 import jax
@@ -21,8 +21,7 @@ def _to_tuple(x, dtype=float) -> tuple:
     return tuple(dtype(s) for s in x)
 
 
-class SpatiallyDiscretizedState(AbstractState):
-    hilbert_space: SpatialDiscretization = eqx.field(static=True, kw_only=True)
+class SpatiallyDiscretizedState[H: SpatialDiscretization[Any]](AbstractState[H]):
 
     @property
     @abstractmethod
@@ -30,7 +29,7 @@ class SpatiallyDiscretizedState(AbstractState):
         pass
 
 
-class SpatialDiscretization(AbstractHilbertSpace):
+class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSpace[S]):
     state_type: eqx.AbstractClassVar[type[SpatiallyDiscretizedState]]
     endpoint: eqx.AbstractClassVar[bool]
 
@@ -41,16 +40,13 @@ class SpatialDiscretization(AbstractHilbertSpace):
     mesh_size: tuple[int, ...] = eqx.field(converter=partial(_to_tuple, dtype=int))
 
     @abstractmethod
-    def from_values(self, values: ArrayLike) -> SpatiallyDiscretizedState:
+    def from_values(self, values: ArrayLike) -> S:
         pass
 
-    def from_function(self, fn: PotentialFunction) -> SpatiallyDiscretizedState:
+    def from_function(self, fn: PotentialFunction) -> S:
         return self.from_values(self.eval(fn))
 
-    def innerp(
-        self, 
-        y1: SpatiallyDiscretizedState, 
-        y2: SpatiallyDiscretizedState) -> Scalar:
+    def innerp(self, y1: S, y2: S) -> Scalar:
 
         return jnp.prod(self.dx_range) * jnp.sum(
             jnp.conj(y1.values) * y2.values, axis=self.spatial_axes)
@@ -72,7 +68,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         return arr.reshape(*arr.shape[:-1], *sizes)
 
     @staticmethod
-    def grid_vectors(per_axis: list[Array]) -> Array:
+    def grid_vectors(per_axis: Sequence[Array]) -> Array:
         """
         Given a list of scalars for each axis, returns all vectors in the 
         cartesian product of the lists. 
@@ -81,11 +77,11 @@ class SpatialDiscretization(AbstractHilbertSpace):
         return grid.reshape(-1, len(per_axis))
 
     @property
-    def x_ranges(self) -> list[Array]:
-        return [
+    def x_ranges(self) -> tuple[Array, ...]:
+        return tuple(
             jnp.linspace(self.x0[i], self.x1[i], self.mesh_size[i], endpoint=self.endpoint) 
             for i in range(self.spatial_dim)
-        ]
+        )
 
     @property
     def x_range(self) -> Array:
@@ -94,7 +90,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.spatial_dim}, did you mean x_ranges?")
 
     @property
-    def x_meshgrid(self) -> list[Array]:
+    def x_meshgrid(self) -> tuple[Array, ...]:
         return jnp.meshgrid(*self.x_ranges, indexing="ij")
 
     @property
@@ -119,40 +115,41 @@ class SpatialDiscretization(AbstractHilbertSpace):
     # These factories are not abstract properties since intermediate classes 
     # like _FiniteDifference1D need to be instantiable without overrides
 
-    def laplacian(self) -> Operator:
+    def laplacian(self) -> Operator[S]:
         raise NotImplementedError 
 
-    def potential_energy(self, potential: PotentialFunction) -> Operator:
+    def potential_energy(self, potential: PotentialFunction) -> Operator[S]:
         raise NotImplementedError 
 
-    def position(self, axis: int = 0) -> Operator:
+    def position(self, axis: int = 0) -> Operator[S]:
         if self.spatial_dim == 1:
             X = self.potential_energy(lambda x: x)
         X = self.potential_energy(lambda x, i=axis: x[i])
         return X.with_name(f"Position(axis={axis})")
 
-    def momentum(self, axis: int) -> Operator:
+    def momentum(self, axis: int) -> Operator[S]:
         raise NotImplementedError 
 
 
-class AbstractPotentialEnergy(AbstractHermitianOperator):
+class AbstractPotentialEnergy[S: SpatiallyDiscretizedState[Any]](AbstractHermitianOperator[S]):
+    domain: SpatialDiscretization[S] = eqx.field(static=True)
     potential: PotentialFunction
 
     @property
     def values(self) -> Array:
         return self.domain.eval(self.potential)
 
-    def action(self, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
+    def action(self, y: S) -> S:
         return self.domain.from_values(self.values * y.values)
 
-    def exp_action(self, h: ComplexScalarLike, y: SpatiallyDiscretizedState) -> SpatiallyDiscretizedState:
+    def exp_action(self, h: ComplexScalarLike, y: S) -> S:
         return self.domain.from_values(jnp.exp(h * self.values) * y.values)
 
     def _solve(
         self,
-        b: SpatiallyDiscretizedState,
+        b: S,
         scale: ComplexScalarLike=-1.0,
-        shift: ComplexScalarLike=0.0) -> SpatiallyDiscretizedState:
+        shift: ComplexScalarLike=0.0) -> S:
 
         return self.domain.from_values(b.values / (scale * self.values + shift))
 
