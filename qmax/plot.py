@@ -4,13 +4,13 @@ import jax.numpy as jnp
 import matplotlib as mpl
 from jaxtyping import Array, ScalarLike
 from matplotlib.axes import Axes
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, to_rgb
 
 from .spaces.spatial_discretization import SpatiallyDiscretizedState
 
 
 def get_abs_filter(bg="white") -> LinearSegmentedColormap:
-    color = mpl.colors.to_rgb(bg)
+    color = to_rgb(bg)
 
     return LinearSegmentedColormap.from_list(
         "abs_filter", [[color[0], color[1], color[2], 1],[0, 0, 0, 0]])

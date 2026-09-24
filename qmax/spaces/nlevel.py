@@ -2,8 +2,9 @@ from typing import ClassVar
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ScalarLike
+from jaxtyping import Array
 
+from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from ..operator import Operator
 
@@ -31,7 +32,7 @@ class NLevel(AbstractHilbertSpace):
         coeffs = coeffs.at[idx].set(1.0)
         return self.from_coeffs(coeffs)
 
-    def coherent(self, alpha: ScalarLike) -> NLevelState:
+    def coherent(self, alpha: ComplexScalarLike) -> NLevelState:
         """
         Given alpha, generates a state such that a(y) ≈ alpha * y where a is the Annihilator operator. 
         """

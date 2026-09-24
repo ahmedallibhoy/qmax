@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Callable, Optional, Self
 
 import equinox as eqx
 from jaxtyping import ScalarLike
@@ -28,6 +28,10 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
         # parent_path is None at the entry point of a traversal, where self is the root
         if parent_path is None:
             return Path(self.label)
+
+        if child_idx is None:
+            raise ValueError("Recieved parent_path={parent_path} but no child index")
+
         return parent_path.append(child_idx, self.label)
 
     def child_at(self, path: Path) -> AbstractExpressionTree:
@@ -50,7 +54,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
         update: Callable[[AbstractExpressionTree, Optional[Path], Optional[int]], AbstractExpressionTree],
         path: Path=Path(),
         parent_path: Optional[Path]=None,
-        child_idx: Optional[int]=None) -> AbstractExpressionTree:
+        child_idx: Optional[int]=None) -> Self:
 
         """
         Rebuilds self with update(expr, parent_path, child_idx) applied to the node at path,
@@ -67,7 +71,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
 
         return update(self, parent_path, child_idx)
 
-    def with_name(self, name: str, path: Path=Path()) -> AbstractExpressionTree:
+    def with_name(self, name: str, path: Path=Path()) -> Self:
         return self.set_at_path(lambda op, _, __: _update_field(op, "name", name), path)
 
     @property 
@@ -76,7 +80,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree"](eqx.Module):
 
     @property
     def label(self) -> str:
-        return self.default_name if self.name is None else self.name
+        return self.name if self.name is not None else self.default_name
 
     def __repr__(self) -> str:
         return self.label

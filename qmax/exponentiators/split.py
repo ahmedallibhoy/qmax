@@ -9,6 +9,7 @@ import numpy as np
 from jaxtyping import Array, Scalar, ScalarLike
 
 from ..hilbert_space import AbstractState
+from .._types import ComplexScalarLike
 from .base import DelegatingExponentiator, Order
 
 if TYPE_CHECKING:
@@ -28,12 +29,12 @@ class AbstractSplitMethod(DelegatingExponentiator):
 
     @property
     @abstractmethod
-    def a(self) -> Array:
+    def a(self) -> np.ndarray:
         pass
 
     @property
     @abstractmethod
-    def b(self) -> Array:
+    def b(self) -> np.ndarray:
         pass
 
     def __check_init__(self):
@@ -46,7 +47,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
         if not (np.allclose(self.a, self.a[::-1]) and np.allclose(self.b, self.b[::-1])):
             raise ValueError("self.a and self.b must be palindromic sequences")
 
-    def schedule(self, op: AddOperator) -> list[tuple[int, Scalar, int]]:
+    def schedule(self, op: AddOperator) -> list[tuple[int, ComplexScalarLike, int]]:
         if self.nest_left:
             a_index, b_index = 1, 0
         else:
@@ -59,7 +60,7 @@ class AbstractSplitMethod(DelegatingExponentiator):
             sched += [(b_index, bi, 1), (a_index, ai, 1)]
         return sched
 
-    def exp(self, add_op: AddOperator, h: ScalarLike, y: AbstractState) -> AbstractState:        
+    def exp(self, add_op: AddOperator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         if self.nest_left:
             # We flip so that the Strang method on a nested sum ((A + B) + C) expands as
             #   exp(h/2 C)exp(h/2 B)exp(hA)exp(h/2 B)exp(h/2 C) 
@@ -92,8 +93,8 @@ class Strang(AbstractSplitMethod):
     Strang splitting: $\exp(h(A + B)) \approx \exp(\frac{h}{2}A)\exp(hB)\exp(\frac{h}{2}A)$. 
     Equivalent to a 2nd order partitioned Runge-Kutta exponential splitting method. 
     """
-    a: ClassVar[Array] = np.array([0.5, 0.5])
-    b: ClassVar[Array] = np.array([1.0])
+    a: ClassVar[np.ndarray] = np.array([0.5, 0.5])
+    b: ClassVar[np.ndarray] = np.array([1.0])
 
     @property
     def order(self) -> Order:
@@ -109,8 +110,8 @@ class PRK_r2_s2(AbstractSplitMethod):
         1. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    a: ClassVar[Array] = np.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
-    b: ClassVar[Array] = np.array([0.5, 0.5])
+    a: ClassVar[np.ndarray] = np.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
+    b: ClassVar[np.ndarray] = np.array([0.5, 0.5])
 
     @property
     def order(self) -> Order:
@@ -127,10 +128,10 @@ class PRK_r4_s6(AbstractSplitMethod):
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """
-    a: ClassVar[Array] = np.array(
+    a: ClassVar[np.ndarray] = np.array(
         [0.0792036964311956, 0.353172906049774, -0.0420650803577195, 0.2193769557534997,
          -0.0420650803577195, 0.353172906049774, 0.0792036964311956])
-    b: ClassVar[Array] = np.array(
+    b: ClassVar[np.ndarray] = np.array(
         [0.209515106613362, -0.1438517731798181, 0.4343366665664561,
          0.4343366665664561, -0.1438517731798181, 0.209515106613362])
 
@@ -149,11 +150,11 @@ class PRK_r6_s10(AbstractSplitMethod):
             and Runge-Kutta-Nyström methods," J. Comput. Appl. Math., vol. 142,
             no. 2, pp. 313-330, 2002.
     """
-    a: ClassVar[Array] = np.array(
+    a: ClassVar[np.ndarray] = np.array(
         [0.0502627644003922, 0.413514300428344, 0.0450798897943977, -0.188054853819569,
          0.541960678450780, -0.7255255585086897, 0.541960678450780, -0.188054853819569,
          0.0450798897943977, 0.413514300428344, 0.0502627644003922])
-    b: ClassVar[Array] = np.array(
+    b: ClassVar[np.ndarray] = np.array(
         [0.148816447901042, -0.132385865767784, 0.067307604692185, 0.432666402578175,
          -0.0164045894036180, -0.0164045894036180, 0.432666402578175, 0.067307604692185,
          -0.132385865767784, 0.148816447901042])

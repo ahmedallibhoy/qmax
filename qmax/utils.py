@@ -17,7 +17,7 @@ def stack(ys: list[AbstractState]) -> AbstractState:
         jnp.stack([y.coeffs for y in ys], axis=0))
 
 
-def unstack(y: AbstractState) -> tuple[AbstractState]:
+def unstack(y: AbstractState) -> tuple[AbstractState, ...]:
     if len(y.coeffs.shape) == 1:
         return (y,)
         

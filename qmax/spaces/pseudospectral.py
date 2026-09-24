@@ -4,8 +4,9 @@ from typing import Callable, ClassVar
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, ScalarLike
+from jaxtyping import Array, ArrayLike
 
+from .._types import ComplexScalarLike
 from ..exponentiators import AbstractExponentiator, ExactExponentiator, Order
 from ..operator import AbstractDiagonalOperator, Operator
 from .spatial_discretization import (
@@ -113,8 +114,8 @@ class PseudoSpectralPotentialEnergy(AbstractPotentialEnergy):
     def _solve(
         self, 
         b: PseudoSpectralState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> PseudoSpectralState:
+        scale: ComplexScalarLike=-1.0, 
+        shift: ComplexScalarLike=0.0) -> PseudoSpectralState:
 
         if self.domain.lossless:
             return AbstractPotentialEnergy._solve(self, b, scale, shift)

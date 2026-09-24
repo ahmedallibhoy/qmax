@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
+from ._types import ComplexArrayLike, ComplexScalarLike
 from .exponentiators import AbstractSplitMethod, Strang
 from .hilbert_space import AbstractHilbertSpace
 from .operator import AddOperator, Operator
@@ -66,9 +67,9 @@ class ControlledOperator(eqx.Module):
 
     def quadrature(
         self, 
-        t_quad: Array,
-        u_quad: Array,  
-        weights: Array) -> Operator:
+        t_quad: ComplexArrayLike,
+        u_quad: ComplexArrayLike,  
+        weights: ComplexArrayLike) -> Operator:
 
         # u_quad.shape == (len(self.controlled_ops), num_nodes)
 
@@ -81,7 +82,7 @@ class ControlledOperator(eqx.Module):
     def __call__(
         self, 
         t: ScalarLike,
-        controls: ArrayLike) -> Operator:
+        controls: ComplexArrayLike) -> Operator:
 
         """
         Evaluates the controlled operator given a time t and an array of control inputs `controls`. 
@@ -96,7 +97,7 @@ class ControlledOperator(eqx.Module):
         controls = jnp.asarray(controls)
 
         op = reduce(
-            lambda a, b: (a + b).with_split_method(self.split_method), 
-            [self.drift_op] + [u * op for (u, op) in zip(controls, self.controlled_ops)])
+            lambda a, b: (a + b).with_split_method(self.split_method), # pyright: ignore
+            [self.drift_op] + [u * op for (u, op) in zip(controls, self.controlled_ops)]) 
 
         return op(t)

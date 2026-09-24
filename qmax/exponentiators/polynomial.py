@@ -8,6 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, Scalar, ScalarLike
 
 from .._introspect import CountDict, Path
+from .._types import ComplexScalarLike
 from ..chebyshev import chebyshev
 from ..eig import op_spectral_bounds_lanczos
 from ..hilbert_space import AbstractState
@@ -27,7 +28,7 @@ N_MAX = 100
 # TODO: 
 #   1. raise warning on overflow 
 #   2. overflow safe implementation
-def _modified_bessel(order: Array, z: Scalar, extend: int=25) -> Array:
+def _modified_bessel(order: int, z: Scalar, extend: int=25) -> Array:
     def miller(carry, idx):
         s_next, s = carry
         s_prev = s_next + (2 * idx) / z * s
@@ -76,7 +77,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
     num_iterations: int = 10
 
     def __check_init__(self):
-        if not jax.config.x64_enabled:
+        if not jax.config.read("jax_enable_x64"):
             warnings.warn(
                 "ChebyshevExponentiator risks numerical overflow in single precision."
                 "It is recommended to set jax_enable_x64=True or use a different exponentiator "
@@ -90,10 +91,8 @@ class ChebyshevExponentiator(AbstractExponentiator):
 
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
-        if jax.config.x64_enabled:
-            tol = 2.0 ** -53
-        else:
-            tol = 2.0 ** -24
+        # unit roundoff
+        tol = float(jnp.finfo(jnp.result_type(float)).eps) / 2
 
         n, term = 1, 2.0
         while term > tol and n < N_MAX:
@@ -102,7 +101,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
 
         return ChebyshevExponentiator(n)
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         lambda_min, lambda_max = op.spectral_bounds
 
         a, b = 0.5 * (lambda_max - lambda_min), 0.5 * (lambda_max + lambda_min)
@@ -122,7 +121,7 @@ class ChebyshevExponentiator(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 

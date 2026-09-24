@@ -12,6 +12,7 @@ from jaxtyping import Array, ScalarLike
 
 from .._internal import _update_field
 from .._introspect import CountDict, Path
+from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, NotExponentiableError, Order
 from .split import AbstractSplitMethod
@@ -73,10 +74,10 @@ class Yoshida(AbstractCompositionMethod):
             2nd ed. New York: Springer, 2006.
     """
 
-    composed_order = 4
+    composed_order: ClassVar[int] = 4
     
     @property
-    def weights(self) -> Array:
+    def weights(self) -> np.ndarray:
         w1 = 1 / (2 - 2 ** (1 / 3))
         w2 = 1 - 2 * w1
         return np.array([w1, w2, w1])
@@ -96,10 +97,10 @@ class Suzuki(AbstractCompositionMethod):
             Structure-Preserving Algorithms for Ordinary Differential Equations,
             2nd ed. New York: Springer, 2006.
     """
-    composed_order = 4
+    composed_order: ClassVar[int] = 4
 
     @property
-    def weights(self) -> Array:
+    def weights(self) -> np.ndarray:
         w1 = 1 / (4 - 4 ** (1 / 3))
         w2 = 1 - 4 * w1
         return np.array([w1, w1, w2, w1, w1])
@@ -118,8 +119,8 @@ class Symmetric_r6_s7(AbstractCompositionMethod):
         2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    composed_order = 6
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 6
+    weights: ClassVar[np.ndarray] = np.array(
         [0.7845136104775573, 0.23557321335935813, -1.177679984178871,
          1.3151863206839112, -1.177679984178871, 0.23557321335935813,
          0.7845136104775573])
@@ -138,8 +139,8 @@ class Symmetric_r6_s9(AbstractCompositionMethod):
         2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    composed_order = 6
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 6
+    weights: ClassVar[np.ndarray] = np.array(
         [0.1867, 0.5554970237124784, 0.12946694891347535,
          -0.8432656233877346, 0.9432033015235616, -0.8432656233877346,
          0.12946694891347535, 0.5554970237124784, 0.1867])
@@ -158,8 +159,8 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
         2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    composed_order = 8
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 8
+    weights: ClassVar[np.ndarray] = np.array(
         [0.741670364350613, -0.4091008258000316, 0.1907547102962384,
          -0.5738624711160822, 0.2990641813036559, 0.33462491824529816,
          0.3152930923967666, -0.7968879393529165, 0.3152930923967666,
@@ -180,8 +181,8 @@ class Symmetric_r8_s17(AbstractCompositionMethod):
         2. S. Blanes and F. Casas, A Concise Introduction to Geometric Numerical
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
-    composed_order = 8
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 8
+    weights: ClassVar[np.ndarray] = np.array(
         [0.12886597938144329, 0.581514087105251, -0.4101753714698501,
          0.18514693571658775, -0.4095523434208514, 0.14440594108001203,
          0.27833550039367966, 0.31495668391629483, -0.6269948254051341,
@@ -200,8 +201,8 @@ class Symmetric_r10_s31(AbstractCompositionMethod):
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """
-    composed_order = 10
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 10
+    weights: ClassVar[np.ndarray] = np.array(
         [0.14998070054317051502516939497857, 0.091208635101489291996105121514462, 0.50623124887796194535266557555255,
          0.094789715925889154094231454089204, -0.19520875735034504160990960439871, -0.38816256756251756192331854792644,
          -0.27450555650873276528931810649505, 0.14264675556451861069659069043321, 0.067102518966825349346877396037809,
@@ -225,8 +226,8 @@ class Symmetric_r10_s33(AbstractCompositionMethod):
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """
-    composed_order = 10
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 10
+    weights: ClassVar[np.ndarray] = np.array(
         [0.070711261586085399079302771810203, 0.090342080937267568345577914389234, 0.14103133297152486103524322594476,
          0.40206004554029767537357060971803, -0.30239722849131075165735249848238, -0.22462355658241460137093154363351,
          0.061496988956063121940380707068411, 0.11346847775740802675296685287062, 0.23654672241381781124636015203490,
@@ -250,8 +251,8 @@ class Symmetric_r10_s35(AbstractCompositionMethod):
             constants for symmetric integrators," Optim. Methods Softw., vol. 20,
             no. 4-5, pp. 597-613, 2005.
     """
-    composed_order = 10
-    weights: ClassVar[Array] = np.array(
+    composed_order: ClassVar[int] = 10
+    weights: ClassVar[np.ndarray] = np.array(
         [0.078795722521686419263907679337684, 0.31309610341510852776481247192647, 0.027918383235078066109520273275299,
          -0.22959284159390709415121339679655, 0.13096206107716486317465685927961, -0.26973340565451071434460973222411,
          0.074973343155891435666137105641410, 0.11199342399981020488957508073640, 0.36613344954622675119314812353150,
@@ -280,11 +281,11 @@ class AbstractComposedExponentiator(AbstractExponentiator):
 
         base_effective_order = self.base_exp.effective_order(op)
 
-        if not base_effective_order == 2:
-            raise NotExponentiableError(
-                f"Composition methods are only compatible with exponentiators of order 2 "
-                f"but {self.base_exp} has effective_order={base_effective_order} when applied "
-                f"to the operator {op.label}")
+        #if not base_effective_order == 2:
+        #    raise NotExponentiableError(
+        #        f"Composition methods are only compatible with exponentiators of order 2 "
+        #        f"but {self.base_exp} has effective_order={base_effective_order} when applied "
+        #        f"to the operator {op.label}")
 
 
     @property
@@ -313,7 +314,7 @@ class ComposedExponentiator(AbstractComposedExponentiator):
     def operator_type(self) -> type[Operator]:
         return self.base_exp.operator_type
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         def update(exp_y, w):
             return self.base_exp.exp(op, w * h, exp_y), None
 
@@ -324,7 +325,7 @@ class ComposedExponentiator(AbstractComposedExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 
@@ -363,11 +364,11 @@ class ComposedSplitExponentiator(AbstractComposedExponentiator, AbstractSplitMet
         self.nest_left = nest_left
 
     @property
-    def a(self) -> Array:
+    def a(self) -> np.ndarray:
         return np.array(self._a)
 
     @property
-    def b(self) -> Array:
+    def b(self) -> np.ndarray:
         return np.array(self._b)
 
 
@@ -376,10 +377,10 @@ def compose(
     composition: AbstractCompositionMethod,
     nest_left: Optional[bool]=None) -> AbstractComposedExponentiator:
 
-    if not base_exp.order == 2:
-        raise NotExponentiableError(
-            f"Composition methods only compatible with exponentiators of order 2 "
-            f"but received exponentiator of order={base_exp.order}")
+    #if not base_exp.order == 2:
+    #    raise NotExponentiableError(
+    #        f"Composition methods only compatible with exponentiators of order 2 "
+    #        f"but received exponentiator of order={base_exp.order}")
 
     if isinstance(base_exp, AbstractSplitMethod):
         if nest_left is None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Sequence
 
 import equinox as eqx
 import jax
@@ -14,16 +14,16 @@ if TYPE_CHECKING:
 
 type Shape = tuple[int, ...]
 
-type Index = int | tuple[int, ...]
+type Index = Any
 
 
-def _to_tuple(idx: Index) -> tuple[int, ...]:
+def _to_tuple(idx: Index) -> tuple[Index, ...]:
     if isinstance(idx, tuple):
         return idx 
     return (idx,)
 
 
-def _coeff_index(idx: Index) -> tuple[int, ...]:
+def _coeff_index(idx: Index) -> tuple[Index, ...]:
     return _to_tuple(idx) + (slice(None),)
 
 
@@ -113,22 +113,16 @@ class AbstractState(eqx.Module):
         self.coeffs = jnp.asarray(coeffs, dtype=complex)
         self.hilbert_space = hilbert_space
 
-    def binary_op(
-        self, 
-        other: AbstractState, 
-        fn: Callable, 
-        on_coeffs: bool=True) -> AbstractState | Scalar:
-
-        if not isinstance(other, AbstractState):
-            return NotImplemented
-
+    def _check_compatible(self, other: AbstractState):
         if self.hilbert_space != other.hilbert_space:
             raise ValueError("Cannot compose vectors from different spaces")
 
-        if on_coeffs:
-            return self.hilbert_space.from_coeffs(fn(self.coeffs, other.coeffs))
-        else:
-            return fn(self, other)
+    def binary_op(self, other: AbstractState, fn: Callable) -> AbstractState:
+        if not isinstance(other, AbstractState):
+            return NotImplemented
+
+        self._check_compatible(other)
+        return self.hilbert_space.from_coeffs(fn(self.coeffs, other.coeffs))
 
     def innerp(self, y: AbstractState) -> Scalar:
         return self.hilbert_space.innerp(self, y)
@@ -155,12 +149,12 @@ class AbstractState(eqx.Module):
         return self.binary_op(other, lambda a, b: b - a)
 
     def __matmul__(self, other: AbstractState) -> Scalar:
-        return self.binary_op(
-            other, lambda a, b, hs=self.hilbert_space: hs.innerp(a, b), on_coeffs=False)
+        if not isinstance(other, AbstractState):
+            return NotImplemented
 
-    def __rmatmul__(self, other: AbstractState) -> Scalar:
-        return self.binary_op(
-            other, lambda a, b, hs=self.hilbert_space: hs.innerp(b, a), on_coeffs=False)
+        self._check_compatible(other)
+
+        return self.hilbert_space.innerp(self, other)
 
     def __mul__(self, other: ScalarLike) -> AbstractState:
         if not jnp.isscalar(other):

@@ -180,7 +180,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
         g_u_quads = g_u_quads.reshape(U.num_steps, *g_u_quads.shape[2:])
 
         # Append last save gradient
-        g_u_saves = jnp.concatenate([g_u_saves, g_u1_save[None]])  
+        g_u_saves = jnp.concatenate([g_u_saves, g_u1_save[None]])  # pyright: ignore
 
     # compute gradient of initial cost w.r.t. u0, y0
     _, vjp = eqx.filter_vjp(running_cost_fn, t0, y0, us[0])
@@ -190,7 +190,7 @@ def _propagate_bwd(res, grad_out, _, vjp_args, U, running_cost_fn, save_every, s
 
     if jax.tree.leaves(g_ys):
         # Add contribution of save gradients to g_us
-        g_us = g_us.at[::save_every].add(g_u_saves)
+        g_us = g_us.at[::save_every].add(g_u_saves) # pyright: ignore
 
     return g_y0, g_us, g_u_quads
 

@@ -1,11 +1,12 @@
 from functools import reduce
-from typing import Callable, ClassVar, Optional
+from typing import ClassVar, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
 import lineax as lx
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike, Scalar
 
+from .._types import ComplexScalarLike, RealArrayLike, RealScalarLike
 from ..exponentiators import AbstractExponentiator, Cayley, ExactExponentiator, NoExponentiator
 from ..hilbert_space import AbstractState
 from ..operator import AbstractHermitianOperator, Operator
@@ -33,13 +34,13 @@ class _FiniteDifference1D(SpatialDiscretization):
     state_type: ClassVar = _FiniteDifference1DState
     endpoint: ClassVar[bool] = True
 
-    def __init__(self, x0: ScalarLike, x1: ScalarLike, mesh_size: int):
+    def __init__(self, x0: RealScalarLike, x1: RealScalarLike, mesh_size: int):
         self.x0 = (float(x0),)
         self.x1 = (float(x1),)
         self.mesh_size = (mesh_size,)
 
     @property
-    def dim(self) -> Array:
+    def dim(self) -> int:
         return self.mesh_size[0]
 
     def from_values(self, values: ArrayLike) -> _FiniteDifference1DState:
@@ -68,16 +69,16 @@ class _FiniteDifference1DLaplacian(AbstractHermitianOperator):
     def _solve(
         self,
         b: _FiniteDifference1DState,
-        scale: ScalarLike=-1.0,
-        shift: ScalarLike=0.0) -> _FiniteDifference1DState:
+        scale: ComplexScalarLike=-1.0,
+        shift: ComplexScalarLike=0.0) -> _FiniteDifference1DState:
 
         hilbert_space = self.domain
         dim = hilbert_space.dim
         dx = hilbert_space.dx
 
         diag = jnp.full(dim, shift - 2 * scale / (dx ** 2), dtype=complex)
-        lower_diag = scale * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
-        upper_diag = scale * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
+        lower_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
+        upper_diag = jnp.asarray(scale) * jnp.full(dim - 1, 1 / (dx ** 2), dtype=complex)
 
         lx_op = lx.TridiagonalLinearOperator(diag, lower_diag, upper_diag)
 
@@ -139,7 +140,7 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
     state_type: ClassVar[type[AbstractState]] = FiniteDifferenceState
     endpoint: ClassVar[bool] = True
 
-    def __init__(self, x0: ArrayLike, x1: ArrayLike, num_steps: int | tuple[int]):
+    def __init__(self, x0: RealArrayLike, x1: RealArrayLike, num_steps: int | tuple[int]):
         if isinstance(num_steps, int):
             self.spaces = (_FiniteDifference1D(float(x0), float(x1), num_steps),)
         else:
@@ -149,14 +150,14 @@ class FiniteDifference(SpatialDiscretization, TensorProduct):
 
         self.x0 = _to_tuple(x0)
         self.x1 = _to_tuple(x1)
-        self.mesh_size = num_steps
+        self.mesh_size = _to_tuple(num_steps, dtype=int)
 
     @property
-    def dim(self) -> Array:
+    def dim(self) -> int:
         return reduce(lambda a, b: a * b, self.mesh_size)
 
     def from_values(self, values: ArrayLike) -> FiniteDifferenceState:
-        return self.from_coeffs(self.flatten(values))
+        return self.from_coeffs(self.flatten(jnp.asarray(values)))
 
     def laplacian(self) -> FiniteDifferenceLaplacian:
         return FiniteDifferenceLaplacian(self)

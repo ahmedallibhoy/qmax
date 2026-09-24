@@ -7,7 +7,8 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import lineax as lx
-from jaxtyping import Array, Scalar, ScalarLike
+from jax.core import Tracer
+from jaxtyping import Array, Scalar
 
 from ._internal import _overrides, _update_field
 from ._introspect import (
@@ -18,6 +19,7 @@ from ._introspect import (
     Path,
     _rows,
 )
+from ._types import ComplexScalarLike, RealScalarLike
 from .exponentiators import (
     AbstractCompositionMethod,
     AbstractExponentiator,
@@ -42,11 +44,11 @@ class NoRealSpectrumError(Exception):
     pass
 
 
-def _as_shift(x: Operator | ScalarLike) -> Optional[ScalarLike]:
+def _as_shift(x: Operator | ComplexScalarLike) -> Optional[ComplexScalarLike]:
     """The coefficient c if x is c*I -- as a bare scalar, Identity, or a scalar
     multiple of one, else None."""
     if jnp.isscalar(x):
-        return x
+        return x # pyright: ignore
     if isinstance(x, Identity):
         return 1.0
     if isinstance(x, ShiftScaleOperator) and isinstance(x.children[0], Identity):
@@ -116,10 +118,10 @@ class Operator(AbstractExpressionTree["Operator"]):
     def tree_order(self) -> Order:
         return self.exponentiator.tree_order(self)
 
-    def exp_count(self, h: ScalarLike, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> CountDict:
+    def exp_count(self, h: ComplexScalarLike, parent_path: Optional[Path]=None, child_idx: Optional[int]=None) -> CountDict:
         return self.exponentiator.tree_count(self, h, parent_path, child_idx)
 
-    def adapt(self, dt_max: ScalarLike) -> Operator:
+    def adapt(self, dt_max: RealScalarLike) -> Operator:
         return self.exponentiator.adapt_tree(self, dt_max)
 
     # --------------------------------------------------------------------------------------------
@@ -130,11 +132,11 @@ class Operator(AbstractExpressionTree["Operator"]):
         self._check_domain(y)
         return self.action(y)
 
-    def exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         self._check_domain(y)
         return self.exponentiator(self, h, y)
 
-    def solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+    def solve(self, b: AbstractState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> AbstractState:
         self._check_domain(b)
         return self._solve(b, scale, shift)
 
@@ -150,15 +152,15 @@ class Operator(AbstractExpressionTree["Operator"]):
     def adj_action(self, y: AbstractState) -> AbstractState:
         pass
 
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp_action(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         raise NoExactExponentialError(
             f"Exact exponential cannot be computed: {self} does not override base exp_action"
         )
 
-    def _exp(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def _exp(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return self.exponentiator.exp(self, h, y)
 
-    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+    def _solve(self, b: AbstractState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> AbstractState:
         """
         Solves (shift * I + scale * A)y = b. 
 
@@ -192,7 +194,7 @@ class Operator(AbstractExpressionTree["Operator"]):
     # Operator Algebra
     # --------------------------------------------------------------------------------------------
 
-    def __add__(self, other: Operator | ScalarLike) -> Operator:
+    def __add__(self, other: Operator | ComplexScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -208,7 +210,7 @@ class Operator(AbstractExpressionTree["Operator"]):
             
         return AddOperator(self, other)
 
-    def __radd__(self, other: Operator | ScalarLike) -> Operator:
+    def __radd__(self, other: Operator | ComplexScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -224,7 +226,7 @@ class Operator(AbstractExpressionTree["Operator"]):
 
         return AddOperator(other, self)
 
-    def __sub__(self, other: Operator | ScalarLike) -> Operator:
+    def __sub__(self, other: Operator | ComplexScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -235,7 +237,7 @@ class Operator(AbstractExpressionTree["Operator"]):
 
         return NotImplemented
 
-    def __rsub__(self, other: Operator | ScalarLike) -> Operator:
+    def __rsub__(self, other: Operator | ComplexScalarLike) -> Operator:
         self._check_compatible(other)
 
         c = _as_shift(other)
@@ -246,13 +248,13 @@ class Operator(AbstractExpressionTree["Operator"]):
 
         return NotImplemented
 
-    def __mul__(self, other: ScalarLike) -> Operator:
+    def __mul__(self, other: ComplexScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
         return ShiftScaleOperator(self, scale=other)
 
-    def __rmul__(self, other: ScalarLike) -> Operator:
+    def __rmul__(self, other: ComplexScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
@@ -299,7 +301,7 @@ class Operator(AbstractExpressionTree["Operator"]):
     def H(self) -> Operator:
         return self.adjoint()
 
-    def __truediv__(self, other: ScalarLike) -> Operator:
+    def __truediv__(self, other: ComplexScalarLike) -> Operator:
         if not jnp.isscalar(other):
             return NotImplemented
 
@@ -368,16 +370,16 @@ class ShiftScaleOperator(Operator):
     """
     Implements shift * Identity() + scale * op
     """
-    shift: ScalarLike = 0
-    scale: ScalarLike = 1
+    shift: ComplexScalarLike
+    scale: ComplexScalarLike
 
     def __init__(
         self,
         op: Operator,
-        shift: ScalarLike=0,
-        scale: ScalarLike=1,
+        shift: ComplexScalarLike=0,
+        scale: ComplexScalarLike=1,
         *,
-        exponentiator: Optional[AbstractExponentiator]=ShiftScaleExponentiator(),
+        exponentiator: AbstractExponentiator=ShiftScaleExponentiator(),
         name: Optional[str]=None):
 
         self.domain = op.domain
@@ -398,7 +400,7 @@ class ShiftScaleOperator(Operator):
 
     @property
     def default_name(self) -> str:
-        if isinstance(self.shift, jax.core.Tracer) or isinstance(self.scale, jax.core.Tracer):
+        if isinstance(self.shift, Tracer) or isinstance(self.scale, Tracer):
             # To avoid tracer issues since default name depends on values of shift and scale
             return type(self).__name__
 
@@ -420,7 +422,7 @@ class ShiftScaleOperator(Operator):
         (A,) = self.children
         return jnp.conj(self.scale) * A.adj_action(y) + jnp.conj(self.shift) * y
 
-    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0):
+    def _solve(self, b: AbstractState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0):
         (A,) = self.children
         return A._solve(b, scale * self.scale, shift + scale * self.shift)
 
@@ -581,7 +583,7 @@ class AdjOperator(Operator):
         self,
         op: Operator,
         *,
-        exponentiator: Optional[AbstractExponentiator]=NoExponentiator(),
+        exponentiator: AbstractExponentiator=NoExponentiator(),
         name: Optional[str]=None):
 
         self.domain = op.domain
@@ -634,10 +636,10 @@ class Identity(AbstractHermitianOperator):
     def action(self, y: AbstractState) -> AbstractState:
         return y
 
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp_action(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return jnp.exp(h) * y
 
-    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+    def _solve(self, b: AbstractState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> AbstractState:
         return b / (shift + scale)
 
     @property
@@ -654,10 +656,10 @@ class Zero(AbstractHermitianOperator):
     def action(self, y: AbstractState) -> AbstractState:
         return self.domain.zeros_like(y)
 
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp_action(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return y
 
-    def _solve(self, b: AbstractState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> AbstractState:
+    def _solve(self, b: AbstractState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> AbstractState:
         return b / shift
 
     @property
@@ -682,15 +684,15 @@ class AbstractDiagonalOperator(Operator):
     def adj_action(self, y: AbstractState) -> AbstractState:
         return self.domain.from_coeffs(jnp.conj(self.eigvals) * y.coeffs)
 
-    def exp_action(self, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp_action(self, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         coeffs = jnp.exp(h * self.eigvals) * y.coeffs
         return self.domain.from_coeffs(coeffs)
 
     def _solve(
         self, 
         b: AbstractState, 
-        scale: ScalarLike=-1.0, 
-        shift: ScalarLike=0.0) -> AbstractState:
+        scale: ComplexScalarLike=-1.0, 
+        shift: ComplexScalarLike=0.0) -> AbstractState:
 
         return self.domain.from_coeffs(b.coeffs / (scale * self.eigvals + shift))
 

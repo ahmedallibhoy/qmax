@@ -8,6 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, ScalarLike
 
 from ._internal import _update_field
+from ._types import ComplexArrayLike, ComplexScalarLike
 from .control import AbstractControl, ConstantControl
 from .exponentiators import AbstractSplitMethod, Strang
 from .expression_tree import AbstractExpressionTree
@@ -32,7 +33,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
         return self.evaluate(t)
 
     @abstractmethod
-    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         pass
 
     def evaluate(self, t: ScalarLike) -> Operator:
@@ -70,7 +71,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
 
     def __mul__(self, other: ScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
         if jnp.isscalar(other):
-            other = ConstantControl(other)
+            other = ConstantControl(other) # pyright: ignore
         if not isinstance(other, AbstractControl):
             return NotImplemented
 
@@ -78,7 +79,7 @@ class AbstractTimeVaryingOperator(AbstractExpressionTree["AbstractTimeVaryingOpe
 
     def __rmul__(self, other: ScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
         if jnp.isscalar(other):
-            other = ConstantControl(other)
+            other = ConstantControl(other) # pyright: ignore
         if not isinstance(other, AbstractControl):
             return NotImplemented
 
@@ -96,7 +97,7 @@ class ConstantTimeVaryingOperator(AbstractTimeVaryingOperator):
         self.domain = op.domain
         self.name = name if name is not None else op.label
 
-    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         return jnp.sum(weights) * self.op
 
 
@@ -125,7 +126,7 @@ class AddTimeVaryingOperator(AbstractTimeVaryingOperator):
     def with_split_method(self, split_method: AbstractSplitMethod):
         return _update_field(self, "split_method", split_method)
 
-    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         A, B = self.children
         return AddOperator(
             A.quadrature(t_quad, weights), B.quadrature(t_quad, weights),
@@ -147,7 +148,7 @@ class ScalarMulTimeVaryingOperator(AbstractTimeVaryingOperator):
         self.domain = A.domain
         self.name = name if name is not None else f"{type(u).__name__} * {A.label}"
 
-    def quadrature(self, t_quad: Array, weights: Array) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
         (A,) = self.children
         return A.quadrature(t_quad, weights * jax.vmap(self.u)(t_quad))
 

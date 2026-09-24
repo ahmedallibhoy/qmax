@@ -10,6 +10,7 @@ import numpy as np
 from jaxtyping import Array, PRNGKeyArray, Scalar, ScalarLike
 
 from .._introspect import CountDict, Path
+from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
 
@@ -144,9 +145,10 @@ THETA_TABLES = {
 }
 
 
-def _theta_table(max_tol: Optional[float]) -> Array:
+def _theta_table(max_tol: Optional[float]) -> np.ndarray:
     if max_tol is None:
-        max_tol = 2.0**-53 if jax.config.x64_enabled else 2.0**-24
+        # unit roundoff
+        max_tol = float(jnp.finfo(jnp.result_type(float)).eps) / 2
 
     admissible = [tol for tol in THETA_TABLES if tol <= max_tol]
     if not admissible:
@@ -273,7 +275,7 @@ def block_estimate(
 
 def _taylor_expm(
     op: Operator,
-    h: ScalarLike,
+    h: ComplexScalarLike,
     y: AbstractState,
     num_iterations: int) -> AbstractState:
     """
@@ -397,7 +399,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
 
         return TruncatedTaylorExponentiator(m, s, mu, self.max_tol)
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         theta_list = _theta_table(self.max_tol)
         
         if self.s is None:
@@ -425,7 +427,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
         
@@ -435,7 +437,7 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
             theta_list = _theta_table(self.max_tol)
 
             theta = block_estimate(
-                jnp.abs(h) * (op - self.mu), 
+                jnp.abs(jnp.asarray(h)) * (op - self.mu), 
                 num_samples=NUM_BLOCK_SAMPLES, num_iterations=NUM_BLOCK_ITERATIONS)
 
             s = int(jnp.maximum(1, jnp.ceil(theta / theta_list[self.m - 1])))

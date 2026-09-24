@@ -3,8 +3,9 @@ from typing import ClassVar, Optional
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
-from jaxtyping import Array, ScalarLike
+from jaxtyping import Array
 
+from .._types import ComplexScalarLike
 from ..exponentiators import AbstractExponentiator, ExactExponentiator
 from ..operator import AbstractHermitianOperator
 from ..tensor import KroneckerProduct, TensorPower, TensorState
@@ -38,7 +39,7 @@ class TwoLevel(NLevel):
 
 class AbstractPauliOperator(AbstractHermitianOperator):
 
-    def exp_action(self, h: ScalarLike, y: QubitsState) -> QubitsState:                    
+    def exp_action(self, h: ComplexScalarLike, y: QubitsState) -> QubitsState:                    
         return jnp.cosh(h) * y + jnp.sinh(h) * self.action(y)
 
     @property
@@ -47,8 +48,8 @@ class AbstractPauliOperator(AbstractHermitianOperator):
 
     def _solve(self,
         b: QubitsState,
-        scale: ScalarLike=-1.0,
-        shift: ScalarLike=0.0) -> QubitsState:
+        scale: ComplexScalarLike=-1.0,
+        shift: ComplexScalarLike=0.0) -> QubitsState:
 
         return (shift * b - scale * self.action(b)) / (shift ** 2 - scale ** 2)
 

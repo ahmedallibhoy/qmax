@@ -6,8 +6,9 @@ from typing import TYPE_CHECKING, Callable
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Real, Array, ArrayLike, Scalar, ScalarLike
 
+from ._types import RealArrayLike, RealScalarLike
 from .operator import Operator
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ class AbstractControl(eqx.Module):
     Abstract base class for controls.
     """
 
-    def __call__(self, t: ScalarLike) -> Scalar:
+    def __call__(self, t: RealScalarLike) -> RealScalarLike:
         """
         Args:
             t (Scalar): time at which to evaluate the control 
@@ -48,7 +49,7 @@ class AbstractControl(eqx.Module):
         return self * ConstantTimeVaryingOperator(op)
 
     @abstractmethod
-    def evaluate(self, t: ScalarLike) -> Scalar:
+    def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         pass
 
 
@@ -60,20 +61,17 @@ class ControlFunction(AbstractControl):
         cntrl (callable): Function with signature `cntrl(t)` returning a scalar 
             which is the control at time t. 
     """
-    cntrl: Callable[[Scalar], Scalar]
+    cntrl: Callable[[RealScalarLike], RealScalarLike]
 
-    def evaluate(self, t: ScalarLike) -> Scalar:
+    def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         return self.cntrl(t)
 
 
 class ConstantControl(AbstractControl):
-    u: Scalar = eqx.field(static=True, converter=float)
+    u: float = eqx.field(static=True, converter=float)
 
-    def evaluate(self, t: ScalarLike) -> Scalar:
+    def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         return self.u
-
-
-type CanMultiply = AbstractInterpolatedControl | ScalarLike | Operator
 
 
 class AbstractInterpolatedControl(AbstractControl):
@@ -81,15 +79,15 @@ class AbstractInterpolatedControl(AbstractControl):
     Abstract base class for interpolated controls
     """
 
-    t0: Scalar = eqx.field(static=True, converter=float)
-    t1: Scalar = eqx.field(static=True, converter=float)
+    t0: float = eqx.field(static=True, converter=float)
+    t1: float = eqx.field(static=True, converter=float)
     u_range: Array
 
     @classmethod
     def from_function(cls, 
-        u_func: Callable[[Scalar], Scalar], 
-        t0: ScalarLike, 
-        t1: ScalarLike, 
+        u_func: Callable[[RealScalarLike], RealScalarLike], 
+        t0: RealScalarLike, 
+        t1: RealScalarLike, 
         num_samples: int) -> AbstractInterpolatedControl:
         """
         Creates an instance of the interpolated control object from a callable
@@ -103,7 +101,7 @@ class AbstractInterpolatedControl(AbstractControl):
         """
 
         t_range = jnp.linspace(t0, t1, num_samples)
-        u_range = jax.vmap(u_func)(t_range)
+        u_range = jnp.asarray(jax.vmap(u_func)(t_range))
         return cls(t0, t1, u_range)
 
     @property
@@ -111,14 +109,14 @@ class AbstractInterpolatedControl(AbstractControl):
         return self.u_range.shape[0]
 
     @property
-    def dt(self) -> Scalar:
+    def dt(self) -> RealScalarLike:
         return (self.t1 - self.t0) / (self.num_steps - 1)
 
     @property
     def t_range(self) -> Array:
         return jnp.linspace(self.t0, self.t1, self.num_steps)
 
-    def idx(self, t: ScalarLike) -> Scalar:
+    def idx(self, t: RealScalarLike) -> RealScalarLike:
         return jnp.clip(jnp.trunc((t - self.t0) / self.dt).astype(int), 0, self.num_steps - 2)
 
 
@@ -133,7 +131,7 @@ class PiecewiseConstantControl(AbstractInterpolatedControl):
         u_range (Array): Array of values to interpolate between
     """
 
-    def evaluate(self, t: ScalarLike) -> Scalar:
+    def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         idx = self.idx(t)
         return self.u_range[idx]
 
@@ -149,7 +147,7 @@ class PiecewiseLinearControl(AbstractInterpolatedControl):
         u_range (Array): Array of values to interpolate between
     """
 
-    def evaluate(self, t: ScalarLike) -> Scalar:
+    def evaluate(self, t: RealScalarLike) -> RealScalarLike:
         idx = self.idx(t)
         t_prev = self.t0 + self.dt * idx 
         t_next = self.t0 + self.dt * (idx + 1)

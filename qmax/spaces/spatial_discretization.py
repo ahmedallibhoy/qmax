@@ -14,7 +14,7 @@ from ..operator import AbstractHermitianOperator, Operator
 
 type PotentialFunction = Callable[[Array], Scalar]
 
-def _to_tuple(x, dtype=float):
+def _to_tuple(x, dtype=float) -> tuple:
     if jnp.isscalar(x):
         return (x,)
     return tuple(dtype(s) for s in x)
@@ -80,7 +80,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         return grid.reshape(-1, len(per_axis))
 
     @property
-    def x_ranges(self) -> Array:
+    def x_ranges(self) -> list[Array]:
         return [
             jnp.linspace(self.x0[i], self.x1[i], self.mesh_size[i], endpoint=self.endpoint) 
             for i in range(self.spatial_dim)
@@ -93,7 +93,7 @@ class SpatialDiscretization(AbstractHilbertSpace):
         raise Exception(f"x_range only supported on 1d spatial discretizations but dim={self.spatial_dim}, did you mean x_ranges?")
 
     @property
-    def x_meshgrid(self) -> Array:
+    def x_meshgrid(self) -> list[Array]:
         return jnp.meshgrid(*self.x_ranges, indexing="ij")
 
     @property

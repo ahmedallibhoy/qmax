@@ -7,6 +7,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
 from .._introspect import CountDict, Path
+from .._types import ComplexScalarLike
 from ..eig import op_spectral_bounds_lanczos
 from ..hilbert_space import AbstractState
 from ..lanczos import lanczos
@@ -63,10 +64,8 @@ class KrylovExponentiator(AbstractExponentiator):
 
         w = 0.5 * jnp.abs(dt_max) * (lmax - lmin)
 
-        if jax.config.x64_enabled:
-            tol = 2.0 ** -53
-        else:
-            tol = 2.0 ** -24
+        # unit roundoff
+        tol = float(jnp.finfo(jnp.result_type(float)).eps) / 2
 
         n, term = 1, 2.0
         while term > tol and n < N_MAX:
@@ -75,7 +74,7 @@ class KrylovExponentiator(AbstractExponentiator):
 
         return KrylovExponentiator(n, self.orthogonalize)
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
 
         def fn(y_i):
             alpha, beta, Q, _ = lanczos(op, self.num_iterations,
@@ -95,7 +94,7 @@ class KrylovExponentiator(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 

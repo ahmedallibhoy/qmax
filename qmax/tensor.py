@@ -8,9 +8,10 @@ from typing import Callable, ClassVar, Iterable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike, Scalar, ScalarLike
+from jaxtyping import Array, ArrayLike
 
 from ._introspect import Count, InterfaceCount, Path
+from ._types import ComplexScalarLike
 from .exponentiators import AbstractExponentiator, DelegatingExponentiator, Order
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Identity, IncompatibleDomainError, Operator
@@ -103,7 +104,7 @@ class AbstractTensorSpace(AbstractHilbertSpace):
     def dim(self) -> int:
         return math.prod(self.dim_list)
 
-    def from_tensor(self, tensor: ArrayLike):
+    def from_tensor(self, tensor: ArrayLike) -> TensorState:
         tensor = jnp.asarray(tensor)
         batch_shape = tensor.shape[:tensor.ndim - self.num_factors]
         return self.from_coeffs(tensor.reshape(*batch_shape, self.dim))
@@ -177,7 +178,7 @@ class AbstractTensorOperator(Operator):
 
 class LiftExp(DelegatingExponentiator):
 
-    def schedule(self, lift_op: LiftOperator) -> list[tuple[int, Scalar, int]]:
+    def schedule(self, lift_op: LiftOperator) -> list[tuple[int, ComplexScalarLike, int]]:
         # the lifted operator acts on each of the remaining subspaces in turn
         (A,) = lift_op.children
         #return [(0, 1.0, lift_op.domain.dim // A.domain.dim)]
@@ -186,7 +187,7 @@ class LiftExp(DelegatingExponentiator):
     def exp(
         self,
         lift_op: LiftOperator,
-        h: ScalarLike,
+        h: ComplexScalarLike,
         y: TensorState) -> TensorState:
 
         (A,) = lift_op.children
@@ -207,7 +208,7 @@ class LiftOperator(AbstractTensorOperator):
 
     def __init__(
         self, 
-        domain: AbstractHilbertSpace, 
+        domain: AbstractTensorSpace, 
         A: Operator, 
         factor_idx: int):
 
@@ -246,7 +247,7 @@ class LiftOperator(AbstractTensorOperator):
         (A,) = self.children
         return A.spectral_bounds
 
-    def _solve(self, b: TensorState, scale: ScalarLike=-1.0, shift: ScalarLike=0.0) -> TensorState:
+    def _solve(self, b: TensorState, scale: ComplexScalarLike=-1.0, shift: ComplexScalarLike=0.0) -> TensorState:
         (A,) = self.children
         return apply_along_state(lambda s: A._solve(s, scale, shift), b, self.factor_idx)
 
@@ -325,7 +326,7 @@ class KroneckerProductMixin(AbstractTensorOperator):
 
 class KroneckerSumExp(DelegatingExponentiator):
 
-    def schedule(self, kron_op: KroneckerSum) -> list[tuple[int, Scalar, int]]:
+    def schedule(self, kron_op: KroneckerSum) -> list[tuple[int, ComplexScalarLike, int]]:
         # each factor acts on every slice along its own axis
         #return [
         #    (idx, 1.0, kron_op.domain.dim // kron_op.domain[idx].dim)
@@ -340,7 +341,7 @@ class KroneckerSumExp(DelegatingExponentiator):
     def exp(
         self,
         kron_op: KroneckerSum,
-        h: ScalarLike,
+        h: ComplexScalarLike,
         y: TensorState) -> TensorState:
 
         for factor_idx, op in enumerate(kron_op.children):
@@ -366,7 +367,7 @@ class KroneckerSum(KroneckerProductMixin):
             for factor_idx, op in enumerate(self.children)
         ])
 
-    def adj_action(self, y):
+    def adj_action(self, y: TensorState):
         return reduce(lambda a, b: a + b, [
             apply_along_state(lambda s, op=op: op.adj_action(s), y, factor_idx)
             for factor_idx, op in enumerate(self.children)
@@ -398,7 +399,7 @@ class KroneckerProduct(KroneckerProductMixin):
 
         return y
 
-    def adj_action(self, y):
+    def adj_action(self, y: TensorState):
         for factor_idx, op in enumerate(self.children):
             if isinstance(op, Identity):
                 continue

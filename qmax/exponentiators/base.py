@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Sequence
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -9,10 +9,11 @@ from jaxtyping import Scalar, ScalarLike
 
 from .._internal import _update_field
 from .._introspect import CountDict, Path
+from .._types import ComplexScalarLike, RealScalarLike
 from ..hilbert_space import AbstractState
 
 if TYPE_CHECKING:
-    from ..operator import Operator
+    from ..operator import Operator, ShiftScaleOperator
 
 
 __all__ = [
@@ -50,11 +51,11 @@ class AbstractExponentiator(eqx.Module):
     # Do not override
     # --------------------------------------------------------------------------------------------
 
-    def adapt_tree(self, op: Operator, dt_max: ScalarLike) -> Operator:
+    def adapt_tree(self, op: Operator, dt_max: RealScalarLike) -> Operator:
         op = self.adapt_children(op, dt_max)
         return op.with_exponentiator(self.adapt(op, dt_max))
 
-    def __call__(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def __call__(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         self.check_exponentiable_tree(op)
         return self.exp(op, h, y)
 
@@ -107,7 +108,7 @@ class AbstractExponentiator(eqx.Module):
     def tree_count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
         """
@@ -122,7 +123,7 @@ class AbstractExponentiator(eqx.Module):
     # --------------------------------------------------------------------------------------------
 
     @abstractmethod
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         pass
 
     @property
@@ -172,7 +173,7 @@ class AbstractExponentiator(eqx.Module):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
         """
@@ -205,7 +206,7 @@ class DelegatingExponentiator(AbstractExponentiator):
     """
 
     @abstractmethod
-    def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:
+    def schedule(self, op: Operator) -> Sequence[tuple[int, ComplexScalarLike, int]]:
         """
         Schedule of (index, scale, mult) of op's children that this exponentiator 
         delegates to, i.e., (i, s, m) means that op.children[i].exp(scale * h, y)
@@ -213,20 +214,20 @@ class DelegatingExponentiator(AbstractExponentiator):
         """
         pass 
 
-    def count(self, op, h, parent_path=None, child_idx=None) -> CountDict:
+    def count(self, op: Operator, h: ComplexScalarLike, parent_path=None, child_idx=None) -> CountDict:
         path = op.path(parent_path, child_idx)
         c = CountDict()
         for idx, scale, mult in self.schedule(op):
             c |= mult * op.children[idx].exp_count(scale * h, path, idx)
         return c
 
-    def h_scales(self, op) -> list[Scalar]:
+    def h_scales(self, op: Operator) -> Sequence[ComplexScalarLike]:
         """
         Returns list where h_scales[i] is the maximum scaling factor applied to op.children[i]
         """
-        scales = [0.0] * len(op.children)
+        scales = [0.] * len(op.children)
         for idx, coeff, _ in self.schedule(op):
-            scales[idx] = max(scales[idx], abs(coeff))
+            scales[idx] = max(scales[idx], abs(coeff)) # pyright: ignore
         return scales
 
     def check_exponentiable(self, op, parent_path=None, child_idx=None) -> None:
@@ -252,7 +253,7 @@ class ExactExponentiator(AbstractExponentiator):
     on operators which override `exp_action`, otherwise raises `NotExponentiableError`. 
     """
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return op.exp_action(h, y)
 
     def check_exponentiable(
@@ -272,7 +273,7 @@ class ExactExponentiator(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 
@@ -284,11 +285,11 @@ class ShiftScaleExponentiator(DelegatingExponentiator):
     Exponentiates op = shift * I + scale * A
     """
 
-    def schedule(self, op: Operator) -> list[tuple[int, Scalar, int]]:
+    def schedule(self, op: ShiftScaleOperator) -> Sequence[tuple[int, ComplexScalarLike, int]]:
         # only the scale stretches the step; the shift contributes a phase
         return [(0, op.scale, 1)]
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: ShiftScaleOperator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         (A,) = op.children
         return jnp.exp(h * op.shift) * A._exp(h * op.scale, y)
 
@@ -304,7 +305,7 @@ class ShiftScaleExponentiator(DelegatingExponentiator):
 
 class NoExponentiator(AbstractExponentiator):
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         raise NotExponentiableError(
             f"Cannot exponentiate {type(op).__name__} since no exponentiator is assigned. "
             "Use .with_exponentiator to assign an exponentiator")
@@ -322,7 +323,7 @@ class NoExponentiator(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 

@@ -6,6 +6,7 @@ from jaxtyping import ScalarLike
 
 from .._introspect import CountDict, Path
 from ..hilbert_space import AbstractState
+from .._types import ComplexScalarLike
 from .base import AbstractExponentiator, Order
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ class ForwardEuler(AbstractExponentiator):
         This method should be avoided since it is numerically unstable and not unitary preserving.
     """
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return y + h * op.action(y)
 
     @property
@@ -33,7 +34,7 @@ class ForwardEuler(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 
@@ -48,7 +49,7 @@ class ImplicitEuler(AbstractExponentiator):
         This method should be avoided since it is not unitary preserving.
     """
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return op.solve(y, scale=-h, shift=1.0)
 
     @property
@@ -58,7 +59,7 @@ class ImplicitEuler(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 
@@ -77,7 +78,7 @@ class Cayley(AbstractExponentiator):
         that have an efficient `solve` override. 
     """
 
-    def exp(self, op: Operator, h: ScalarLike, y: AbstractState) -> AbstractState:
+    def exp(self, op: Operator, h: ComplexScalarLike, y: AbstractState) -> AbstractState:
         return op.solve(y + (h / 2) * op.action(y), scale=-h / 2, shift=1.0)
 
     @property
@@ -87,7 +88,7 @@ class Cayley(AbstractExponentiator):
     def count(
         self, 
         op: Operator, 
-        h: ScalarLike, 
+        h: ComplexScalarLike, 
         parent_path: Optional[Path]=None, 
         child_idx: Optional[int]=None) -> CountDict:
 

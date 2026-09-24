@@ -4,10 +4,13 @@ from typing import Callable, Iterable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import numpy as np
 import tqdm
-from jaxtyping import Array, ArrayLike, PyTree, Scalar, ScalarLike
+from jax.experimental import io_callback
+from jaxtyping import Array, PyTree, Scalar, ScalarLike
 
 from ._introspect import CountDict
+from ._types import ComplexArrayLike, RealArrayLike, RealScalarLike
 from .adjoint import AbstractAdjoint, ReversibleAdjoint
 from .control import AbstractControl
 from .controlled_operator import ControlledOperator
@@ -28,9 +31,9 @@ class PropagateResult(eqx.Module):
     total_cost: Scalar
 
 
-type CostFunction = Callable[[Scalar, AbstractState, Array], Scalar]
-type SaveFunction = Callable[[Scalar, AbstractState, Array], PyTree]
-type TerminalCostFunction = Callable[[Scalar, AbstractState], Scalar]
+type CostFunction = Callable
+type SaveFunction = Callable
+type TerminalCostFunction = Callable
 
 def _save_y(t, y, u): 
     return y
@@ -48,18 +51,18 @@ class Propagator(eqx.Module):
     """
 
     op: ControlledOperator
-    t0: Scalar = eqx.field(static=True, converter=float)
-    t1: Scalar = eqx.field(static=True, converter=float)
+    t0: float = eqx.field(static=True, converter=float)
+    t1: float = eqx.field(static=True, converter=float)
     num_steps: int = eqx.field(static=True)
     timestepper: AbstractTimeStepper = eqx.field(default=Midpoint(), kw_only=True)
 
     def __init__(self, 
         op: Operator | AbstractTimeVaryingOperator | ControlledOperator, 
-        t0: ScalarLike, 
-        t1: ScalarLike, 
+        t0: RealScalarLike, 
+        t1: RealScalarLike, 
         *, 
         num_steps: Optional[int]=None,
-        dt_max: Optional[ScalarLike]=None,
+        dt_max: Optional[RealScalarLike]=None,
         timestepper: AbstractTimeStepper=Midpoint(), 
         adapt: bool=True):
         """
@@ -78,8 +81,8 @@ class Propagator(eqx.Module):
                 is a `AbstractTimeVaryingOperator` or `ControlledOperator`. 
         """
 
-        self.t0 = t0
-        self.t1 = t1
+        self.t0 = float(t0)
+        self.t1 = float(t1)
         self.timestepper = timestepper
 
         if dt_max is not None and num_steps is not None:
@@ -88,9 +91,9 @@ class Propagator(eqx.Module):
         if num_steps is None and dt_max is None:
             self.num_steps = 1
         elif num_steps is None:
-            self.num_steps = ceil((t1 - t0) / dt_max)
+            self.num_steps = ceil((t1 - t0) / dt_max) # pyright: ignore
         else:
-            self.num_steps = num_steps
+            self.num_steps = num_steps # pyright: ignore
 
         if isinstance(op, Operator):
             if adapt: 
@@ -106,19 +109,19 @@ class Propagator(eqx.Module):
         self.op(self.t0, jnp.zeros((self.op.num_controls,))).check_exponentiable_tree()
 
     @property
-    def weights(self) -> Array:
+    def weights(self) -> ComplexArrayLike:
         return self.timestepper.weights
 
     @property
-    def quad_rule(self) -> Array:
+    def quad_rule(self) -> tuple[ComplexArrayLike, ComplexArrayLike]:
         return self.timestepper.quad_rule
 
     @property
-    def dt(self) -> Scalar:
+    def dt(self) -> float:
         return (self.t1 - self.t0) / self.num_steps
 
     @property
-    def hbar(self) -> Scalar:
+    def hbar(self) -> float:
         return self.domain.hbar
 
     @property
@@ -223,24 +226,24 @@ class Propagator(eqx.Module):
             def update_bar(n):
                 tqdm_bar.update(int(n))
 
-            callback = lambda: jax.experimental.io_callback(update_bar, None, 1)
+            callback = lambda: io_callback(update_bar, None, 1)
         else:
             callback = None
 
         y1, running_cost, ys = adjoint.propagate_fn(
             (y0, us, u_quads), self, running_cost_fn, save_every, save_fn, callback)
-        terminal_cost = terminal_cost_fn(self.t1, y1)
-        total_cost = running_cost + terminal_cost
+        terminal_cost = jnp.asarray(terminal_cost_fn(self.t1, y1))
+        total_cost = jnp.asarray(running_cost) + terminal_cost
 
         if progressbar:
-            tqdm_bar.close()
+            tqdm_bar.close() # pyright: ignore
 
         return PropagateResult(y0, y1, ys, self.ts[::save_every], running_cost, terminal_cost, total_cost)
 
     def count_stage(
         self,
-        t: ScalarLike,
-        dt: ScalarLike) -> CountDict:
+        t: RealScalarLike,
+        dt: RealScalarLike) -> CountDict:
         """
         Produces a `CountDict` object tabulating the number of matvecs, adjoint matvecs, exponential actions, 
             and solves required by each operator in the expression tree of the Hamiltonian to compute one 

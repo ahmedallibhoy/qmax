@@ -5,7 +5,7 @@ from functools import reduce
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
-    from .operator import Operator
+    from .expression_tree import AbstractExpressionTree
 
 
 BRANCH = "├"
@@ -27,7 +27,7 @@ class RenderTree:
 
 
 def _rows(
-    node: RenderTree | Operator, 
+    node: RenderTree | AbstractExpressionTree, 
     prefix: str="", 
     is_last: bool=True, 
     is_root: bool=True, 
@@ -50,10 +50,12 @@ def _rows(
     return rows
 
 
+type Step = tuple[int, str]
+
 @dataclasses.dataclass(frozen=True)
 class Path:
     root_label: str = ""
-    steps: tuple[tuple[int, str], ...] = ()
+    steps: tuple[Step, ...] = ()
 
     @property
     def root(self) -> Path:
@@ -167,13 +169,15 @@ class CountDict:
         if not self.ct_dict:
             return [RenderTree(label="")]
 
-        key = next(iter(self.ct_dict))
         roots = list(set([path.root for path in self.ct_dict.keys()]))
         trees = []
 
         for root in roots:
             root_node = RenderTree(label=root.root_label)
-            index = {(): root_node}
+
+            # avoid stupid pyright errors
+            # TODO: fix this
+            index: dict[tuple[Step, ...], RenderTree] = {(): root_node}
 
             for path, count in self.ct_dict.items():
                 if not path.root == root:
