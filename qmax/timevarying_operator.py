@@ -23,7 +23,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
     A timevarying operator $H(t)$.
     """
 
-    def __call__(self, t: ScalarLike) -> Operator:
+    def __call__(self, t: ScalarLike) -> Operator[S]:
         """
         Evaluates the timevarying operator at time `t`.
 
@@ -36,17 +36,19 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
         return self.evaluate(t)
 
     @abstractmethod
-    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         pass
 
-    def evaluate(self, t: ScalarLike) -> Operator:
+    def evaluate(self, t: ScalarLike) -> Operator[S]:
         return self.quadrature(jnp.atleast_1d(t), jnp.ones(1))
 
     # --------------------------------------------------------------------------------------------
     # Operator Algebra
     # --------------------------------------------------------------------------------------------
 
-    def __add__(self, other: Operator | AbstractTimeVaryingOperator) -> AddTimeVaryingOperator[S]:
+    def __add__(
+        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
+    ) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
 
         if isinstance(other, Operator):
@@ -56,7 +58,9 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return AddTimeVaryingOperator(self, other)
 
-    def __radd__(self, other: Operator | AbstractTimeVaryingOperator) -> AddTimeVaryingOperator[S]:
+    def __radd__(
+        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
+    ) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
 
         if isinstance(other, Operator):
@@ -66,15 +70,17 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return AddTimeVaryingOperator(other, self)
 
-    def __sub__(self, other: Operator | AbstractTimeVaryingOperator) -> AbstractTimeVaryingOperator:
+    def __sub__(
+        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
+    ) -> AbstractTimeVaryingOperator[S]:
         return self + (-other)
 
     def __rsub__(
-        self, other: Operator | AbstractTimeVaryingOperator
-    ) -> AbstractTimeVaryingOperator:
+        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
+    ) -> AbstractTimeVaryingOperator[S]:
         return (-self) + other
 
-    def __mul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
+    def __mul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator[S]:
         if isinstance(other, AbstractControl):
             pass
         elif jnp.isscalar(other):
@@ -84,7 +90,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return ScalarMulTimeVaryingOperator(self, other)
 
-    def __rmul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator:
+    def __rmul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator[S]:
         if isinstance(other, AbstractControl):
             pass
         elif jnp.isscalar(other):
@@ -94,19 +100,19 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return ScalarMulTimeVaryingOperator(self, other)
 
-    def __neg__(self) -> AbstractTimeVaryingOperator:
+    def __neg__(self) -> AbstractTimeVaryingOperator[S]:
         return -1.0 * self
 
 
 class ConstantTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[S]):
     op: Operator[S]
 
-    def __init__(self, op: Operator, *, name: Optional[str] = None):
+    def __init__(self, op: Operator[S], *, name: Optional[str] = None):
         self.op = op
         self.domain = op.domain
         self.name = name if name is not None else op.label
 
-    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         return jnp.sum(weights) * self.op
 
 
@@ -115,8 +121,8 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
 
     def __init__(
         self,
-        A: AbstractTimeVaryingOperator,
-        B: AbstractTimeVaryingOperator,
+        A: AbstractTimeVaryingOperator[S],
+        B: AbstractTimeVaryingOperator[S],
         *,
         split_method: AbstractSplitMethod = Strang(),
         name: Optional[str] = None,
@@ -137,7 +143,7 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
     def with_split_method(self, split_method: AbstractSplitMethod):
         return _update_field(self, "split_method", split_method)
 
-    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         A, B = self.children
         return AddOperator(
             A.quadrature(t_quad, weights),
@@ -150,7 +156,7 @@ class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOpe
     u: AbstractControl
 
     def __init__(
-        self, A: AbstractTimeVaryingOperator, u: AbstractControl, *, name: Optional[str] = None
+        self, A: AbstractTimeVaryingOperator[S], u: AbstractControl, *, name: Optional[str] = None
     ):
 
         self.children = (A,)
@@ -158,6 +164,6 @@ class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOpe
         self.domain = A.domain
         self.name = name if name is not None else f"{type(u).__name__} * {A.label}"
 
-    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator:
+    def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         (A,) = self.children
         return A.quadrature(t_quad, weights * jax.vmap(self.u)(t_quad))

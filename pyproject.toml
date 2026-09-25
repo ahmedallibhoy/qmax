@@ -1,11 +1,56 @@
 [build-system]
-requires = ["hatchling"]
 build-backend = "hatchling.build"
+requires = [
+    "hatchling",
+]
+
+[project]
+authors = [
+    { name = "Ahmed Allibhoy" },
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Quantum Computing",
+]
+dependencies = [
+    "equinox",
+    "jax",
+    "jaxtyping",
+    "lineax",
+    "matplotlib",
+    "numpy",
+    "tqdm",
+]
+description = "JAX library providing geometric numerical integrators for simulation and optimal control of quantum mechanical systems"
+keywords = [
+    "differential equations",
+    "jax",
+    "optimal control",
+    "quantum chemistry",
+    "quantum computing",
+    "quantum mechanics",
+    "quantum physics"
+]
+name = "qmax"
+readme = "README.md"
+requires-python = ">=3.14"
+version = "0.0.1"
 
 [project.optional-dependencies]
+dev = [
+    "prek",
+    "pyright",
+    "qmax[docs,tests,utils]",
+    "ruff",
+]
 docs = [
     "griffe",
-    "mkdocs",
+    "mkdocs<2",
     "mkdocs-material",
     "mkdocstrings[python]",
     "pymdown-extensions",
@@ -16,46 +61,50 @@ tests = [
 utils = [
     "mpmath",
 ]
-dev = [
-    "qmax[docs,tests,utils]",
-    "ruff",
-    "prek",
-    "pyright",
-]
 
-[project]
-authors = [
-    {name = "Ahmed Allibhoy"}
-]
-name = "qmax"
-readme = "README.md"
-requires-python = ">=3.14"
-version = "0.01"
-dependencies = [
-    "jax",
-    "jaxtyping",
-    "equinox",
-    "lineax",
-    "numpy",
-    "matplotlib",
-    "tqdm",
-]
-
-[tool.ruff]
-target-version = "py314"
-exclude = ["tests/", "benchmarks/", "utils/"]
-extend-exclude = ["*.ipynb"]
-line-length = 100
-
-[tool.ruff.lint]
-fixable = ["I001", "F401", "F541"]
-ignore = ["B008", "E402", "E731", "E741", "F403"]
-select = ["E", "F", "I"]
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["E501", "F401"]
+[project.urls]
+repository = "https://github.com/ahmedallibhoy/qmax"
 
 [tool.pyright]
-include = ["qmax"]
-reportIncompatibleVariableOverride = false # Incompatible with eqx.AbstractVar
+include = [
+    "qmax",
+]
+reportIncompatibleVariableOverride = false
 reportUnnecessaryTypeIgnoreComment = true
+
+[tool.ruff]
+exclude = [
+    "benchmarks/",
+    "tests/",
+    "utils/",
+]
+extend-exclude = [
+    "*.ipynb",
+]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+fixable = [
+    "F401",
+    "F541",
+    "I001",
+]
+ignore = [
+    "B008",
+    "E402",
+    "E731",
+    "E741",
+    "F403",
+]
+select = [
+    "E",
+    "F",
+    "I",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "E501",
+    "F401",
+]
