@@ -1,15 +1,15 @@
 # Overview
-qmax is a JAX-based library for simulating quantum mechanical systems. 
+qmax is a JAX-based library for simulating quantum mechanical systems.
 
-The library aims to provide a convenient interface to define complicated Hamiltonians 
-and provides a comprehensive suite of geometric numerical integration schemes for 
-fast and efficient simulation of the Schrödinger equation. 
+The library aims to provide a convenient interface to define complicated Hamiltonians
+and provides a comprehensive suite of geometric numerical integration schemes for
+fast and efficient simulation of the Schrödinger equation.
 
 Features include:
 
-- Suite of methods to approximate exponentials of operators, including
+- Suite of methods to approximate exponential actions of operators, including
     - Splitting methods
-    - High-order composition methods 
+    - High-order composition methods
     - Krylov subspace approximations
     - Chebyshev polynomial approximations
     - Scaled and truncated Taylor expansions
@@ -49,21 +49,21 @@ y1 = result.y1
 
 Other excellent projects include
 
-1. [QuTiP](https://qutip.org/) - mature, well-featured library for simulating 
+1. [QuTiP](https://qutip.org/) - mature, well-featured library for simulating
     dynamics of quantum systems.
-2. [dynamiqs](https://www.dynamiqs.org/stable/) - JAX-based library with 
-    differentiable solvers for the Schrödinger equation and Lindblad master 
-    equation. The closest "competitor" to qmax. 
+2. [dynamiqs](https://www.dynamiqs.org/stable/) - JAX-based library with
+    differentiable solvers for the Schrödinger equation and Lindblad master
+    equation. The closest "competitor" to qmax.
 
 
 ## Road map
 
-This project is in the early development stage. The API should be considered unstable 
-since it is likely that future updates will introduce backward-incompatible changes. 
-If you need something more mature, I recommend the related projects.  
+This project is in the early development stage, and the API should be considered unstable
+since it is likely that future updates will introduce backward-incompatible changes.
+If you need something more mature, I recommend the related projects.
 
-However, if you are interested in geometric numerical methods and the unique approach 
-adopted by qmax, please check it out! I also welcome any contributions. 
+However, if you are interested in geometric numerical methods and the unique approach
+adopted by qmax, please check it out! I also welcome any contributions.
 There are a lot interesting extensions I have planned in the medium-to-long term including:
 
 - Detailed benchmarking of various exponentiation and timestepping methods
@@ -75,5 +75,5 @@ There are a lot interesting extensions I have planned in the medium-to-long term
     - Dynamical low-rank approximations of quantum master equations
 - Support for arbitrary / user-generated spatial meshes
 
-If you have a specific need or an idea for an interesting feature, 
+If you have a specific need or an idea for an interesting feature,
 please contact me!
