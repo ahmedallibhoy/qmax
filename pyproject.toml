@@ -108,3 +108,8 @@ select = [
     "E501",
     "F401",
 ]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+]

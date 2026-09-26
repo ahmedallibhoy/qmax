@@ -7,13 +7,10 @@ from typing import TYPE_CHECKING, Callable, Optional
 if TYPE_CHECKING:
     from .expression_tree import AbstractExpressionTree
 
-
 BRANCH = "├"
 PIPE = "| "
 ANGLE = "└"
 DASH = "─"
-PAD = ""
-
 
 @dataclasses.dataclass
 class RenderTree:
@@ -38,11 +35,11 @@ def _rows(
     if is_root:
         line, child_prefix = node.label, ""
     elif is_last:
-        line = f"{prefix}{PAD + ANGLE}{DASH}{node.label}"
-        child_prefix = prefix + PAD + "  "
+        line = f"{prefix}{ANGLE}{DASH} {node.label}"
+        child_prefix = prefix +  "   "
     else:
-        line = f"{prefix}{PAD + BRANCH}{DASH}{node.label}"
-        child_prefix = prefix + PAD + PIPE
+        line = f"{prefix}{BRANCH}{DASH} {node.label}"
+        child_prefix = prefix + PIPE + " "
 
     rows = [(line, get_data(node))]
 
