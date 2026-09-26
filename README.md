@@ -5,7 +5,7 @@ qmax
 qmax is a JAX-based library for simulating quantum mechanical systems.
 
 The library aims to provide a convenient interface to define complicated Hamiltonians
-and provides a comprehensive suite of geometric numerical integration schemes for
+and offers a comprehensive suite of geometric numerical integration schemes for
 fast and efficient simulation of the Schrödinger equation.
 
 Features include:
