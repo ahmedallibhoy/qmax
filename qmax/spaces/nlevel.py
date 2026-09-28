@@ -23,7 +23,7 @@ class NLevel[S: NLevelState[Any] = NLevelState](AbstractHilbertSpace[S]):
     def dim(self) -> int:
         return self._dim
 
-    def fock(self, idx: int) -> S:
+    def basis(self, idx: int) -> S:
         if idx >= self.dim:
             raise ValueError(f"idx={idx} must be less than dimension of space (dim={self.dim})")
 

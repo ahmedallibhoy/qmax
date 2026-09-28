@@ -81,8 +81,6 @@ extra_javascript:
 nav:
   - 'index.md'
   - Tutorial: tutorial.md
-  #- Philosophy of qmax: approach.md
-  - About the Author: about.md
   - Examples:
     - Quantum Harmonic Oscillator: 'examples/harmonic_oscillator.md'
     #- Hydrogen Atom: 'examples/hydrogen.md'

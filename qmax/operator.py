@@ -7,7 +7,6 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import lineax as lx
-from jax.core import Tracer
 from jaxtyping import Array, Scalar
 
 from ._internal import _overrides, _update_field
@@ -408,10 +407,6 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
 
     @property
     def default_name(self) -> str:
-        if isinstance(self.shift, Tracer) or isinstance(self.scale, Tracer):
-            # To avoid tracer issues since default name depends on values of shift and scale
-            return type(self).__name__
-
         (A,) = self.children
         if self.shift == 0 and self.scale == 0:
             return "0"
@@ -445,7 +440,7 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
 
         return jnp.sort(self.scale * A.spectral_bounds + self.shift)
 
-    def to_matrix(self):
+    def to_matrix(self) -> Array:
         (A,) = self.children
         return self.scale * A.to_matrix() + self.shift * jnp.eye(self.domain.dim)
 
@@ -541,7 +536,7 @@ class MatMulOperator[S: AbstractState[Any]](Operator[S]):
         self,
         A: Operator[S],
         B: Operator[S],
-        exponentiator=NoExponentiator(),
+        exponentiator: AbstractExponentiator = NoExponentiator(),
         name: Optional[str] = None,
     ):
 

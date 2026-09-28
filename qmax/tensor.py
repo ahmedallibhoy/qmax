@@ -16,10 +16,8 @@ from .exponentiators.base import AbstractExponentiator, DelegatingExponentiator,
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import Identity, IncompatibleDomainError, Operator
 
-__all__ = [
-    "TensorProduct", 
-    "TensorPower"
-]
+__all__ = ["TensorProduct", "TensorPower"]
+
 
 def apply_along_tensor(fn: Callable[[Array], Array], tensor: ArrayLike, axis: int) -> Array:
     r"""
@@ -254,7 +252,7 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
         return LiftOperator(self.domain, A.adjoint(), self.factor_idx)
 
     @property
-    def label(self) -> str:
+    def default_name(self) -> str:
         return f"{type(self).__name__}(idx={self.factor_idx})"
 
     def interface_count(

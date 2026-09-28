@@ -1,4 +1,4 @@
-# N-Level 
+# N-Level
 
 ## Spaces
 
@@ -6,7 +6,7 @@
     options:
         members:
             - __init__
-            - fock
+            - basis
             - coherent
             - annihilator
             - creator
@@ -16,16 +16,16 @@
 ::: qmax.spaces.nlevel.NLevelState
     options:
         members:
-            - 
+            -
 
 ## Operators
 
 ::: qmax.spaces.nlevel.Annihilator
     options:
         members:
-            - 
+            -
 
 ::: qmax.spaces.nlevel.Creator
     options:
         members:
-            - 
+            -

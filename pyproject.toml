@@ -36,6 +36,10 @@ keywords = [
     "quantum mechanics",
     "quantum physics"
 ]
+license = "Apache-2.0"
+license-files = [
+    "LICENSE",
+]
 name = "qmax"
 readme = "README.md"
 requires-python = ">=3.14"

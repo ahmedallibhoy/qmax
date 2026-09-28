@@ -74,7 +74,6 @@ class PseudoSpectral(SpatialDiscretization[PseudoSpectralState]):
         return PseudoSpectralLaplacian(self)
 
     def potential_energy(self, potential: PotentialFunction) -> PseudoSpectralPotentialEnergy:
-
         return PseudoSpectralPotentialEnergy(self, potential)
 
     def momentum(self, axis: int = 0) -> PseudoSpectralMomentum:

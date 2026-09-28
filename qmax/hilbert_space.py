@@ -53,7 +53,6 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
     def from_coeffs(self, coeffs: ArrayLike) -> S:
         coeffs = jnp.asarray(coeffs, dtype=complex)
-        # state_type is a ClassVar, which cannot mention S
         return cast(S, self.state_type(coeffs, hilbert_space=self))
 
     def zeros(self, shape: Shape = ()) -> S:

@@ -12,6 +12,7 @@ PIPE = "| "
 ANGLE = "└"
 DASH = "─"
 
+
 @dataclasses.dataclass
 class RenderTree:
     """
@@ -36,7 +37,7 @@ def _rows(
         line, child_prefix = node.label, ""
     elif is_last:
         line = f"{prefix}{ANGLE}{DASH} {node.label}"
-        child_prefix = prefix +  "   "
+        child_prefix = prefix + "   "
     else:
         line = f"{prefix}{BRANCH}{DASH} {node.label}"
         child_prefix = prefix + PIPE + " "
@@ -50,32 +51,34 @@ def _rows(
     return rows
 
 
-type Step = tuple[int, str]
+type Step = tuple[int, AbstractExpressionTree]
 
 
 @dataclasses.dataclass(frozen=True)
 class Path:
-    root_label: str = ""
+    root_obj: Optional[AbstractExpressionTree] = None
     steps: tuple[Step, ...] = ()
 
     @property
     def root(self) -> Path:
-        return Path(self.root_label)
+        return Path(self.root_obj)
 
-    def append(self, index: int, label: str) -> Path:
-        return Path(self.root_label, self.steps + ((index, label),))
+    def append(self, index: int, obj: AbstractExpressionTree) -> Path:
+        return Path(self.root_obj, self.steps + ((index, obj),))
 
     def descend(self) -> tuple[int, Path]:
-        (index, label), new_path = self.steps[0], self.steps[1:]
-        return index, Path(label, new_path)
+        (index, new_root), new_path = self.steps[0], self.steps[1:]
+        return index, Path(new_root, new_path)
 
     @property
-    def labels(self) -> list[str]:
-        return [self.root_label] + [label for _, label in self.steps]
+    def root_label(self) -> str:
+        if self.root_obj is None:
+            return ""
+        return self.root_obj.label
 
     def __repr__(self) -> str:
         return self.root_label + "".join(
-            f".children[{index}] → {label}" for index, label in self.steps
+            f".children[{index}] → {obj.label}" for index, obj in self.steps
         )
 
     def __len__(self) -> int:
@@ -181,7 +184,6 @@ class CountDict:
             root_node = RenderTree(label=root.root_label)
 
             # avoid stupid pyright errors
-            # TODO: fix this
             index: dict[tuple[Step, ...], RenderTree] = {(): root_node}
 
             for path, count in self.ct_dict.items():
@@ -191,7 +193,7 @@ class CountDict:
                 for idx in range(1, len(path) + 1):
                     prefix = path.steps[:idx]
                     if prefix not in index:
-                        tree = RenderTree(label=prefix[-1][1])
+                        tree = RenderTree(label=prefix[-1][1].label)
                         index[prefix[:-1]].children.append(tree)
                         index[prefix] = tree
                 index[path.steps].count = count

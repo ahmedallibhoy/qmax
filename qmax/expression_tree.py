@@ -28,12 +28,12 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
     def path(self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None) -> Path:
         # parent_path is None at the entry point of a traversal, where self is the root
         if parent_path is None:
-            return Path(self.label)
+            return Path(self)
 
         if child_idx is None:
             raise ValueError("Recieved parent_path={parent_path} but no child index")
 
-        return parent_path.append(child_idx, self.label)
+        return parent_path.append(child_idx, self)
 
     def child_at(self, path: Path) -> AbstractExpressionTree:
         if not path:
@@ -93,3 +93,6 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
 
     def tree(self) -> str:
         return "\n".join(line for line, _ in _rows(self))
+
+    def __hash__(self):
+        return hash(id(self))

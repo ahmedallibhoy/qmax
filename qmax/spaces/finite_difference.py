@@ -1,5 +1,5 @@
 from functools import reduce
-from typing import ClassVar, Optional
+from typing import ClassVar, cast
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -7,11 +7,11 @@ import lineax as lx
 from jaxtyping import Array, ArrayLike, Scalar
 
 from .._types import ComplexScalarLike, RealArrayLike, RealScalarLike
-from ..exponentiators.base import AbstractExponentiator, ExactExponentiator, NoExponentiator
+from ..exponentiators.base import AbstractExponentiator, ExactExponentiator
 from ..exponentiators.euler import Cayley
 from ..hilbert_space import AbstractState
 from ..operator import AbstractHermitianOperator, Operator
-from ..tensor import KroneckerSum, KroneckerSumExp, LiftOperator, TensorProduct, TensorState
+from ..tensor import KroneckerSum, LiftOperator, TensorProduct, TensorState
 from ..utils import over_batch
 from .spatial_discretization import (
     AbstractPotentialEnergy,
@@ -170,57 +170,21 @@ class FiniteDifference(
     def from_values(self, values: ArrayLike) -> FiniteDifferenceState:
         return self.from_coeffs(self.flatten(jnp.asarray(values)))
 
-    def laplacian(self) -> FiniteDifferenceLaplacian:
-        return FiniteDifferenceLaplacian(self)
+    def laplacian(self) -> KroneckerSum:
+        op_list = [
+            _FiniteDifference1DLaplacian(
+                cast(_FiniteDifference1D, self[idx]), name=f"Laplacian1D(axis={idx})"
+            )
+            for idx in range(self.num_factors)
+        ]
+        return self.kron_sum(op_list).with_name("Laplacian")
 
     def potential_energy(self, potential: PotentialFunction) -> FiniteDifferencePotentialEnergy:
         return FiniteDifferencePotentialEnergy(self, potential)
 
-    def momentum(self, axis: int = 0) -> FiniteDifferenceMomentum:
-        return FiniteDifferenceMomentum(self, axis)
-
-
-class FiniteDifferenceLaplacian(
-    AbstractHermitianOperator[FiniteDifferenceState], KroneckerSum[FiniteDifferenceState]
-):
-    domain: FiniteDifference = eqx.field(static=True)
-
-    def __init__(
-        self,
-        domain: FiniteDifference,
-        exponentiator: AbstractExponentiator = KroneckerSumExp(),
-        name: Optional[str] = None,
-    ):
-
-        self.domain = domain
-        self.children = tuple(
-            _FiniteDifference1DLaplacian(domain[idx], name=f"Laplacian1D(axis={idx})")  # pyright: ignore[reportArgumentType]
-            for idx in range(domain.num_factors)
-        )
-        self.exponentiator = exponentiator
-        self.name = name if name is not None else "Laplacian"
-
-
-class FiniteDifferenceMomentum(LiftOperator[FiniteDifferenceState]):
-    domain: FiniteDifference = eqx.field(static=True)
-
-    def __init__(
-        self,
-        domain: FiniteDifference,
-        axis: int,
-        exponentiator: AbstractExponentiator = NoExponentiator(),
-        name: Optional[str] = None,
-    ):
-
-        self.domain = domain
-        self.children = (_FiniteDifference1DMomentum(domain[axis]),)  # pyright: ignore[reportArgumentType]
-        self.factor_idx = axis
-        self.exponentiator = exponentiator
-        self.name = name
-
-    @property
-    def idx(self) -> int:
-        return self.factor_idx
+    def momentum(self, axis: int = 0) -> LiftOperator:
+        op = _FiniteDifference1DMomentum(cast(_FiniteDifference1D, self[axis]))
+        return self.lift(op, axis).with_name(f"Momentum(axis={axis})")
 
 
 class FiniteDifferencePotentialEnergy(AbstractPotentialEnergy[FiniteDifferenceState]):
