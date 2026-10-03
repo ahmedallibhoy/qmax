@@ -110,7 +110,11 @@ class ConstantTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOper
     def __init__(self, op: Operator[S], *, name: Optional[str] = None):
         self.op = op
         self.domain = op.domain
-        self.name = name if name is not None else op.label
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        return self.op.label
 
     def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         return jnp.sum(weights) * self.op
@@ -138,7 +142,12 @@ class AddTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOperator[
         self.children = (A, B)
         self.domain = A.domain
         self.split_method = split_method
-        self.name = name if name is not None else f"({A.label} + {B.label})"
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        A, B = self.children
+        return f"({A} + {B})"
 
     def with_split_method(self, split_method: AbstractSplitMethod):
         return _update_field(self, "split_method", split_method)
@@ -162,7 +171,12 @@ class ScalarMulTimeVaryingOperator[S: AbstractState[Any]](AbstractTimeVaryingOpe
         self.children = (A,)
         self.u = u
         self.domain = A.domain
-        self.name = name if name is not None else f"{type(u).__name__} * {A.label}"
+        self.name = name
+
+    @property
+    def default_name(self) -> str:
+        (A,) = self.children
+        return f"{type(self.u).__name__} * {A}"
 
     def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike) -> Operator[S]:
         (A,) = self.children

@@ -13,6 +13,7 @@ from ._internal import _overrides, _update_field
 from ._introspect import (
     Count,
     CountDict,
+    CountDictKey,
     CountType,
     InterfaceCount,
     Path,
@@ -120,10 +121,10 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def exp_count(
         self,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
-        return self.exponentiator.tree_count(self, h, parent_path, child_idx)
+        return self.exponentiator.tree_count(self, h, parent_key, child_idx)
 
     def adapt(self, dt_max: RealScalarLike) -> Operator[S]:
         return self.exponentiator.adapt_tree(self, dt_max)
@@ -345,21 +346,21 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def overrides_solve(self) -> bool:
         return _overrides(type(self), "_solve", Operator)
 
-    def _exp_action_count(self, path: Path) -> CountType:
-        return {path: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
+    def _exp_action_count(self, key: CountDictKey) -> CountType:
+        return {key: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
         # for each interface (i.e. action, adj_action, solve, exp_action),
         # recursively counts number of calls to each interface of a leaves of expression tree
-        path = self.path(parent_path, child_idx)
+        key = self.count_key(parent_key, child_idx)
 
         return InterfaceCount(
-            action={path: Count(actions=1)},
-            adj_action={path: Count(adj_actions=1)},
-            solve={path: Count(solves=1)},
-            exp_action=self._exp_action_count(path),
+            action={key: Count(actions=1)},
+            adj_action={key: Count(adj_actions=1)},
+            solve={key: Count(solves=1)},
+            exp_action=self._exp_action_count(key),
         )
 
 
@@ -449,17 +450,17 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
         return jnp.conj(self.shift) + jnp.conj(self.scale) * A.adjoint()
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
         (A,) = self.children
-        path = self.path(parent_path, child_idx)
-        c = A.interface_count(path, 0)
+        key = self.count_key(parent_key, child_idx)
+        c = A.interface_count(key, 0)
 
         return InterfaceCount(
             action=c.action,
             adj_action=c.adj_action,
             solve=c.solve,
-            exp_action=self._exp_action_count(path),
+            exp_action=self._exp_action_count(key),
         )
 
 
@@ -518,16 +519,16 @@ class AddOperator[S: AbstractState[Any]](Operator[S]):
         return A.adjoint() + B.adjoint()
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
-        path = self.path(parent_path, child_idx)
-        c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
+        key = self.count_key(parent_key, child_idx)
+        c1, c2 = (op.interface_count(key, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
             action=c1.action | c2.action,
             adj_action=c1.adj_action | c2.adj_action,
-            solve={path: Count(solves=1)},
-            exp_action=self._exp_action_count(path),
+            solve={key: Count(solves=1)},
+            exp_action=self._exp_action_count(key),
         )
 
 
@@ -573,16 +574,16 @@ class MatMulOperator[S: AbstractState[Any]](Operator[S]):
         return B.adjoint() @ A.adjoint()
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
-        path = self.path(parent_path, child_idx)
-        c1, c2 = (op.interface_count(path, idx) for idx, op in enumerate(self.children))
+        key = self.count_key(parent_key, child_idx)
+        c1, c2 = (op.interface_count(key, idx) for idx, op in enumerate(self.children))
 
         return InterfaceCount(
             action=c1.action | c2.action,
             adj_action=c1.adj_action | c2.adj_action,
-            solve={path: Count(solves=1)},
-            exp_action=self._exp_action_count(path),
+            solve={key: Count(solves=1)},
+            exp_action=self._exp_action_count(key),
         )
 
 
@@ -627,17 +628,17 @@ class AdjOperator[S: AbstractState[Any]](Operator[S]):
         return A
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
         (A,) = self.children
-        path = self.path(parent_path, child_idx)
-        c = A.interface_count(path, 0)
+        key = self.count_key(parent_key, child_idx)
+        c = A.interface_count(key, 0)
 
         return InterfaceCount(
             action=c.adj_action,
             adj_action=c.action,
-            solve={path: Count(solves=1)},
-            exp_action=self._exp_action_count(path),
+            solve={key: Count(solves=1)},
+            exp_action=self._exp_action_count(key),
         )
 
 

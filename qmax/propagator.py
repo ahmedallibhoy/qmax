@@ -22,6 +22,7 @@ from .timevarying_operator import AbstractTimeVaryingOperator
 
 __all__ = ["Propagator"]
 
+
 class PropagateResult(eqx.Module):
     y0: AbstractState
     y1: AbstractState
@@ -142,7 +143,7 @@ class Propagator(eqx.Module):
     def ts(self) -> Array:
         return jnp.linspace(self.t0, self.t1, self.num_steps + 1)
 
-    def propagate_stage(
+    def propagate_step(
         self, t: ScalarLike, dt: ScalarLike, y: AbstractState, u_quad: Array
     ) -> AbstractState:
 
@@ -265,7 +266,7 @@ class Propagator(eqx.Module):
             y0, y1, ys, self.ts[::save_every], running_cost, terminal_cost, total_cost
         )
 
-    def count_stage(self, t: RealScalarLike, dt: RealScalarLike) -> CountDict:
+    def count_step(self, t: RealScalarLike, dt: RealScalarLike) -> CountDict:
         """
         Produces a `CountDict` object tabulating the number of matvecs, adjoint matvecs,
             exponential actions, and solves required by each operator in the expression tree of the

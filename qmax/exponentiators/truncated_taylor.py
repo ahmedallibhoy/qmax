@@ -9,7 +9,7 @@ import jax.numpy as jnp
 import numpy as np
 from jaxtyping import Array, PRNGKeyArray, Scalar, ScalarLike
 
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, CountDictKey
 from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractHilbertSpace, AbstractState
 from .base import AbstractExponentiator, Order
@@ -443,11 +443,11 @@ class TruncatedTaylorExponentiator(AbstractExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        i_count = op.interface_count(parent_path, child_idx)
+        i_count = op.interface_count(parent_key, child_idx)
 
         if self.s is None:
             theta_list = _theta_table(self.max_tol)

@@ -10,7 +10,7 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike
 
-from ._introspect import Count, InterfaceCount, Path
+from ._introspect import Count, CountDictKey, InterfaceCount
 from ._types import ComplexScalarLike
 from .exponentiators.base import AbstractExponentiator, DelegatingExponentiator, Order
 from .hilbert_space import AbstractHilbertSpace, AbstractState
@@ -256,11 +256,11 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
         return f"{type(self).__name__}(idx={self.factor_idx})"
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
         (A,) = self.children
-        path = self.path(parent_path, child_idx)
-        c = A.interface_count(path, 0)
+        key = self.count_key(parent_key, child_idx)
+        c = A.interface_count(key, 0)
         # num = self.domain.dim // A.domain.dim
         num = 1
 
@@ -268,7 +268,7 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
             action=num * c.action,
             adj_action=num * c.adj_action,
             solve=num * c.solve,
-            exp_action=self._exp_action_count(path),
+            exp_action=self._exp_action_count(key),
         )
 
 
@@ -290,22 +290,22 @@ class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
                 )
 
     def interface_count(
-        self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> InterfaceCount:
-        path = self.path(parent_path, child_idx)
+        key = self.count_key(parent_key, child_idx)
         # dim = self.domain.dim
         # scaled = [
-        #    (dim // self.domain[idx].dim, op.interface_count(path, idx))
+        #    (dim // self.domain[idx].dim, op.interface_count(key, idx))
         #    for idx, op in enumerate(self.children)
         # ]
 
-        scaled = [(1, op.interface_count(path, idx)) for idx, op in enumerate(self.children)]
+        scaled = [(1, op.interface_count(key, idx)) for idx, op in enumerate(self.children)]
 
         return InterfaceCount(
             action=reduce(lambda a, b: a | b, [num * c.action for num, c in scaled]),
             adj_action=reduce(lambda a, b: a | b, [num * c.adj_action for num, c in scaled]),
-            solve={path: Count(solves=1)},
-            exp_action=self._exp_action_count(path),
+            solve={key: Count(solves=1)},
+            exp_action=self._exp_action_count(key),
         )
 
     def adjoint(self) -> Operator[S]:

@@ -10,7 +10,7 @@ import numpy as np
 from jaxtyping import Array, ScalarLike
 
 from .._internal import _update_field
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, CountDictKey, Path
 from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
@@ -431,13 +431,13 @@ class ComposedExponentiator(AbstractComposedExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
         return reduce(
             lambda a, b: a | b,
-            [self.base_exp.count(op, w * h, parent_path, child_idx) for w in self.weights],
+            [self.base_exp.count(op, w * h, parent_key, child_idx) for w in self.weights],
         )
 
 

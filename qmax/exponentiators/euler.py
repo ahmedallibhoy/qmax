@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, CountDictKey
 from .._types import ComplexScalarLike
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
@@ -33,11 +33,11 @@ class ForwardEuler(AbstractExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        return op.interface_count(parent_path, child_idx).action
+        return op.interface_count(parent_key, child_idx).action
 
 
 class ImplicitEuler(AbstractExponentiator):
@@ -59,11 +59,11 @@ class ImplicitEuler(AbstractExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        return op.interface_count(parent_path, child_idx).solve
+        return op.interface_count(parent_key, child_idx).solve
 
 
 class Cayley(AbstractExponentiator):
@@ -89,9 +89,9 @@ class Cayley(AbstractExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        i_count = op.interface_count(parent_path, child_idx)
+        i_count = op.interface_count(parent_key, child_idx)
         return i_count.action | i_count.solve

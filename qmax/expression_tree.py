@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Callable, Optional, Self, cast
 
 import equinox as eqx
+import jax
 from jaxtyping import ScalarLike
 
 from ._internal import _update_field
-from ._introspect import Path, _rows
+from ._introspect import CountDictKey, Path, _rows
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 
 
@@ -28,18 +29,32 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
     def path(self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None) -> Path:
         # parent_path is None at the entry point of a traversal, where self is the root
         if parent_path is None:
-            return Path(self)
+            return Path()
 
         if child_idx is None:
-            raise ValueError("Recieved parent_path={parent_path} but no child index")
+            raise ValueError(f"Received parent_path={parent_path} but no child index")
 
-        return parent_path.append(child_idx, self)
+        return parent_path.append(child_idx)
+
+    def count_key(
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
+    ) -> CountDictKey:
+        # parent_key is None at the entry point of a count, where self is the root
+        if parent_key is None:
+            return (self, Path())
+
+        if child_idx is None:
+            raise ValueError(f"Received parent_key={parent_key} but no child index")
+
+        root, parent_path = parent_key
+        return (root, parent_path.append(child_idx))
 
     def child_at(self, path: Path) -> AbstractExpressionTree:
         if not path:
             return self
-        index, rest = path.descend()
-        return self.children[index].child_at(rest)
+        index, new_path = path.descend()
+
+        return self.children[index].child_at(new_path)
 
     def leaves(
         self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None
@@ -95,4 +110,4 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
         return "\n".join(line for line, _ in _rows(self))
 
     def __hash__(self):
-        return hash(id(self))
+        return hash(jax.tree_util.tree_structure(self))

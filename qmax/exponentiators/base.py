@@ -8,7 +8,7 @@ import jax.numpy as jnp
 from jaxtyping import ScalarLike
 
 from .._internal import _update_field
-from .._introspect import CountDict, Path
+from .._introspect import CountDict, CountDictKey, Path
 from .._types import ComplexScalarLike, RealScalarLike
 from ..hilbert_space import AbstractState
 
@@ -16,11 +16,7 @@ if TYPE_CHECKING:
     from ..operator import Operator, ShiftScaleOperator
 
 
-__all__ = [
-    "AbstractExponentiator",
-    "ExactExponentiator",
-    "NoExponentiator"
-]
+__all__ = ["AbstractExponentiator", "ExactExponentiator", "NoExponentiator"]
 
 type Order = Optional[int]
 
@@ -99,7 +95,7 @@ class AbstractExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](eqx.Modu
         self,
         op: Op,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
         """
@@ -107,7 +103,7 @@ class AbstractExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](eqx.Modu
         methods of leaves per one call to self.exp(op, h, y), as a rough measure
         of the computational effort of required by this exponentiatiator.
         """
-        return self.count(op, h, parent_path, child_idx)
+        return self.count(op, h, parent_key, child_idx)
 
     # --------------------------------------------------------------------------------------------
     # Should be overriden by subclasses if necessary
@@ -159,7 +155,7 @@ class AbstractExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](eqx.Modu
         self,
         op: Op,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
         """
@@ -202,11 +198,11 @@ class DelegatingExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](
         """
         pass
 
-    def count(self, op: Op, h: ComplexScalarLike, parent_path=None, child_idx=None) -> CountDict:
-        path = op.path(parent_path, child_idx)
+    def count(self, op: Op, h: ComplexScalarLike, parent_key=None, child_idx=None) -> CountDict:
+        key = op.count_key(parent_key, child_idx)
         c = CountDict()
         for idx, scale, mult in self.schedule(op):
-            c |= mult * op.children[idx].exp_count(scale * h, path, idx)
+            c |= mult * op.children[idx].exp_count(scale * h, key, idx)
         return c
 
     def h_scales(self, op: Op) -> Sequence[RealScalarLike]:
@@ -260,11 +256,11 @@ class ExactExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](AbstractExp
         self,
         op: Op,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        return op.interface_count(parent_path, child_idx).exp_action
+        return op.interface_count(parent_key, child_idx).exp_action
 
 
 class ShiftScaleExponentiator[S: AbstractState[Any]](
@@ -313,7 +309,7 @@ class NoExponentiator(AbstractExponentiator):
         self,
         op: Operator,
         h: ComplexScalarLike,
-        parent_path: Optional[Path] = None,
+        parent_key: Optional[CountDictKey] = None,
         child_idx: Optional[int] = None,
     ) -> CountDict:
 

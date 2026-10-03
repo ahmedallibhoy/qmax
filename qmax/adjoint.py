@@ -14,12 +14,8 @@ from .hilbert_space import AbstractState
 if TYPE_CHECKING:
     from .propagator import CostFunction, Propagator, SaveFunction
 
-__all__ = [
-    "AbstractAdjoint", 
-    "DirectAdjoint", 
-    "ReversibleAdjoint", 
-    "CheckpointedAdjoint"
-]
+__all__ = ["AbstractAdjoint", "DirectAdjoint", "ReversibleAdjoint", "CheckpointedAdjoint"]
+
 
 def _step(
     carry: tuple[AbstractState, Scalar, Scalar],
@@ -33,7 +29,7 @@ def _step(
 
     y, cost, total = carry
     t, t_next = t_pair
-    y_next = U.propagate_stage(t, dt, y, u_quad)
+    y_next = U.propagate_step(t, dt, y, u_quad)
     cost_next = running_cost_fn(t_next, y_next, u_next)
     total_next = total + 0.5 * (cost + cost_next) * dt
     return y_next, cost_next, total_next

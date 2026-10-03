@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-from functools import reduce
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
@@ -51,35 +50,16 @@ def _rows(
     return rows
 
 
-type Step = tuple[int, AbstractExpressionTree]
-
-
 @dataclasses.dataclass(frozen=True)
 class Path:
-    root_obj: Optional[AbstractExpressionTree] = None
-    steps: tuple[Step, ...] = ()
+    steps: tuple[int, ...] = ()
 
-    @property
-    def root(self) -> Path:
-        return Path(self.root_obj)
-
-    def append(self, index: int, obj: AbstractExpressionTree) -> Path:
-        return Path(self.root_obj, self.steps + ((index, obj),))
+    def append(self, index: int) -> Path:
+        return Path(self.steps + (index,))
 
     def descend(self) -> tuple[int, Path]:
-        (index, new_root), new_path = self.steps[0], self.steps[1:]
-        return index, Path(new_root, new_path)
-
-    @property
-    def root_label(self) -> str:
-        if self.root_obj is None:
-            return ""
-        return self.root_obj.label
-
-    def __repr__(self) -> str:
-        return self.root_label + "".join(
-            f".children[{index}] → {obj.label}" for index, obj in self.steps
-        )
+        index, new_steps = self.steps[0], self.steps[1:]
+        return index, Path(new_steps)
 
     def __len__(self) -> int:
         return len(self.steps)
@@ -124,6 +104,9 @@ class Count:
         return f"{args}"
 
 
+type CountDictKey = tuple[AbstractExpressionTree, Path]
+
+
 @dataclasses.dataclass
 class CountDict:
     """
@@ -131,12 +114,12 @@ class CountDict:
     expression tree, keyed by the paths to the leaves.
     """
 
-    ct_dict: dict[Path, Count] = dataclasses.field(default_factory=dict)
+    ct_dict: dict[CountDictKey, Count] = dataclasses.field(default_factory=dict)
 
-    def __getitem__(self, key: Path) -> Count:
+    def __getitem__(self, key: CountDictKey) -> Count:
         return self.ct_dict[key]
 
-    def __contains__(self, key: Path) -> bool:
+    def __contains__(self, key: CountDictKey) -> bool:
         return key in self.ct_dict
 
     def __iter__(self):
@@ -171,29 +154,27 @@ class CountDict:
         if not isinstance(other, int):
             return NotImplemented
 
-        return CountDict({path: other * count for (path, count) in self.ct_dict.items()})
+        return CountDict({key: other * count for (key, count) in self.ct_dict.items()})
 
     def render_trees(self) -> list[RenderTree]:
         if not self.ct_dict:
             return [RenderTree(label="")]
 
-        roots = list(set([path.root for path in self.ct_dict.keys()]))
+        by_root = {}
+        for (root, path), count in self.ct_dict.items():
+            by_root.setdefault(root, []).append((path, count))
+
         trees = []
 
-        for root in roots:
-            root_node = RenderTree(label=root.root_label)
+        for root, entries in by_root.items():
+            root_node = RenderTree(label=root.label)
+            index = {(): root_node}
 
-            # avoid stupid pyright errors
-            index: dict[tuple[Step, ...], RenderTree] = {(): root_node}
-
-            for path, count in self.ct_dict.items():
-                if not path.root == root:
-                    continue
-
+            for path, count in entries:
                 for idx in range(1, len(path) + 1):
                     prefix = path.steps[:idx]
                     if prefix not in index:
-                        tree = RenderTree(label=prefix[-1][1].label)
+                        tree = RenderTree(label=root.child_at(Path(prefix)).label)
                         index[prefix[:-1]].children.append(tree)
                         index[prefix] = tree
                 index[path.steps].count = count
@@ -204,13 +185,11 @@ class CountDict:
 
     @property
     def total(self) -> Count:
-        return reduce(lambda a, b: a + b, self.ct_dict.values())
+        return sum(self.ct_dict.values(), Count())
 
     def __repr__(self) -> str:
-        string = ""
-        for path, count in self.items():
-            string += f"{path}: {count}\n"
-        return string
+        entries = [f"{root.child_at(path)}: ({count})" for (root, path), count in self.items()]
+        return "{" + ", ".join(entries) + "}"
 
     def tree(self) -> str:
         if not self.ct_dict:
