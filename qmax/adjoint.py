@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import abc
 from functools import partial
-from typing import TYPE_CHECKING, Callable, ClassVar, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 import equinox as eqx
 import equinox.internal as eqxi
@@ -212,9 +213,17 @@ def _propagate_bwd(
 
 
 class AbstractAdjoint(eqx.Module):
-    outer_scan_fn: eqx.AbstractVar[Callable]
-    inner_scan_fn: eqx.AbstractVar[Callable]
-    use_custom_vjp: eqx.AbstractVar[bool]
+    @property
+    @abc.abstractmethod
+    def outer_scan_fn(self) -> Callable: ...
+
+    @property
+    @abc.abstractmethod
+    def inner_scan_fn(self) -> Callable: ...
+
+    @property
+    @abc.abstractmethod
+    def use_custom_vjp(self) -> bool: ...
 
     @property
     def propagate_fn(self) -> Callable:
@@ -234,9 +243,17 @@ class DirectAdjoint(AbstractAdjoint):
     likely not suitable for high-dimensional systems due to memory use.
     """
 
-    outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
-    inner_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
-    use_custom_vjp: ClassVar[bool] = False
+    @property
+    def outer_scan_fn(self) -> Callable:
+        return jax.lax.scan
+
+    @property
+    def inner_scan_fn(self) -> Callable:
+        return jax.lax.scan
+
+    @property
+    def use_custom_vjp(self) -> bool:
+        return False
 
 
 class ReversibleAdjoint(AbstractAdjoint):
@@ -246,9 +263,17 @@ class ReversibleAdjoint(AbstractAdjoint):
     like O(1). Only supports reverse-mode differentiation.
     """
 
-    outer_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
-    inner_scan_fn: ClassVar[Callable] = staticmethod(jax.lax.scan)
-    use_custom_vjp: ClassVar[bool] = True
+    @property
+    def outer_scan_fn(self) -> Callable:
+        return jax.lax.scan
+
+    @property
+    def inner_scan_fn(self) -> Callable:
+        return jax.lax.scan
+
+    @property
+    def use_custom_vjp(self) -> bool:
+        return True
 
 
 class CheckpointedAdjoint(AbstractAdjoint):
@@ -275,12 +300,15 @@ class CheckpointedAdjoint(AbstractAdjoint):
 
     outer_checkpoints: Optional[int] = None
     inner_checkpoints: Optional[int] = None
-    use_custom_vjp: ClassVar[bool] = False
 
     @property
-    def outer_scan_fn(self) -> Callable:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def outer_scan_fn(self) -> Callable:
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.outer_checkpoints)
 
     @property
-    def inner_scan_fn(self) -> Callable:  # pyright: ignore[reportIncompatibleMethodOverride]
+    def inner_scan_fn(self) -> Callable:
         return partial(eqxi.scan, kind="checkpointed", checkpoints=self.inner_checkpoints)
+
+    @property
+    def use_custom_vjp(self) -> bool:
+        return False

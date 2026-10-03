@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+import abc
+from typing import TYPE_CHECKING, Any
 
 import equinox as eqx
 import jax
@@ -24,8 +25,14 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
 
     """
 
-    a: eqx.AbstractVar[RealArrayLike]
-    b: eqx.AbstractVar[RealArrayLike]
+    @property
+    @abc.abstractmethod
+    def a(self) -> RealArrayLike: ...
+
+    @property
+    @abc.abstractmethod
+    def b(self) -> RealArrayLike: ...
+
     nest_left: bool = eqx.field(static=True, kw_only=True, default=True)
 
     def __check_init__(self):
@@ -87,8 +94,13 @@ class Strang(AbstractSplitMethod):
     Equivalent to a 2nd order partitioned Runge-Kutta exponential splitting method.
     """
 
-    a: ClassVar[RealArrayLike] = np.array([0.5, 0.5])
-    b: ClassVar[RealArrayLike] = np.array([1.0])
+    @property
+    def a(self) -> RealArrayLike:
+        return np.array([0.5, 0.5])
+
+    @property
+    def b(self) -> RealArrayLike:
+        return np.array([1.0])
 
     @property
     def order(self) -> Order:
@@ -105,8 +117,13 @@ class PRK_r2_s2(AbstractSplitMethod):
             Integration, 2nd ed. Boca Raton, FL: CRC Press, 2025.
     """
 
-    a: ClassVar[RealArrayLike] = np.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
-    b: ClassVar[RealArrayLike] = np.array([0.5, 0.5])
+    @property
+    def a(self) -> RealArrayLike:
+        return np.array([0.19318332750378, 0.61363334499244, 0.19318332750378])
+
+    @property
+    def b(self) -> RealArrayLike:
+        return np.array([0.5, 0.5])
 
     @property
     def order(self) -> Order:
@@ -124,27 +141,32 @@ class PRK_r4_s6(AbstractSplitMethod):
             no. 2, pp. 313-330, 2002.
     """
 
-    a: ClassVar[RealArrayLike] = np.array(
-        [
-            0.0792036964311956,
-            0.353172906049774,
-            -0.0420650803577195,
-            0.2193769557534997,
-            -0.0420650803577195,
-            0.353172906049774,
-            0.0792036964311956,
-        ]
-    )
-    b: ClassVar[RealArrayLike] = np.array(
-        [
-            0.209515106613362,
-            -0.1438517731798181,
-            0.4343366665664561,
-            0.4343366665664561,
-            -0.1438517731798181,
-            0.209515106613362,
-        ]
-    )
+    @property
+    def a(self) -> RealArrayLike:
+        return np.array(
+            [
+                0.0792036964311956,
+                0.353172906049774,
+                -0.0420650803577195,
+                0.2193769557534997,
+                -0.0420650803577195,
+                0.353172906049774,
+                0.0792036964311956,
+            ]
+        )
+
+    @property
+    def b(self) -> RealArrayLike:
+        return np.array(
+            [
+                0.209515106613362,
+                -0.1438517731798181,
+                0.4343366665664561,
+                0.4343366665664561,
+                -0.1438517731798181,
+                0.209515106613362,
+            ]
+        )
 
     @property
     def order(self) -> Order:
@@ -162,35 +184,40 @@ class PRK_r6_s10(AbstractSplitMethod):
             no. 2, pp. 313-330, 2002.
     """
 
-    a: ClassVar[RealArrayLike] = np.array(
-        [
-            0.0502627644003922,
-            0.413514300428344,
-            0.0450798897943977,
-            -0.188054853819569,
-            0.541960678450780,
-            -0.7255255585086897,
-            0.541960678450780,
-            -0.188054853819569,
-            0.0450798897943977,
-            0.413514300428344,
-            0.0502627644003922,
-        ]
-    )
-    b: ClassVar[RealArrayLike] = np.array(
-        [
-            0.148816447901042,
-            -0.132385865767784,
-            0.067307604692185,
-            0.432666402578175,
-            -0.0164045894036180,
-            -0.0164045894036180,
-            0.432666402578175,
-            0.067307604692185,
-            -0.132385865767784,
-            0.148816447901042,
-        ]
-    )
+    @property
+    def a(self) -> RealArrayLike:
+        return np.array(
+            [
+                0.0502627644003922,
+                0.413514300428344,
+                0.0450798897943977,
+                -0.188054853819569,
+                0.541960678450780,
+                -0.7255255585086897,
+                0.541960678450780,
+                -0.188054853819569,
+                0.0450798897943977,
+                0.413514300428344,
+                0.0502627644003922,
+            ]
+        )
+
+    @property
+    def b(self) -> RealArrayLike:
+        return np.array(
+            [
+                0.148816447901042,
+                -0.132385865767784,
+                0.067307604692185,
+                0.432666402578175,
+                -0.0164045894036180,
+                -0.0164045894036180,
+                0.432666402578175,
+                0.067307604692185,
+                -0.132385865767784,
+                0.148816447901042,
+            ]
+        )
 
     @property
     def order(self) -> Order:
