@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import abc
+from abc import abstractmethod
 from functools import reduce
 from typing import TYPE_CHECKING, Optional
 
@@ -12,7 +12,7 @@ from jaxtyping import ScalarLike
 
 from .._internal import _update_field
 from .._introspect import CountDict, CountDictKey, Path
-from .._types import ComplexScalarLike
+from .._types import ComplexScalarLike, RealArrayLike
 from ..hilbert_space import AbstractState
 from .base import AbstractExponentiator, Order
 from .split import AbstractSplitMethod
@@ -45,12 +45,14 @@ class AbstractCompositionMethod(eqx.Module):
             raise ValueError("Composition weights must be a palindromic sequence")
 
     @property
-    @abc.abstractmethod
-    def weights(self) -> np.ndarray: ...
+    @abstractmethod
+    def weights(self) -> RealArrayLike:
+        pass
 
     @property
-    @abc.abstractmethod
-    def composed_order(self) -> int: ...
+    @abstractmethod
+    def composed_order(self) -> int:
+        pass
 
 
 class Yoshida(AbstractCompositionMethod):
@@ -72,7 +74,7 @@ class Yoshida(AbstractCompositionMethod):
         return 4
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         w1 = 1 / (2 - 2 ** (1 / 3))
         w2 = 1 - 2 * w1
         return np.array([w1, w2, w1])
@@ -98,7 +100,7 @@ class Suzuki(AbstractCompositionMethod):
         return 4
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         w1 = 1 / (4 - 4 ** (1 / 3))
         w2 = 1 - 4 * w1
         return np.array([w1, w1, w2, w1, w1])
@@ -123,7 +125,7 @@ class Symmetric_r6_s7(AbstractCompositionMethod):
         return 6
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.7845136104775573,
@@ -156,7 +158,7 @@ class Symmetric_r6_s9(AbstractCompositionMethod):
         return 6
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.1867,
@@ -191,7 +193,7 @@ class Symmetric_r8_s15(AbstractCompositionMethod):
         return 8
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.741670364350613,
@@ -232,7 +234,7 @@ class Symmetric_r8_s17(AbstractCompositionMethod):
         return 8
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.12886597938144329,
@@ -272,7 +274,7 @@ class Symmetric_r10_s31(AbstractCompositionMethod):
         return 10
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.14998070054317051502516939497857,
@@ -326,7 +328,7 @@ class Symmetric_r10_s33(AbstractCompositionMethod):
         return 10
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.070711261586085399079302771810203,
@@ -382,7 +384,7 @@ class Symmetric_r10_s35(AbstractCompositionMethod):
         return 10
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return np.array(
             [
                 0.078795722521686419263907679337684,
@@ -443,7 +445,7 @@ class AbstractComposedExponentiator(AbstractExponentiator):
         #        f"to the operator {op.label}")
 
     @property
-    def weights(self) -> np.ndarray:
+    def weights(self) -> RealArrayLike:
         return self.method.weights
 
     @property
@@ -518,11 +520,11 @@ class ComposedSplitExponentiator(AbstractComposedExponentiator, AbstractSplitMet
         self.nest_left = nest_left
 
     @property
-    def a(self) -> np.ndarray:
+    def a(self) -> RealArrayLike:
         return np.array(self._a)
 
     @property
-    def b(self) -> np.ndarray:
+    def b(self) -> RealArrayLike:
         return np.array(self._b)
 
 

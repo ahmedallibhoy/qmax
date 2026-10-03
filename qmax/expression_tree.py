@@ -27,7 +27,6 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
             )
 
     def path(self, parent_path: Optional[Path] = None, child_idx: Optional[int] = None) -> Path:
-        # parent_path is None at the entry point of a traversal, where self is the root
         if parent_path is None:
             return Path()
 
@@ -39,7 +38,6 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
     def count_key(
         self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
     ) -> CountDictKey:
-        # parent_key is None at the entry point of a count, where self is the root
         if parent_key is None:
             return (self, Path())
 

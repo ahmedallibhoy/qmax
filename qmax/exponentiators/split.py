@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import abc
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any
 
 import equinox as eqx
@@ -26,12 +26,14 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
     """
 
     @property
-    @abc.abstractmethod
-    def a(self) -> RealArrayLike: ...
+    @abstractmethod
+    def a(self) -> RealArrayLike:
+        pass
 
     @property
-    @abc.abstractmethod
-    def b(self) -> RealArrayLike: ...
+    @abstractmethod
+    def b(self) -> RealArrayLike:
+        pass
 
     nest_left: bool = eqx.field(static=True, kw_only=True, default=True)
 

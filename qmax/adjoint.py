@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import abc
+from abc import abstractmethod
 from functools import partial
 from typing import TYPE_CHECKING, Callable, Optional
 
@@ -214,16 +214,19 @@ def _propagate_bwd(
 
 class AbstractAdjoint(eqx.Module):
     @property
-    @abc.abstractmethod
-    def outer_scan_fn(self) -> Callable: ...
+    @abstractmethod
+    def outer_scan_fn(self) -> Callable:
+        pass
 
     @property
-    @abc.abstractmethod
-    def inner_scan_fn(self) -> Callable: ...
+    @abstractmethod
+    def inner_scan_fn(self) -> Callable:
+        pass
 
     @property
-    @abc.abstractmethod
-    def use_custom_vjp(self) -> bool: ...
+    @abstractmethod
+    def use_custom_vjp(self) -> bool:
+        pass
 
     @property
     def propagate_fn(self) -> Callable:
