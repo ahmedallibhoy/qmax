@@ -11,13 +11,13 @@ from ._internal import _update_field
 from ._types import ComplexArrayLike, RealScalarLike
 from .control import AbstractControl, ConstantControl
 from .exponentiators.split import AbstractSplitMethod, Strang
-from .expression_tree import AbstractExpressionTree
+from .expression_tree import ExpressionTree
 from .hilbert_space import AbstractState
 from .operator import AddOperator, IncompatibleDomainError, Operator
 
 
 class AbstractTimeVaryingOperator[S: AbstractState[Any]](
-    AbstractExpressionTree["AbstractTimeVaryingOperator", S]
+    ExpressionTree["AbstractTimeVaryingOperator", S]
 ):
     """
     A timevarying operator $H(t)$.

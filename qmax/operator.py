@@ -14,7 +14,6 @@ from ._introspect import (
     Count,
     CountDict,
     CountDictKey,
-    CountType,
     InterfaceCount,
     Path,
     _rows,
@@ -30,7 +29,7 @@ from .exponentiators.base import (
 )
 from .exponentiators.composed_method import AbstractCompositionMethod, compose
 from .exponentiators.split import Strang
-from .expression_tree import AbstractExpressionTree, IncompatibleDomainError
+from .expression_tree import ExpressionTree, IncompatibleDomainError
 from .hilbert_space import AbstractState
 from .utils import over_batch
 
@@ -55,7 +54,7 @@ def _as_shift(x: Operator | ComplexScalarLike) -> Optional[ComplexScalarLike]:
     return None
 
 
-class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]):
+class Operator[S: AbstractState[Any]](ExpressionTree["Operator[Any]", S]):
     exponentiator: AbstractExponentiator = eqx.field(default=NoExponentiator(), kw_only=True)
 
     def _check_domain(self, y: S):
@@ -346,7 +345,7 @@ class Operator[S: AbstractState[Any]](AbstractExpressionTree["Operator[Any]", S]
     def overrides_solve(self) -> bool:
         return _overrides(type(self), "_solve", Operator)
 
-    def _exp_action_count(self, key: CountDictKey) -> CountType:
+    def _exp_action_count(self, key: CountDictKey) -> CountDict:
         return {key: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
 
     def interface_count(

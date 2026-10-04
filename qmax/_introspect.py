@@ -4,7 +4,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Callable, Optional
 
 if TYPE_CHECKING:
-    from .expression_tree import AbstractExpressionTree
+    from .expression_tree import ExpressionTree
 
 BRANCH = "├"
 PIPE = "| "
@@ -25,7 +25,7 @@ class RenderTree:
 
 
 def _rows(
-    node: RenderTree | AbstractExpressionTree,
+    node: RenderTree | ExpressionTree,
     prefix: str = "",
     is_last: bool = True,
     is_root: bool = True,
@@ -104,7 +104,7 @@ class Count:
         return f"{args}"
 
 
-type CountDictKey = tuple[AbstractExpressionTree, Path]
+type CountDictKey = tuple[ExpressionTree, Path]
 
 
 @dataclasses.dataclass
@@ -213,10 +213,7 @@ class CountDict:
         return "\n".join(out)
 
 
-type CountType = CountDict
-
-
-def _to_ct_type(val: CountType | dict) -> CountType:
+def _to_ct_type(val: CountDict | dict) -> CountDict:
     if isinstance(val, CountDict):
         return val
     if isinstance(val, dict):
@@ -226,17 +223,17 @@ def _to_ct_type(val: CountType | dict) -> CountType:
 
 @dataclasses.dataclass
 class InterfaceCount:
-    action: CountType
-    adj_action: CountType
-    solve: CountType
-    exp_action: CountType
+    action: CountDict
+    adj_action: CountDict
+    solve: CountDict
+    exp_action: CountDict
 
     def __init__(
         self,
-        action: CountType | dict,
-        adj_action: CountType | dict,
-        solve: CountType | dict,
-        exp_action: CountType | dict,
+        action: CountDict | dict,
+        adj_action: CountDict | dict,
+        solve: CountDict | dict,
+        exp_action: CountDict | dict,
     ):
 
         self.action = _to_ct_type(action)

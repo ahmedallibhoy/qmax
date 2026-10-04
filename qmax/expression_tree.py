@@ -15,13 +15,13 @@ class IncompatibleDomainError(TypeError):
     pass
 
 
-class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](eqx.Module):
+class ExpressionTree[Node: "ExpressionTree", S: AbstractState](eqx.Module):
     domain: AbstractHilbertSpace[S] = eqx.field(static=True)
     children: tuple[Node, ...] = eqx.field(default=(), converter=tuple, kw_only=True)
     name: Optional[str] = eqx.field(default=None, static=True, kw_only=True)
 
-    def _check_compatible(self, other: ScalarLike | AbstractExpressionTree):
-        if isinstance(other, AbstractExpressionTree) and other.domain != self.domain:
+    def _check_compatible(self, other: ScalarLike | ExpressionTree):
+        if isinstance(other, ExpressionTree) and other.domain != self.domain:
             raise IncompatibleDomainError(
                 f"{self} acts on {self.domain}, but {other} acts on {other.domain}"
             )
@@ -47,7 +47,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
         root, parent_path = parent_key
         return (root, parent_path.append(child_idx))
 
-    def child_at(self, path: Path) -> AbstractExpressionTree:
+    def child_at(self, path: Path) -> ExpressionTree:
         if not path:
             return self
         index, new_path = path.descend()
@@ -67,9 +67,7 @@ class AbstractExpressionTree[Node: "AbstractExpressionTree", S: AbstractState](e
 
     def set_at_path(
         self,
-        update: Callable[
-            [AbstractExpressionTree, Optional[Path], Optional[int]], AbstractExpressionTree
-        ],
+        update: Callable[[ExpressionTree, Optional[Path], Optional[int]], ExpressionTree],
         path: Path = Path(),
         parent_path: Optional[Path] = None,
         child_idx: Optional[int] = None,
