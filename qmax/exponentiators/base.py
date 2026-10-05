@@ -260,7 +260,7 @@ class ExactExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](AbstractExp
         child_idx: Optional[int] = None,
     ) -> CountDict:
 
-        return op.interface_count(parent_key, child_idx).exp_action
+        return op.interface_count(parent_key, child_idx).exp_action  # pyright: ignore[reportReturnType]
 
 
 class ShiftScaleExponentiator[S: AbstractState[Any]](

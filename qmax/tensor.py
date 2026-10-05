@@ -8,13 +8,14 @@ from typing import Any, Callable, ClassVar, Iterable, Optional
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, ArrayLike
+from jaxtyping import Array, ArrayLike, Scalar
 
 from ._introspect import Count, CountDictKey, InterfaceCount
 from ._types import ComplexScalarLike
 from .exponentiators.base import AbstractExponentiator, DelegatingExponentiator, Order
+from .generic_operators import Identity
 from .hilbert_space import AbstractHilbertSpace, AbstractState
-from .operator import Identity, IncompatibleDomainError, Operator
+from .operator import IncompatibleDomainError, Operator
 
 __all__ = ["TensorProduct", "TensorPower"]
 
@@ -117,6 +118,10 @@ class AbstractTensorSpace[S: TensorState[Any]](AbstractHilbertSpace[S]):
         ]
         return self.from_tensor(reduce(lambda a, b: a * b, expanded))
 
+    def innerp(self, y1: S, y2: S) -> Scalar:
+        gram = self.kron_prod([self.factor(idx).gram() for idx in range(self.num_factors)])
+        return jnp.sum(jnp.conj(y1.coeffs) * gram(y2).coeffs, axis=-1)
+
     def lift(self, op: Operator, factor_idx: int) -> LiftOperator[S]:
         return LiftOperator(self, op, factor_idx)
 
@@ -165,7 +170,7 @@ class TensorPower[S: TensorState[Any] = TensorState](AbstractTensorSpace[S]):
 class AbstractTensorOperator[S: TensorState[Any]](Operator[S]):
     domain: AbstractTensorSpace[S] = eqx.field(static=True)
 
-    def _check_tensor_domain(self):
+    def __check_init__(self):
         if not isinstance(self.domain, AbstractTensorSpace):
             raise IncompatibleDomainError(
                 f"{type(self).__name__} acts on a tensor space but received "
@@ -209,8 +214,6 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
         self.factor_idx = factor_idx
 
     def __check_init__(self):
-        self._check_tensor_domain()
-
         (A,) = self.children
         if A.domain != self.domain[self.factor_idx]:
             raise IncompatibleDomainError(
@@ -268,14 +271,12 @@ class LiftOperator[S: TensorState[Any]](AbstractTensorOperator[S]):
             action=num * c.action,
             adj_action=num * c.adj_action,
             solve=num * c.solve,
-            exp_action=self._exp_action_count(key),
+            exp_action=None,
         )
 
 
 class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
     def __check_init__(self):
-        self._check_tensor_domain()
-
         if len(self.children) != self.domain.num_factors:
             raise ValueError(
                 f"Received {len(self.children)} operators but "
@@ -305,7 +306,7 @@ class KroneckerProductMixin[S: TensorState[Any]](AbstractTensorOperator[S]):
             action=reduce(lambda a, b: a | b, [num * c.action for num, c in scaled]),
             adj_action=reduce(lambda a, b: a | b, [num * c.adj_action for num, c in scaled]),
             solve={key: Count(solves=1)},
-            exp_action=self._exp_action_count(key),
+            exp_action=None,
         )
 
     def adjoint(self) -> Operator[S]:

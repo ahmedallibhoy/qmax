@@ -8,6 +8,8 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Array, ArrayLike, PRNGKeyArray, Scalar, ScalarLike
 
+from ._internal import _overrides
+
 if TYPE_CHECKING:
     from .operator import Operator
 
@@ -101,14 +103,21 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
         return self.from_coeffs(jnp.concatenate(coeffs, axis))
 
     def identity(self) -> Operator[S]:
-        from .operator import Identity
+        from .generic_operators import Identity
 
         return Identity(self)
 
     def zero_operator(self) -> Operator[S]:
-        from .operator import Zero
+        from .generic_operators import Zero
 
         return Zero(self)
+
+    def gram(self) -> Operator[S]:
+        from .generic_operators import Gram, Identity
+
+        if _overrides(type(self), "innerp", AbstractHilbertSpace):
+            return Gram(self)
+        return Identity(self)
 
 
 class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):

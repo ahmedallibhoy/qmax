@@ -226,17 +226,17 @@ class InterfaceCount:
     action: CountDict
     adj_action: CountDict
     solve: CountDict
-    exp_action: CountDict
+    exp_action: Optional[CountDict]
 
     def __init__(
         self,
         action: CountDict | dict,
         adj_action: CountDict | dict,
         solve: CountDict | dict,
-        exp_action: CountDict | dict,
+        exp_action: Optional[CountDict | dict],
     ):
 
         self.action = _to_ct_type(action)
         self.adj_action = _to_ct_type(adj_action)
         self.solve = _to_ct_type(solve)
-        self.exp_action = _to_ct_type(exp_action)
+        self.exp_action = _to_ct_type(exp_action) if exp_action is not None else None

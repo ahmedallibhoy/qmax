@@ -45,6 +45,8 @@ class NoRealSpectrumError(Exception):
 def _as_shift(x: Operator | ComplexScalarLike) -> Optional[ComplexScalarLike]:
     """The coefficient c if x is c*I -- as a bare scalar, Identity, or a scalar
     multiple of one, else None."""
+    from .generic_operators import Identity
+
     if jnp.isscalar(x):
         return x  # pyright: ignore[reportReturnType]
     if isinstance(x, Identity):
@@ -345,8 +347,8 @@ class Operator[S: AbstractState[Any]](ExpressionTree["Operator[Any]", S]):
     def overrides_solve(self) -> bool:
         return _overrides(type(self), "_solve", Operator)
 
-    def _exp_action_count(self, key: CountDictKey) -> CountDict:
-        return {key: Count(exp_actions=1)} if self.overrides_exp_action else NotImplemented
+    def _exp_action_count(self, key: CountDictKey) -> Optional[CountDict]:
+        return {key: Count(exp_actions=1)} if self.overrides_exp_action else None  # pyright: ignore[reportReturnType]
 
     def interface_count(
         self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
@@ -430,7 +432,7 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
         return A._solve(b, scale * self.scale, shift + scale * self.shift)
 
     @property
-    def spectral_bounds(self):
+    def spectral_bounds(self) -> Array:
         (A,) = self.children
         if jnp.iscomplexobj(self.shift) or jnp.iscomplexobj(self.scale):
             raise NoRealSpectrumError(
@@ -639,46 +641,6 @@ class AdjOperator[S: AbstractState[Any]](Operator[S]):
             solve={key: Count(solves=1)},
             exp_action=self._exp_action_count(key),
         )
-
-
-class Identity[S: AbstractState[Any]](AbstractHermitianOperator[S]):
-    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
-
-    def action(self, y: S) -> S:
-        return y
-
-    def exp_action(self, h: ComplexScalarLike, y: S) -> S:
-        return jnp.exp(h) * y
-
-    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
-        return b / (shift + scale)
-
-    @property
-    def spectral_bounds(self) -> Array:
-        return jnp.array([1.0, 1.0])
-
-    def to_matrix(self) -> Array:
-        return jnp.eye(self.domain.dim)
-
-
-class Zero[S: AbstractState[Any]](AbstractHermitianOperator[S]):
-    exponentiator: AbstractExponentiator = eqx.field(default=ExactExponentiator(), kw_only=True)
-
-    def action(self, y: S) -> S:
-        return self.domain.zeros_like(y)
-
-    def exp_action(self, h: ComplexScalarLike, y: S) -> S:
-        return y
-
-    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
-        return b / shift
-
-    @property
-    def spectral_bounds(self) -> Array:
-        return jnp.array([0.0, 0.0])
-
-    def to_matrix(self) -> Array:
-        return jnp.zeros((self.domain.dim, self.domain.dim))
 
 
 class AbstractDiagonalOperator[S: AbstractState[Any]](Operator[S]):
