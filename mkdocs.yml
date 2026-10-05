@@ -92,7 +92,7 @@ nav:
       - Base: 'api/hilbert_spaces/base.md'
       - Finite Difference: 'api/hilbert_spaces/finite_difference.md'
       - Pseudospectral: 'api/hilbert_spaces/pseudospectral.md'
-      #- Spherical: 'api/hilbert_spaces/spherical.md'
+      - Spherical: 'api/hilbert_spaces/spherical.md'
       - Qubits: 'api/hilbert_spaces/qubits.md'
       - N-Level: 'api/hilbert_spaces/nlevel.md'
     - Operators:

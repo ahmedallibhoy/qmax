@@ -2,7 +2,7 @@
 
 ## Tensor Spaces
 
-::: qmax.tensor.AbstractTensorSpace 
+::: qmax.tensor.AbstractTensorSpace
     options:
         members:
             - __getitem__
@@ -13,36 +13,19 @@
             - kron_sum
             - kron_prod
 
-::: qmax.TensorProduct 
+::: qmax.TensorProduct
     options:
         members:
             -
 
-::: qmax.TensorPower 
+::: qmax.TensorPower
     options:
         members:
             -
 
 ## Elements of Tensor Spaces
 
-::: qmax.tensor.TensorState 
+::: qmax.tensor.TensorState
     options:
         members:
             - tensor
-
-## Operators on Tensor Spaces
-
-::: qmax.tensor.LiftOperator 
-    options:
-        members:
-            - 
-
-::: qmax.tensor.KroneckerSum 
-    options:
-        members:
-            - 
-
-::: qmax.tensor.KroneckerProduct 
-    options:
-        members:
-            - 

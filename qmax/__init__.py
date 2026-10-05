@@ -1,4 +1,4 @@
-from . import plot, utils
+from . import exponentiators, plot, spaces, utils
 from .adjoint import *
 from .control import *
 from .controlled_operator import *
