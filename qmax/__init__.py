@@ -2,6 +2,7 @@ from . import exponentiators, plot, spaces, utils
 from .adjoint import *
 from .control import *
 from .controlled_operator import *
+from .direct_product import *
 from .eig import *
 from .exponentiators import *
 from .propagator import *
