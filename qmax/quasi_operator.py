@@ -16,6 +16,8 @@ type QuasiOperatorLike[S: AbstractState[Any]] = (
     Operator[S] | AbstractTimeVaryingOperator[S] | AbstractQuasiOperator[S]
 )
 
+# TODO: multiplication of AbstractQuasiOperator by controls
+
 
 class AbstractQuasiOperator[S: AbstractState[Any]](ExpressionTree["AbstractQuasiOperator", S]):
     @abstractmethod
@@ -26,8 +28,12 @@ class AbstractQuasiOperator[S: AbstractState[Any]](ExpressionTree["AbstractQuasi
         raise NotImplementedError
 
     @property
-    def has_exact_flow(self) -> bool:
+    def has_flow(self) -> bool:
         return False
+
+    def flow_order(self) -> Optional[int]:
+        # TODO: complete order estimates of flows
+        return None
 
     def evaluate(self, t: ScalarLike, y: S) -> Operator[S]:
         return self.quadrature(jnp.atleast_1d(t), jnp.ones(1), y)
@@ -91,6 +97,16 @@ class StateIndependentQuasiOperator[S: AbstractState[Any]](AbstractQuasiOperator
         self.domain = t_op.domain
         self.t_op = t_op
 
+    def flow(self, h: ComplexScalarLike, y: S) -> S:
+        if not isinstance(self.t_op, ConstantTimeVaryingOperator):
+            raise NotImplementedError
+
+        return self.t_op.op.exp(h, y)
+
+    @property
+    def has_flow(self) -> bool:
+        return isinstance(self.t_op, ConstantTimeVaryingOperator)
+
     def quadrature(self, t_quad: ComplexArrayLike, weights: ComplexArrayLike, y: S) -> Operator[S]:
         return self.t_op.quadrature(t_quad, weights)
 
@@ -131,6 +147,14 @@ class AddQuasiOperator[S: AbstractState[Any]](AbstractQuasiOperator[S]):
             exponentiator=self.split_method,
         )
 
+    def flow(self, h: ComplexScalarLike, y: S) -> S:
+        return self.split_method.flow(self, h, y)
+
+    @property
+    def has_flow(self) -> bool:
+        (A, B) = self.children
+        return A.has_flow and B.has_flow
+
 
 class ScalarMulQuasiOperator[S: AbstractState[Any]](AbstractQuasiOperator[S]):
     c: Scalar
@@ -153,6 +177,6 @@ class ScalarMulQuasiOperator[S: AbstractState[Any]](AbstractQuasiOperator[S]):
         return A.flow(self.c * h, y)
 
     @property
-    def has_exact_flow(self) -> bool:
+    def has_flow(self) -> bool:
         (A,) = self.children
-        return A.has_exact_flow
+        return A.has_flow

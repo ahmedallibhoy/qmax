@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import equinox as eqx
 import jax
@@ -9,10 +9,11 @@ import numpy as np
 
 from .._types import ComplexScalarLike, RealArrayLike
 from ..hilbert_space import AbstractState
+from ..quasi_operator import AbstractQuasiOperator, AddQuasiOperator
 from .base import DelegatingExponentiator, Order
 
 if TYPE_CHECKING:
-    from ..operator import AddOperator
+    from ..operator import AddOperator, Operator
 
 
 __all__ = ["Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
@@ -61,7 +62,7 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
             sched += [(b_index, bi, 1), (a_index, ai, 1)]
         return sched
 
-    def exp(self, op: AddOperator[S], h: ComplexScalarLike, y: S) -> S:
+    def unpack[Op: Operator | AbstractQuasiOperator](self, op: Op) -> tuple[Op, Op]:
         if self.nest_left:
             # We flip so that the Strang method on a nested sum ((A + B) + C) expands as
             #   exp(h/2 C)exp(h/2 B)exp(hA)exp(h/2 B)exp(h/2 C)
@@ -74,14 +75,32 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
             # We implement this for completeness, but generally one should not use nest_left=False
             A, B = op.children
 
+        return A, B
+
+    def do_split(
+        self,
+        fn1: Callable[[ComplexScalarLike, S], S],
+        fn2: Callable[[ComplexScalarLike, S], S],
+        h: ComplexScalarLike,
+        y: S,
+    ) -> S:
+
         def do_step(y, coeffs):
             ai, bi = coeffs
-            return A._exp(ai * h, B._exp(bi * h, y)), None
+            return fn1(ai * h, fn2(bi * h, y)), None
 
         a = self.a
         b = self.b
-        y_exp, _ = jax.lax.scan(do_step, A._exp(a[0] * h, y), (a[1:], b))
-        return y_exp
+        y1, _ = jax.lax.scan(do_step, fn1(a[0] * h, y), (a[1:], b))
+        return y1
+
+    def exp(self, op: AddOperator[S], h: ComplexScalarLike, y: S) -> S:
+        A, B = self.unpack(op)
+        return self.do_split(A._exp, B._exp, h, y)
+
+    def flow(self, op: AddQuasiOperator[S], h: ComplexScalarLike, y: S) -> S:
+        A, B = self.unpack(op)
+        return self.do_split(A.flow, B.flow, h, y)
 
     @property
     def operator_type(self) -> type[AddOperator[S]]:
