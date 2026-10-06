@@ -25,7 +25,7 @@ from .exponentiators.base import (
     NoExponentiator,
     NotExponentiableError,
     Order,
-    ShiftScaleExponentiator,
+    ShiftScaleExp,
 )
 from .exponentiators.composed_method import AbstractCompositionMethod, compose
 from .exponentiators.split import Strang
@@ -156,6 +156,7 @@ class Operator[S: AbstractState[Any]](ExpressionTree["Operator[Any]", S]):
 
     @abstractmethod
     def adj_action(self, y: S) -> S:
+        # TODO: replace with default implementation using vjp
         pass
 
     def exp_action(self, h: ComplexScalarLike, y: S) -> S:
@@ -387,7 +388,7 @@ class ShiftScaleOperator[S: AbstractState[Any]](Operator[S]):
         shift: ComplexScalarLike = 0,
         scale: ComplexScalarLike = 1,
         *,
-        exponentiator: AbstractExponentiator = ShiftScaleExponentiator(),
+        exponentiator: AbstractExponentiator = ShiftScaleExp(),
         name: Optional[str] = None,
     ):
 

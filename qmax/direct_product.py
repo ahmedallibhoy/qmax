@@ -1,5 +1,6 @@
+from abc import abstractmethod
 from functools import reduce
-from typing import Any, ClassVar, Iterable, Optional, Sequence
+from typing import Any, Callable, ClassVar, Iterable, Optional, Sequence
 
 import equinox as eqx
 import jax
@@ -12,10 +13,10 @@ from .exponentiators.base import AbstractExponentiator, DelegatingExponentiator,
 from .hilbert_space import AbstractHilbertSpace, AbstractState
 from .operator import IncompatibleDomainError, Operator
 
-__all__ = ["DirectProductState", "DirectProduct"]
+__all__ = ["DirectProductState", "DirectProduct", "DirectPower"]
 
 
-class DirectProductState[H: DirectProduct[Any]](AbstractState[H]):
+class DirectProductState[H: AbstractDirectProductSpace[Any]](AbstractState[H]):
     def factor(self, idx: int) -> AbstractState:
         idx_start = sum(self.hilbert_space.dim_list[:idx])
         idx_end = idx_start + self.hilbert_space[idx].dim
@@ -23,15 +24,55 @@ class DirectProductState[H: DirectProduct[Any]](AbstractState[H]):
         return self.hilbert_space[idx].from_coeffs(coeffs)
 
 
-class DirectProduct[S: DirectProductState[Any]](AbstractHilbertSpace[S]):
+class AbstractDirectProductSpace[S: DirectProductState[Any]](AbstractHilbertSpace[S]):
+    state_type: ClassVar[type] = DirectProductState
+
+    @abstractmethod
+    def factor(self, idx: int) -> AbstractHilbertSpace:
+        pass
+
+    @property
+    @abstractmethod
+    def num_factors(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def dim_list(self) -> list[int]:
+        pass
+
+    @property
+    def dim(self) -> int:
+        return sum(self.dim_list)
+
+    def __getitem__(self, idx: int) -> AbstractHilbertSpace:
+        return self.factor(idx)
+
+    def product_state(self, y_list: Iterable[AbstractState]) -> S:
+        coeffs = jnp.concatenate([y.coeffs for y in y_list], axis=-1)
+        return self.from_coeffs(coeffs)
+
+    def innerp(self, y1: S, y2: S) -> Scalar:
+        return jnp.sum(
+            jnp.array([y1.factor(idx) @ y2.factor(idx) for idx in range(self.num_factors)]), axis=0
+        )
+
+    def block_diagonal_operator(
+        self, op_list: Iterable[Operator]
+    ) -> AbstractDirectProductOperator[S]:
+
+        op_list = tuple(op_list)
+        if len(set(op_list)) == 1:
+            return HomogeneousBlockDiagonalOperator(self, children=(op_list[0],))
+        return BlockDiagonalOperator(self, children=op_list)
+
+
+class DirectProduct[S: DirectProductState[Any] = DirectProductState](AbstractDirectProductSpace[S]):
     state_type: ClassVar[type] = DirectProductState
     spaces: tuple[AbstractHilbertSpace, ...]
 
     def factor(self, idx: int) -> AbstractHilbertSpace:
         return self.spaces[idx]
-
-    def __getitem__(self, idx: int) -> AbstractHilbertSpace:
-        return self.factor(idx)
 
     @property
     def num_factors(self) -> int:
@@ -41,24 +82,25 @@ class DirectProduct[S: DirectProductState[Any]](AbstractHilbertSpace[S]):
     def dim_list(self) -> list[int]:
         return [space.dim for space in self.spaces]
 
+
+class DirectPower[S: DirectProductState[Any] = DirectProductState](AbstractDirectProductSpace[S]):
+    state_type: ClassVar[type] = DirectProductState
+    factorspace: AbstractHilbertSpace
+    power: int
+
+    def factor(self, idx: int) -> AbstractHilbertSpace:
+        return self.factorspace
+
     @property
-    def dim(self) -> int:
-        return sum(self.dim_list)
+    def num_factors(self) -> int:
+        return self.power
 
-    def product_state(self, y_list: Iterable[AbstractState]) -> S:
-        coeffs = jnp.concatenate([y.coeffs for y in y_list], axis=-1)
-        return self.from_coeffs(coeffs)
-
-    def innerp(self, y1: S, y2: S) -> Scalar:
-        return jnp.sum(
-            jnp.array([y1.factor(idx) @ y2.factor(idx) for idx in range(self.num_factors)])
-        )
-
-    def block_diagonal_operator(self, op_list: Iterable[Operator]) -> BlockDiagonalOperator[S]:
-        return BlockDiagonalOperator(self, children=op_list)
+    @property
+    def dim_list(self) -> list[int]:
+        return [self.factorspace.dim for _ in range(self.power)]
 
 
-class BlockDiagonalExponentiator[S: DirectProductState[Any]](
+class BlockDiagonalExp[S: DirectProductState[Any]](
     DelegatingExponentiator["BlockDiagonalOperator[S]", S]
 ):
     def schedule(
@@ -81,20 +123,18 @@ class BlockDiagonalExponentiator[S: DirectProductState[Any]](
 
 
 class AbstractDirectProductOperator[S: DirectProductState[Any]](Operator[S]):
-    domain: DirectProduct[S] = eqx.field(static=True)
+    domain: AbstractDirectProductSpace[S] = eqx.field(static=True)
 
     def __check_init__(self):
-        if not isinstance(self.domain, DirectProduct):
+        if not isinstance(self.domain, AbstractDirectProductSpace):
             raise IncompatibleDomainError(
-                f"{type(self).__name__} acts on a tensor space but received "
+                f"{type(self).__name__} acts on a direct product space but received "
                 f"domain of type {type(self.domain).__name__}"
             )
 
 
 class BlockDiagonalOperator[S: DirectProductState[Any]](AbstractDirectProductOperator[S]):
-    exponentiator: AbstractExponentiator = eqx.field(
-        default=BlockDiagonalExponentiator(), kw_only=True
-    )
+    exponentiator: AbstractExponentiator = eqx.field(default=BlockDiagonalExp(), kw_only=True)
 
     def __check_init__(self):
         if len(self.children) != self.domain.num_factors:
@@ -145,5 +185,100 @@ class BlockDiagonalOperator[S: DirectProductState[Any]](AbstractDirectProductOpe
             action=reduce(lambda a, b: a | b, [c.action for c in c_list]),
             adj_action=reduce(lambda a, b: a | b, [c.adj_action for c in c_list]),
             solve=reduce(lambda a, b: a | b, [c.solve for c in c_list]),
+            exp_action=None,
+        )
+
+
+def apply_along_batch(fn: Callable[[AbstractState], AbstractState], y: DirectProductState):
+    hs = y.hilbert_space
+    fs = hs.factor(0)
+
+    coeffs_in = y.coeffs.reshape(*y.coeffs.shape[:-1], hs.num_factors, fs.dim)
+    coeffs_out = jax.vmap(lambda c: fn(fs.from_coeffs(c)).coeffs, in_axes=-2, out_axes=-2)(
+        coeffs_in
+    )
+    coeffs_out = coeffs_out.reshape(*coeffs_out.shape[:-2], hs.dim)
+
+    return hs.from_coeffs(coeffs_out)
+
+
+class HomogeneousBlockDiagonalExp[S: DirectProductState[Any]](
+    DelegatingExponentiator["HomogeneousBlockDiagonalOperator[S]", S]
+):
+    def schedule(
+        self, op: HomogeneousBlockDiagonalOperator[S]
+    ) -> Sequence[tuple[int, ComplexScalarLike, int]]:
+
+        return [(0, 1, op.domain.num_factors)]
+
+    @property
+    def operator_type(self) -> type[HomogeneousBlockDiagonalOperator[S]]:
+        return HomogeneousBlockDiagonalOperator
+
+    def exp(self, op: HomogeneousBlockDiagonalOperator[S], h: ComplexScalarLike, y: S) -> S:
+        (A,) = op.children
+        return apply_along_batch(lambda z: A._exp(h, z), y)
+
+    @property
+    def order(self) -> Order:
+        return None
+
+
+class HomogeneousBlockDiagonalOperator[S: DirectProductState[Any]](
+    AbstractDirectProductOperator[S]
+):
+    exponentiator: AbstractExponentiator = eqx.field(
+        default=HomogeneousBlockDiagonalExp(), kw_only=True
+    )
+
+    def __check_init__(self):
+        for idx in range(self.domain.num_factors):
+            if self.children[0].domain != self.domain[idx]:
+                raise IncompatibleDomainError(
+                    f"Domain at index {idx} is {self.domain[idx]} but "
+                    f"operand at index {idx} acts on {self.children[0].domain}"
+                )
+
+    def action(self, y: S) -> S:
+        (A,) = self.children
+        return apply_along_batch(lambda z: A.action(z), y)
+
+    def adj_action(self, y: S) -> S:
+        (A,) = self.children
+        return apply_along_batch(lambda z: A.adj_action(z), y)
+
+    def _solve(self, b: S, scale: ComplexScalarLike = -1.0, shift: ComplexScalarLike = 0.0) -> S:
+        (A,) = self.children
+        return apply_along_batch(
+            lambda z: A._solve(z, scale, shift),
+            b,
+        )
+
+    @property
+    def spectral_bounds(self) -> Array:
+        (A,) = self.children
+        return A.spectral_bounds
+
+    def to_matrix(self) -> Array:
+        (A,) = self.children
+        mat_list = [A.to_matrix() for _ in range(self.domain.num_factors)]
+        return jax.scipy.linalg.block_diag(*mat_list)
+
+    def adjoint(self) -> Operator[S]:
+        (A,) = self.children
+        return HomogeneousBlockDiagonalOperator(self.domain, children=(A.adjoint(),))
+
+    def interface_count(
+        self, parent_key: Optional[CountDictKey] = None, child_idx: Optional[int] = None
+    ) -> InterfaceCount:
+
+        (A,) = self.children
+        key = self.count_key(parent_key, child_idx)
+        c = A.interface_count(key, 0)
+
+        return InterfaceCount(
+            action=self.domain.num_factors * c.action,
+            adj_action=self.domain.num_factors * c.adj_action,
+            solve=self.domain.num_factors * c.solve,
             exp_action=None,
         )

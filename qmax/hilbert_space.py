@@ -71,7 +71,7 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
     def stack(self, ys: Sequence[S], axis=0) -> S:
         if any(y.hilbert_space != self for y in ys):
-            raise ValueError("Cannot join states from different spaces")
+            raise ValueError("Cannot stack states on different Hilbert spaces")
 
         max_rank = max([y.rank for y in ys])
 
@@ -80,7 +80,8 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
         if not 0 <= axis < max_rank + 1:
             raise ValueError(
-                f"axis {axis} out of range for sequence with of states with maximum rank {max_rank}"
+                f"axis {axis} out of range for sequence of batch "
+                f"states with maximum rank {max_rank}"
             )
 
         return self.from_coeffs(jnp.stack([y.coeffs for y in ys], axis))
@@ -96,7 +97,8 @@ class AbstractHilbertSpace[S: AbstractState[Any]](eqx.Module):
 
         if not 0 <= axis < max_rank:
             raise ValueError(
-                f"axis {axis} out of range for sequence with of stateswith maximum rank {max_rank}"
+                f"axis {axis} out of range for sequence of batch "
+                f"states with maximum rank {max_rank}"
             )
 
         coeffs = [y.coeffs[(None,) * (max_rank - y.rank) + (Ellipsis,)] for y in ys]
@@ -130,7 +132,7 @@ class AbstractState[H: AbstractHilbertSpace[Any]](eqx.Module):
 
     def _check_compatible(self, other: AbstractState):
         if self.hilbert_space != other.hilbert_space:
-            raise ValueError("Cannot compose vectors from different spaces")
+            raise ValueError("Cannot compose states from different Hilbert spaces")
 
     def binary_op(self, other: Self, fn: Callable) -> Self:
         if not isinstance(other, AbstractState):

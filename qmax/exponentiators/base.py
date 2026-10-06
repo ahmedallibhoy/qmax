@@ -263,9 +263,7 @@ class ExactExponentiator[Op: "Operator[Any]", S: AbstractState[Any]](AbstractExp
         return op.interface_count(parent_key, child_idx).exp_action  # pyright: ignore[reportReturnType]
 
 
-class ShiftScaleExponentiator[S: AbstractState[Any]](
-    DelegatingExponentiator["ShiftScaleOperator[S]", S]
-):
+class ShiftScaleExp[S: AbstractState[Any]](DelegatingExponentiator["ShiftScaleOperator[S]", S]):
     """
     Exponentiates op = shift * I + scale * A
     """
