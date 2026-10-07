@@ -15,6 +15,8 @@ from .expression_tree import ExpressionTree
 from .hilbert_space import AbstractState
 from .operator import AddOperator, IncompatibleDomainError, Operator
 
+type TVOperatorLike[S: AbstractState[Any]] = Operator[S] | AbstractTimeVaryingOperator[S]
+
 
 class AbstractTimeVaryingOperator[S: AbstractState[Any]](
     ExpressionTree["AbstractTimeVaryingOperator", S]
@@ -46,9 +48,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
     # Operator Algebra
     # --------------------------------------------------------------------------------------------
 
-    def __add__(
-        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
-    ) -> AddTimeVaryingOperator[S]:
+    def __add__(self, other: TVOperatorLike[S]) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
 
         if isinstance(other, Operator):
@@ -58,9 +58,7 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return AddTimeVaryingOperator(self, other)
 
-    def __radd__(
-        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
-    ) -> AddTimeVaryingOperator[S]:
+    def __radd__(self, other: TVOperatorLike[S]) -> AddTimeVaryingOperator[S]:
         self._check_compatible(other)
 
         if isinstance(other, Operator):
@@ -70,14 +68,10 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
 
         return AddTimeVaryingOperator(other, self)
 
-    def __sub__(
-        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
-    ) -> AbstractTimeVaryingOperator[S]:
+    def __sub__(self, other: TVOperatorLike[S]) -> AbstractTimeVaryingOperator[S]:
         return self + (-other)
 
-    def __rsub__(
-        self, other: Operator[S] | AbstractTimeVaryingOperator[S]
-    ) -> AbstractTimeVaryingOperator[S]:
+    def __rsub__(self, other: TVOperatorLike[S]) -> AbstractTimeVaryingOperator[S]:
         return (-self) + other
 
     def __mul__(self, other: RealScalarLike | AbstractControl) -> AbstractTimeVaryingOperator[S]:
@@ -99,6 +93,12 @@ class AbstractTimeVaryingOperator[S: AbstractState[Any]](
             return NotImplemented
 
         return ScalarMulTimeVaryingOperator(self, other)
+
+    def __truediv__(self, other: RealScalarLike) -> AbstractTimeVaryingOperator[S]:
+        if not jnp.isscalar(other):
+            return NotImplemented
+
+        return ScalarMulTimeVaryingOperator(self, ConstantControl(1.0 / other))
 
     def __neg__(self) -> AbstractTimeVaryingOperator[S]:
         return -1.0 * self

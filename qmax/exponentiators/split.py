@@ -9,11 +9,11 @@ import numpy as np
 
 from .._types import ComplexScalarLike, RealArrayLike
 from ..hilbert_space import AbstractState
-from ..quasi_operator import AbstractQuasiOperator, AddQuasiOperator
 from .base import DelegatingExponentiator, Order
 
 if TYPE_CHECKING:
     from ..operator import AddOperator, Operator
+    from ..quasi_operator import AbstractQuasiOperator, AddQuasiOperator
 
 
 __all__ = ["Strang", "PRK_r2_s2", "PRK_r4_s6", "PRK_r6_s10"]
@@ -51,15 +51,15 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
 
     def schedule(self, op: AddOperator[S]) -> list[tuple[int, ComplexScalarLike, int]]:
         if self.nest_left:
-            a_index, b_index = 1, 0
+            a_idx, b_idx = 1, 0
         else:
-            a_index, b_index = 0, 1
+            a_idx, b_idx = 0, 1
 
         a = self.a
         b = self.b
-        sched = [(a_index, a[0], 1)]
+        sched = [(a_idx, a[0], 1)]
         for ai, bi in zip(a[1:], b):
-            sched += [(b_index, bi, 1), (a_index, ai, 1)]
+            sched += [(b_idx, bi, 1), (a_idx, ai, 1)]
         return sched
 
     def unpack[Op: Operator | AbstractQuasiOperator](self, op: Op) -> tuple[Op, Op]:
@@ -89,9 +89,7 @@ class AbstractSplitMethod[S: AbstractState[Any]](DelegatingExponentiator["AddOpe
             ai, bi = coeffs
             return fn1(ai * h, fn2(bi * h, y)), None
 
-        a = self.a
-        b = self.b
-        y1, _ = jax.lax.scan(do_step, fn1(a[0] * h, y), (a[1:], b))
+        y1, _ = jax.lax.scan(do_step, fn1(self.a[0] * h, y), (self.a[1:], self.b))
         return y1
 
     def exp(self, op: AddOperator[S], h: ComplexScalarLike, y: S) -> S:

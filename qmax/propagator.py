@@ -285,24 +285,28 @@ class Propagator(eqx.Module):
         ```python
         import qmax as qx
 
-        hilbert_space = qx.spaces.FiniteDifference(x0=-10, x1=10, num_steps=500)
+        hilbert_space = qx.spaces.FiniteDifference(
+            x0=(-10, -10), x1=(10, 10), num_steps=(500, 500)
+        )
+
         L = hilbert_space.laplacian()
-        V = hilbert_space.potential_energy(lambda x: 0.5 * x ** 2)
+        V = hilbert_space.potential_energy(lambda x: 0.5 * (x @ x))
         H = -0.5 * L + V
 
         U = qx.Propagator(H, t0=0.0, t1=1.0, dt_max=0.01)
-        print(U.count_stage(U.t0, U.dt).tree())
+        print(U.count_step(U.t0, U.dt).tree())
         ```
 
         ```
         1.0 * (-0.5 * Laplacian + FiniteDifferencePotentialEnergy)
-        └─(-0.5 * Laplacian + FiniteDifferencePotentialEnergy)
-          ├─FiniteDifferencePotentialEnergy ·························  exp_actions=2
-          └─-0.5 * Laplacian
-            └─Laplacian
-              └─Laplacian1D(axis=0) ·································  actions=1, solves=1
+        └─ (-0.5 * Laplacian + FiniteDifferencePotentialEnergy)
+           ├─ FiniteDifferencePotentialEnergy ·······················  exp_actions=2
+           └─ -0.5 * Laplacian
+              └─ Laplacian
+                 ├─ Laplacian1D(axis=0) ·····························  actions=1, solves=1
+                 └─ Laplacian1D(axis=1) ·····························  actions=1, solves=1
         ─────────────────────────────────────────────────────────────
-        total:                                                         actions=1, solves=1, exp_actions=2
+        total:                                                         actions=2, solves=2, exp_actions=2
         ```
         """  # noqa: E501
 

@@ -106,4 +106,4 @@ class ExpressionTree[Node: "ExpressionTree", S: AbstractState](eqx.Module):
         return "\n".join(line for line, _ in _rows(self))
 
     def __hash__(self):
-        return hash(jax.tree_util.tree_structure(self))
+        return hash((self.label, jax.tree_util.tree_structure(self)))
