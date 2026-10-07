@@ -36,7 +36,6 @@ class AbstractQuasiOperator[S: AbstractState[Any]](ExpressionTree["AbstractQuasi
 
     @property
     def flow_order(self) -> Order:
-        # TODO: complete order estimates of flows
         return None
 
     def evaluate(self, t: ScalarLike, y: S) -> Operator[S]:
