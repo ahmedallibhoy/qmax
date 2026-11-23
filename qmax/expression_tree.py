@@ -100,7 +100,7 @@ class ExpressionTree[Node: "ExpressionTree", S: AbstractState](eqx.Module):
         return self.name if self.name is not None else self.default_name
 
     def __repr__(self) -> str:
-        return self.label
+        return self.tree()
 
     def tree(self) -> str:
         return "\n".join(line for line, _ in _rows(self))

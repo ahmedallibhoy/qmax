@@ -129,6 +129,8 @@ class SpatialDiscretization[S: SpatiallyDiscretizedState[Any]](AbstractHilbertSp
     def position(self, axis: int = 0) -> Operator[S]:
         if self.spatial_dim == 1:
             X = self.potential_energy(lambda x: x)
+            return X.with_name("Position")
+
         X = self.potential_energy(lambda x, i=axis: x[i])
         return X.with_name(f"Position(axis={axis})")
 

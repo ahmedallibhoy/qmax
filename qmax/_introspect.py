@@ -188,7 +188,9 @@ class CountDict:
         return sum(self.ct_dict.values(), Count())
 
     def __repr__(self) -> str:
-        entries = [f"{root.child_at(path)}: ({count})" for (root, path), count in self.items()]
+        entries = [
+            f"{root.child_at(path).label}: ({count})" for (root, path), count in self.items()
+        ]
         return "{" + ", ".join(entries) + "}"
 
     def tree(self) -> str:

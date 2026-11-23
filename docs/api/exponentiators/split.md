@@ -1,20 +1,22 @@
 
-::: qmax.Strang 
+<!--
+::: qmax.exponentiators.split.Strang
     options:
         members:
             -
 
-::: qmax.PRK_r2_s2 
+::: qmax.exponentiators.split.PRK_r2_s2
     options:
         members:
             -
 
-::: qmax.PRK_r4_s6 
+::: qmax.exponentiators.split.PRK_r4_s6
     options:
         members:
             -
 
-::: qmax.PRK_r6_s10 
+::: qmax.exponentiators.split.PRK_r6_s10
     options:
         members:
             -
+-->

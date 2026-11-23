@@ -193,10 +193,10 @@ def apply_along_batch(fn: Callable[[AbstractState], AbstractState], y: DirectPro
     hs = y.hilbert_space
     fs = hs.factor(0)
 
+    vmap_fn = lambda c: fn(fs.from_coeffs(c)).coeffs
+
     coeffs_in = y.coeffs.reshape(*y.coeffs.shape[:-1], hs.num_factors, fs.dim)
-    coeffs_out = jax.vmap(lambda c: fn(fs.from_coeffs(c)).coeffs, in_axes=-2, out_axes=-2)(
-        coeffs_in
-    )
+    coeffs_out = jax.vmap(vmap_fn, in_axes=-2, out_axes=-2)(coeffs_in)
     coeffs_out = coeffs_out.reshape(*coeffs_out.shape[:-2], hs.dim)
 
     return hs.from_coeffs(coeffs_out)
@@ -282,3 +282,8 @@ class HomogeneousBlockDiagonalOperator[S: DirectProductState[Any]](
             solve=self.domain.num_factors * c.solve,
             exp_action=None,
         )
+
+
+# TODO:
+#   1. Block operator
+#   2. Homogenous block operator
