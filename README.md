@@ -25,13 +25,13 @@ Features include:
 <!--
 ## Documentation
 The documentation is available at https://docs.qmax.io
--->
 
 ## Installation
 
 ```
 pip install qmax
 ```
+-->
 
 ## Quick example
 ```python
